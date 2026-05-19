@@ -30,14 +30,15 @@ int main(int argc, char** argv)
     dthetha{0.f}, x{0.f}, y{0.f}, theta{0.f};
 
   // Now main cycle
-  for (int i = 0; !inputFile.eof(); i++) {
-    inputFile >> timestamp_ms >> fl_ticks >> fr_ticks >> bl_ticks >> br_ticks;
+  int i{0};
 
+  while (inputFile >> timestamp_ms >> fl_ticks >> fr_ticks >> bl_ticks >> br_ticks) {
     if (i == 0) {
       prev_fl_ticks = fl_ticks;
       prev_fr_ticks = fr_ticks;
       prev_bl_ticks = bl_ticks;
       prev_br_ticks = br_ticks;
+      i++;
       continue;
     }
 
@@ -57,8 +58,11 @@ int main(int argc, char** argv)
     d = (dL + dR) / 2;
     dthetha = (dR - dL) / wheel_base_m;
 
+    // Update coords and angle
     x += d * cos(theta + dthetha / 2);
     y += d * sin(theta + dthetha / 2);
+
+    theta += dthetha;
 
     // Output data
     std::cout << timestamp_ms << " " << x << " " << y << " " << theta << std::endl;
@@ -67,8 +71,7 @@ int main(int argc, char** argv)
     prev_fr_ticks = fr_ticks;
     prev_bl_ticks = bl_ticks;
     prev_br_ticks = br_ticks;
-
-    theta += dthetha;
+    i++;
   }
 
   // Close the file

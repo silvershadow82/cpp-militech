@@ -1,23 +1,81 @@
+#include <cmath>
+#include <cstring>
+#include <fstream>
 #include <iostream>
 
-int main(int argc, char** argv) {
-    // The program expects exactly one argument: a path to telemetry samples.
-    if (argc != 2) {
-        std::cerr << "usage: ugv_odometry <input_path>\n";
-        return 1;
+const int ticker_per_revolution = 1024;
+const float wheel_radius_m = 0.3;
+const float wheel_base_m = 1.0;
+
+int main(int argc, char** argv)
+{
+  // The program expects exactly one argument: a path to telemetry samples.
+  if (argc != 2) {
+    std::cerr << "usage: ugv_odometry <input_path>\n";
+    return 1;
+  }
+
+  const char* inputFileName{argv[1]};
+
+  std::ifstream inputFile(inputFileName);
+
+  if (!inputFile.is_open()) {
+    std::cerr << "Unable to open input file: " << inputFileName << std::endl;
+    return 1;
+  }
+
+  long timestamp_ms{0}, fl_ticks{0}, fr_ticks{0}, bl_ticks{0}, br_ticks{0}, prev_fl_ticks{0}, prev_fr_ticks{0}, prev_bl_ticks{0},
+    prev_br_ticks{0};
+  float d_fl{0.f}, d_fr{0.f}, d_bl{0.f}, d_br{0.f}, d_left{0.f}, d_right{0.f}, distance_per_tick{0.f}, dL{0.f}, dR{0.f}, d{0.f},
+    dthetha{0.f}, x{0.f}, y{0.f}, theta{0.f};
+
+  // Now main cycle
+  int i{0};
+
+  while (inputFile >> timestamp_ms >> fl_ticks >> fr_ticks >> bl_ticks >> br_ticks) {
+    if (i == 0) {
+      prev_fl_ticks = fl_ticks;
+      prev_fr_ticks = fr_ticks;
+      prev_bl_ticks = bl_ticks;
+      prev_br_ticks = br_ticks;
+      i++;
+      continue;
     }
 
-    // TODO: implement wheel odometry for a 4-wheel differential-drive UGV.
-    //
-    // Model parameters:
-    //   ticks_per_revolution = 1024
-    //   wheel_radius_m       = 0.3
-    //   wheelbase_m          = 1.0
-    //
-    // Input: a text file with 5 whitespace-separated values per line:
-    //         timestamp_ms fl_ticks fr_ticks bl_ticks br_ticks
-    // Output: a table on stdout, starting from the second sample:
-    //         timestamp_ms x y theta
+    d_fl = fl_ticks - prev_fl_ticks;
+    d_fr = fr_ticks - prev_fr_ticks;
+    d_bl = bl_ticks - prev_bl_ticks;
+    d_br = br_ticks - prev_br_ticks;
 
-    return 0;
+    d_left = (d_fl + d_bl) / 2;
+    d_right = (d_fr + d_br) / 2;
+
+    distance_per_tick = 2 * M_PI * wheel_radius_m / ticker_per_revolution;
+
+    dL = d_left * distance_per_tick;
+    dR = d_right * distance_per_tick;
+
+    d = (dL + dR) / 2;
+    dthetha = (dR - dL) / wheel_base_m;
+
+    // Update coords and angle
+    x += d * cos(theta + dthetha / 2);
+    y += d * sin(theta + dthetha / 2);
+
+    theta += dthetha;
+
+    // Output data
+    std::cout << timestamp_ms << " " << x << " " << y << " " << theta << std::endl;
+
+    prev_fl_ticks = fl_ticks;
+    prev_fr_ticks = fr_ticks;
+    prev_bl_ticks = bl_ticks;
+    prev_br_ticks = br_ticks;
+    i++;
+  }
+
+  // Close the file
+  inputFile.close();
+
+  return 0;
 }

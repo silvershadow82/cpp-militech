@@ -15,7 +15,7 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
                               DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(json)
 
-add_library(ballistics src/ballistics.cpp)
+add_library(ballistics SHARED src/ballistics.cpp)
 target_include_directories(ballistics PUBLIC include)
 add_executable(ballistics_cli src/main.cpp)
 target_link_libraries(ballistics_cli PRIVATE ballistics nlohmann_json::nlohmann_json)

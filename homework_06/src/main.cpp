@@ -2,6 +2,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <ostream>
 #include "ballistics.hpp"
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
@@ -16,9 +17,9 @@ void clearInputAmmo(BallisticInput &input)
   }
 }
 
-int readAmmoData(BallisticInput &input)
+int readAmmoData(char *ammoFileName, BallisticInput &input)
 {
-  std::ifstream ammoFile("ammo.json");
+  std::ifstream ammoFile(ammoFileName);
   if (!ammoFile.is_open()) {
     std::cerr << "Unable to open ammo file!" << std::endl;
     return 1;
@@ -40,7 +41,7 @@ int readAmmoData(BallisticInput &input)
   return 0;
 }
 
-int readInput(char *fileName, BallisticInput &input)
+int readInput(char *fileName, char *ammoFileName, BallisticInput &input)
 {
   std::ifstream inputFile(fileName);
 
@@ -53,7 +54,7 @@ int readInput(char *fileName, BallisticInput &input)
       input.accelPath >> input.ammoName) {
     inputFile.close();
 
-    return readAmmoData(input);
+    return readAmmoData(ammoFileName, input);
   }
 
   inputFile.close();
@@ -71,15 +72,23 @@ int readInput(char *fileName, BallisticInput &input)
   //   std::strncpy(input.ammoName, jc["ammo"].get<std::string>().c_str(), MAX_AMMO_LENGTH - 1);
 }
 
+void printResult(const BallisticResult &result)
+{
+  std::cout << "Ballistic Result: " << std::endl;
+  std::cout << "  |- Ammo Type: " << result.ammoName << std::endl;
+  std::cout << "  |- (fireX, fireY)=" << "(" << result.dropPoint.x << "," << result.dropPoint.y << ")" << std::endl;
+  std::cout << "  |- t=" << result.payloadDropTime << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    std::cout << "Usage ballistic_cli <input_file.txt>" << std::endl;
+  if (argc < 3) {
+    std::cout << "Usage ballistic_cli <input_file.txt> <ammo_file.json>" << std::endl;
     return 0;
   }
 
   BallisticInput input{};
-  int retCode = readInput(argv[1], input);
+  int retCode = readInput(argv[1], argv[2], input);
   if (retCode > 0) {
     return retCode;
   }
@@ -87,6 +96,10 @@ int main(int argc, char *argv[])
   BallisticResult result{};
 
   retCode = ballistics(result, input);
+
+  if (retCode == 0) {
+    printResult(result);
+  }
 
   return retCode;
 }

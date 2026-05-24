@@ -6,7 +6,7 @@
 
 float distance(Coord coord1, Coord coord2)
 {
-    return (coord1 - coord2).length();
+  return (coord1 - coord2).length();
 }
 
 int ammoByName(const char *ammoName, const AmmoParams *ammo, int ammoCount, AmmoParams &ammoParams)
@@ -106,24 +106,29 @@ float calcHDistance(float t, float speed, const PayloadParams &pp)
   return h;
 }
 
-int ballistics(BallisticResult &result, const BallisticInput &ballisticInput)
+int ballistics(BallisticResult &result, const BallisticInput &input)
 {
-  PayloadParams pp = payloadParams(ballisticInput.ammoName, ballisticInput.ammo, ballisticInput.ammoCount);
+  PayloadParams pp = payloadParams(input.ammoName, input.ammo, input.ammoCount);
 
-  float t = payloadTimeOfFlight(pp, ballisticInput.altitude, ballisticInput.attackSpeed);
+  // Copy Ammo name for stats
+  std::strncpy(result.ammoName, input.ammoName, MAX_AMMO_LENGTH - 1);
+
+  float t = payloadTimeOfFlight(pp, input.altitude, input.attackSpeed);
 
   if (t <= 0) {
     std::cout << "Invalid t=" << t << std::endl;
     return 1;
   }
 
-  float h = calcHDistance(t, ballisticInput.attackSpeed, pp);
+  float h = calcHDistance(t, input.attackSpeed, pp);
 
   if (h <= 0) {
     std::cout << "Invalid h=" << h << std::endl;
     return 1;
   }
 
+  result.dronePos = input.startPos;
+  result.targetPos = input.targetPos;
   // Calculate drone to target distance
   float distanceToTarget = distance(result.dronePos, result.targetPos);
 
@@ -131,19 +136,20 @@ int ballistics(BallisticResult &result, const BallisticInput &ballisticInput)
     std::cout << "Invalid D=" << distanceToTarget << std::endl;
     return 1;
   }
+
   // Check if drone has to maneuvre and calculate new xd, yd
 
-  if (h + ballisticInput.accelPath > distanceToTarget) {
+  if (h + input.accelPath > distanceToTarget) {
     if (fabs(distanceToTarget) < 1e-6) {
-      result.dronePos.x = result.targetPos.x - (h + ballisticInput.accelPath);
-      result.dronePos.y = result.targetPos.y;
+      result.dronePos.x = input.targetPos.x - (h + input.accelPath);
+      result.dronePos.y = input.targetPos.y;
 
       DEBUG("with intermediate point: NewDronePos=(" << result.dronePos.x << "," << result.dronePos.y << ")");
 
-      distanceToTarget = h + ballisticInput.accelPath;
+      distanceToTarget = h + input.accelPath;
     }
     else {
-      result.dronePos = result.targetPos - (result.targetPos - result.dronePos) * (h + ballisticInput.accelPath) / distanceToTarget;
+      result.dronePos = result.targetPos - (result.targetPos - result.dronePos) * (h + input.accelPath) / distanceToTarget;
 
       DEBUG("NewDronePos=(" << result.dronePos.x << ", " << result.dronePos.y << ")");
 

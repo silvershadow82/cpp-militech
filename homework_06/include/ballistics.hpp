@@ -67,6 +67,7 @@ struct BallisticResult {
   Coord dropPoint;
   Coord targetPos;
   float payloadDropTime;
+  char ammoName[MAX_AMMO_LENGTH];
 };
 
 #pragma pack(pop)

@@ -33,3 +33,6 @@ if(NOT CMAKE_CROSSCOMPILING)
 
     gtest_discover_tests(ballistics_tests DISCOVERY_MODE PRE_TEST)
 endif()
+
+target_compile_options(ballistics PRIVATE -Wall)
+target_compile_options(ballistics_cli PRIVATE -Wall -Wextra -pedantic)

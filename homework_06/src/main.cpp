@@ -1,52 +1,15 @@
-#include <cstdint>
+#include "ballistics.hpp"
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <ostream>
-#include "ballistics.hpp"
-#include "nlohmann/json.hpp"
-#include "nlohmann/json_fwd.hpp"
 
-using nlohmann::json;
-
-void clearInputAmmo(BallisticInput &input)
-{
-  if (input.ammo != nullptr) {
-    delete[] input.ammo;
-    input.ammo = nullptr;
-  }
-}
-
-int readAmmoData(char *ammoFileName, BallisticInput &input)
-{
-  std::ifstream ammoFile(ammoFileName);
-  if (!ammoFile.is_open()) {
-    std::cerr << "Unable to open ammo file!" << std::endl;
-    return 1;
-  }
-  json ja;
-  ammoFile >> ja;
-
-  input.ammoCount = static_cast<size_t>(ja.size());
-  input.ammo = new AmmoParams[input.ammoCount];
-
-  for (uint16_t i = 0; i < input.ammoCount; i++) {
-    std::strncpy(input.ammo[i].name, ja[i]["name"].get<std::string>().c_str(), 31);
-    input.ammo[i].mass = ja[i]["mass"];
-    input.ammo[i].drag = ja[i]["drag"];
-    input.ammo[i].lift = ja[i]["lift"];
-  }
-
-  ammoFile.close();
-  return 0;
-}
-
-int readInput(char *fileName, char *ammoFileName, BallisticInput &input)
+auto readInput(char *fileName, BallisticInput &input)
 {
   std::ifstream inputFile(fileName);
 
   if (!inputFile.is_open()) {
-    std::cerr << "Unable to open " << fileName << std::endl;
+    std::cerr << "Unable to open " << fileName << '\n';
     return 1;
   }
 
@@ -54,52 +17,44 @@ int readInput(char *fileName, char *ammoFileName, BallisticInput &input)
       input.accelPath >> input.ammoName) {
     inputFile.close();
 
-    return readAmmoData(ammoFileName, input);
+    return 0;
   }
 
   inputFile.close();
 
-  std::cerr << "Unable to read input data - check the data format" << std::endl;
+  std::cerr << "Unable to read input data - check the data format" << '\n';
   return 1;
-
-  // Work with json
-  //   input.startPos.x = jc["drone"]["position"]["x"];
-  //   input.startPos.y = jc["drone"]["position"]["y"];
-  //   input.altitude = jc["drone"]["altitude"];
-  //   input.attackSpeed = jc["drone"]["attackSpeed"];
-  //   input.accelPath = jc["drone"]["accelerationPath"];
-
-  //   std::strncpy(input.ammoName, jc["ammo"].get<std::string>().c_str(), MAX_AMMO_LENGTH - 1);
 }
 
 void printResult(const BallisticResult &result)
 {
-  std::cout << "Ballistic Result: " << std::endl;
-  std::cout << "  |- Ammo Type: " << result.ammoName << std::endl;
-  std::cout << "  |- (fireX, fireY)=" << "(" << result.dropPoint.x << "," << result.dropPoint.y << ")" << std::endl;
-  std::cout << "  |- t=" << result.payloadDropTime << std::endl;
+  std::cout << "Ballistic Result: " << '\n';
+  std::cout << "  |- Ammo Type: " << result.ammoName  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+            << '\n';
+  std::cout << "  |- (fireX, fireY)=" << "(" << result.dropPoint.x << "," << result.dropPoint.y << ")" << '\n';
+  std::cout << "  |- t=" << result.payloadDropTime << '\n';
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) // NOLINT(modernize-use-trailing-return-type)
 {
-  if (argc < 3) {
-    std::cout << "Usage ballistic_cli <input_file.txt> <ammo_file.json>" << std::endl;
+  if (argc < 2) {
+    std::cout << "Usage ballistic_cli <input_file.txt>" << '\n';
     return 0;
   }
 
   BallisticInput input{};
-  int retCode = readInput(argv[1], argv[2], input);
-  if (retCode > 0) {
-    return retCode;
+  auto input_ret_code = readInput(argv[1], input);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  if (input_ret_code > 0) {
+    return input_ret_code;
   }
 
   BallisticResult result{};
 
-  retCode = ballistics(result, input);
+  auto ballistics_ret_code = ballistics(result, input);
 
-  if (retCode == 0) {
+  if (ballistics_ret_code == 0) {
     printResult(result);
   }
 
-  return retCode;
+  return ballistics_ret_code;
 }

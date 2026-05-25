@@ -1,28 +1,31 @@
+#pragma once
 #include <cmath>
 
 /**
  * Ballistics from homework #1
  */
 struct PayloadParams {
+  bool ok;
   float m, m2, m3, m4;
   float d, d2, d3, d4;
   float l, l2, l3, l4;
 };
 
-const float G{9.81f};
+const float G{9.81F};
+const int AMMO_COUNT = 5;
 const int MAX_AMMO_LENGTH = 32;
 
 struct Coord {
   float x;
   float y;
 
-  Coord operator+(const Coord &other) const { return Coord{x + other.x, y + other.y}; }
+  auto operator+(const Coord &other) const { return Coord{x + other.x, y + other.y}; }
 
-  Coord operator-(const Coord &other) const { return Coord{x - other.x, y - other.y}; }
+  auto operator-(const Coord &other) const { return Coord{x - other.x, y - other.y}; }
 
-  Coord operator*(float scalar) const { return Coord{x * scalar, y * scalar}; }
+  auto operator*(float scalar) const { return Coord{x * scalar, y * scalar}; }
 
-  Coord operator/(float scalar) const
+  auto operator/(float scalar) const
   {
     if (scalar != 0) {
       return Coord{x / scalar, y / scalar};
@@ -30,15 +33,16 @@ struct Coord {
     return Coord{x, y};
   }
 
-  bool operator==(const Coord &other) const { return x == other.x && y == other.y; }
+  auto operator==(const Coord &other) const { return x == other.x && y == other.y; }
 
-  float length() { return sqrt(x * x + y * y); }
+  auto length() const { return std::sqrt(x * x + y * y); }
 
-  Coord normalize()
+  auto normalize() const
   {
-    float len = length();
-    if (len == 0)
+    const float len = length();
+    if (len == 0) {
       return Coord{0, 0};
+    }
     return Coord{x / len, y / len};
   }
 };
@@ -58,8 +62,6 @@ struct BallisticInput {
   float attackSpeed;
   float accelPath;
   char ammoName[MAX_AMMO_LENGTH];
-  int ammoCount;
-  AmmoParams *ammo;
 };
 
 struct BallisticResult {
@@ -73,17 +75,12 @@ struct BallisticResult {
 #pragma pack(pop)
 
 // Helper functions
-float distance(Coord coord1, Coord coord2);
-
+auto distance(Coord coord1, Coord coord2);
 void normalizeAngle(float &angleDiff);
-
-int ammoByName(const char *ammoName, const AmmoParams *ammo, int ammoCount, AmmoParams &ammoParams);
-
-PayloadParams payloadParams(const char ammoName[MAX_AMMO_LENGTH], const AmmoParams *ammo, int ammoCount);
+auto ammoByName(const char *ammoName, const AmmoParams *ammo, int ammoCount, AmmoParams &ammoParams);
+auto payloadParams(const char ammoName[MAX_AMMO_LENGTH], const AmmoParams *ammo, int ammoCount);
 
 // Ballistic functions
-float payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed);
-
-float calcHDistance(float t, float speed, const PayloadParams &pp);
-
-int ballistics(BallisticResult &result, const BallisticInput &droneConfig);
+auto payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed);
+auto calcHDistance(float t, float speed, const PayloadParams &pp);
+int ballistics(BallisticResult &result, const BallisticInput &input);  // NOLINT(modernize-use-trailing-return-type)

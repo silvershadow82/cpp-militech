@@ -73,4 +73,4 @@ jobs:
           runCmd: |
             cmake --preset debug
             cmake --build --preset debug
-            run-clang-tidy -p build/ homework_06/
+            run-clang-tidy -p build/debug homework_06/

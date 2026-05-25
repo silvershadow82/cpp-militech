@@ -1,6 +1,7 @@
 {
   // Назва, яка показується у VS Code Dev Containers UI.
   "name": "CPP MilTech",
+
   // Image збирається з локального Dockerfile. Аргументи потрібні, щоб
   // container user і workspace path збігалися з host-сесією.
   "build": {
@@ -10,28 +11,30 @@
       "CONTAINER_USER": "${localEnv:USER}"
     }
   },
-  "remoteEnv": {
-    "DEBUGINFOD_URLS": ""
-  },
+
   // VS Code відкриває контейнер від імені того самого користувача, що й host.
   // Це зменшує проблеми з ownership файлів у bind mount.
   "remoteUser": "${localEnv:USER}",
+
   // Проєкт монтується у домашню директорію користувача всередині контейнера.
   // Так шляхи виглядають однаково на Linux, macOS і Windows+WSL.
   "workspaceMount": "source=${localWorkspaceFolder},target=${localEnv:HOME}/${localWorkspaceFolderBasename},type=bind",
   "workspaceFolder": "${localEnv:HOME}/${localWorkspaceFolderBasename}",
+
   // SSH ключі потрібні для git operations. bash_history винесено на host,
   // щоб історія команд переживала rebuild контейнера.
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/home/${localEnv:USER}/.ssh,type=bind,readonly,consistency=cached",
     "source=${localEnv:HOME}/.devcontainers/${localWorkspaceFolderBasename}/.bash_history,target=/home/${localEnv:USER}/.bash_history,type=bind,consistency=delegated"
   ],
+
   // initialize створює host-side директорії для mounts до старту container-а.
   // Запуск через bash робить команду стійкою до копіювання без executable bit.
   "initializeCommand": [
     "bash",
     ".devcontainer/scripts/initialize"
   ],
+
   // host network спрощує SSH/debug сценарії для занять з target-пристроями.
   // SYS_PTRACE і seccomp=unconfined потрібні для стабільної роботи GDB
   // всередині контейнера, особливо коли debug-сесія attach-иться до процесу.
@@ -41,12 +44,12 @@
   "runArgs": [
     "--network=host",
     "--cap-add=SYS_PTRACE",
-    "--security-opt",
-    "seccomp=unconfined",
+    "--security-opt=seccomp=unconfined",
     "--ulimit=core=-1",
     "--hostname=devcontainer",
     "--add-host=devcontainer:127.0.1.1"
   ],
+
   // Усе всередині customizations.vscode застосовується саме до VS Code
   // сесії в контейнері. Це не те саме, що .vscode/extensions.json на host.
   "customizations": {

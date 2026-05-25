@@ -1,0 +1,147 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1777903457544,
+  "projectRoot": "/Volumes/MCEX3/Dev/git/cpp-militech",
+  "techStack": {
+    "languages": [
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "CMakeLists.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "build": {
+      "path": "build",
+      "purpose": "Build output",
+      "fileCount": 0,
+      "lastAccessed": 1777903457511,
+      "keyFiles": []
+    },
+    "cmake": {
+      "path": "cmake",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1777903457514,
+      "keyFiles": []
+    },
+    "demos": {
+      "path": "demos",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1777903457515,
+      "keyFiles": []
+    },
+    "homework_04": {
+      "path": "homework_04",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1777903457520,
+      "keyFiles": [
+        "CMakeLists.txt"
+      ]
+    },
+    "homework_05": {
+      "path": "homework_05",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1777903457521,
+      "keyFiles": [
+        "README.md"
+      ]
+    },
+    "preps": {
+      "path": "preps",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1777903457521,
+      "keyFiles": [
+        "README.md",
+        "devcontainers-cli.md",
+        "linux.md",
+        "macos.md",
+        "windows.md"
+      ]
+    },
+    "homework_04/data": {
+      "path": "homework_04/data",
+      "purpose": "Data files",
+      "fileCount": 3,
+      "lastAccessed": 1777903457521,
+      "keyFiles": [
+        "combined.txt",
+        "straight.txt",
+        "turn.txt"
+      ]
+    },
+    "homework_04/src": {
+      "path": "homework_04/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1777903457522,
+      "keyFiles": [
+        "main.cpp"
+      ]
+    },
+    "homework_05/data": {
+      "path": "homework_05/data",
+      "purpose": "Data files",
+      "fileCount": 5,
+      "lastAccessed": 1777903457522,
+      "keyFiles": [
+        "bad_invalid_number.txt",
+        "bad_missing_field.txt",
+        "bad_zero_delta.txt"
+      ]
+    },
+    "homework_05/src": {
+      "path": "homework_05/src",
+      "purpose": "Source code",
+      "fileCount": 2,
+      "lastAccessed": 1777903457522,
+      "keyFiles": [
+        "main.cpp",
+        "telemetry.cpp"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "accessCount": 1,
+      "lastAccessed": 1777903484526,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

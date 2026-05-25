@@ -3,6 +3,23 @@
 Усі помітні зміни в цьому репо фіксуються тут.
 Формат - [Keep a Changelog](https://keepachangelog.com/uk/1.1.0/), дати в ISO 8601.
 
+## 2026-05-17
+
+### Added
+
+- Block 2 / Lesson 2.6: додано `docs/code-quality.md` з базовими командами
+  для запуску `clang-format`, `cmake-format`, `clang-tidy`, налаштуванням
+  VS Code auto-format, optional VS Code task для `clang-tidy` і правилами
+  точкового використання `NOLINT` без wrapper scripts.
+
+## 2026-05-08
+
+### Changed
+
+- Block 2 / Lesson 2.6: послаблено `.clang-tidy` для ДЗ 6. Зауваження static
+  analyzer лишаються помилками, а style/modernize/core-guidelines сигнали
+  лишаються warning-ами для ручного розбору.
+
 ## 2026-04-30
 
 ### Added

@@ -119,17 +119,18 @@ float calcHDistance(float t, float speed, const PayloadParams &pp)
 
 int ballistics(BallisticResult &result, const BallisticInput &input)
 {
-  const PayloadParams pp =
-    payloadParams(input.ammoName);  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+  const PayloadParams pp = payloadParams(
+    input.ammoName);  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
 
   if (!pp.ok) {
     return 1;
   }
 
   // Copy Ammo name for stats
-  std::strncpy(result.ammoName,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-               input.ammoName,   // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-               MAX_AMMO_LENGTH - 1);
+  std::strncpy(
+    result.ammoName,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
+    input.ammoName,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
+    MAX_AMMO_LENGTH - 1);
 
   const float t = payloadTimeOfFlight(pp, input.altitude, input.attackSpeed);
 

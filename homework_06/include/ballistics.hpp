@@ -83,4 +83,4 @@ auto payloadParams(const char ammoName[MAX_AMMO_LENGTH]);
 // Ballistic functions
 float payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed);
 float calcHDistance(float t, float speed, const PayloadParams &pp);
-int ballistics(BallisticResult &result, const BallisticInput &input);  // NOLINT(modernize-use-trailing-return-type)
+int ballistics(BallisticResult &result, const BallisticInput &input);

@@ -35,8 +35,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_06/ballistics_cli",
       "args": [
-        "${workspaceFolder}/homework_06/data/input.txt",
-        "${workspaceFolder}/homework_06/data/ammo.json"
+        "${workspaceFolder}/homework_06/data/input.txt"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",

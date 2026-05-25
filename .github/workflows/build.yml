@@ -56,3 +56,21 @@ jobs:
             cmake --build --preset debug
             cmake --preset aarch64-debug
             cmake --build --preset aarch64-debug
+      # Автоматизуємо запуск тестів
+      - name: Run tests
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: |
+            cmake --preset debug
+            cmake --build --preset debug
+            ctest --test-dir build/debug --output-on-failure
+      # Автоматизуємо якість коду      
+      - name: Run linter
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: |
+            cmake --preset debug
+            cmake --build --preset debug
+            run-clang-tidy -p build/debug homework_06/

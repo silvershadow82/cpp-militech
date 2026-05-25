@@ -13,7 +13,7 @@ const AmmoParams ammo[AMMO_COUNT] = {
   AmmoParams{.name = "GLIDING-RKG", .mass = 1.4, .drag = 0.1, .lift = 1},
 };
 
-auto distance(Coord coord1, Coord coord2)
+float distance(Coord coord1, Coord coord2)
 {
   return (coord1 - coord2).length();
 }
@@ -62,7 +62,7 @@ auto payloadParams(const char ammoName[MAX_AMMO_LENGTH])
   return pp;
 }
 
-auto payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed)
+float payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed)
 {
   // Calculate the payload travel time t
   // Using Cardano formula to the cubic equation at^3+bt^2+c = 0
@@ -94,7 +94,7 @@ auto payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed)
   return t;
 }
 
-auto calcHDistance(float t, float speed, const PayloadParams &pp)
+float calcHDistance(float t, float speed, const PayloadParams &pp)
 {
   const auto t2 = t * t;
   const auto t3 = t2 * t;
@@ -112,7 +112,7 @@ auto calcHDistance(float t, float speed, const PayloadParams &pp)
                                      (36.0 * (pp.l2 + 1.0) * pp.m4));
 
   // Calculate the payload travel distance h
-  const float h = e1 + e2 + e3 + e4 + e5;
+  const auto h = e1 + e2 + e3 + e4 + e5;
 
   return h;
 }

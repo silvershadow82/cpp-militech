@@ -15,7 +15,7 @@ TEST(Ballistics, ComputesKnownInput)
   int retCode = ballistics(result, input);
 
   ASSERT_EQ(retCode, 0);
-  ASSERT_STREQ(result.ammoName, "VOG-17");
+  ASSERT_STREQ(result.ammoName, "VOG-17"); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay) - ще не вивчив gsl::array_view 
   ASSERT_NEAR(result.dropPoint.x, 173.75, 0.01);
   ASSERT_NEAR(result.dropPoint.y, 173.75, 0.01);
 }

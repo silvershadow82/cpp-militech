@@ -75,12 +75,12 @@ struct BallisticResult {
 #pragma pack(pop)
 
 // Helper functions
-auto distance(Coord coord1, Coord coord2);
+float distance(Coord coord1, Coord coord2);
 void normalizeAngle(float &angleDiff);
-auto ammoByName(const char *ammoName, const AmmoParams *ammo, int ammoCount, AmmoParams &ammoParams);
-auto payloadParams(const char ammoName[MAX_AMMO_LENGTH], const AmmoParams *ammo, int ammoCount);
+auto ammoByName(const char *ammoName, AmmoParams &ammoParams);
+auto payloadParams(const char ammoName[MAX_AMMO_LENGTH]);
 
 // Ballistic functions
-auto payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed);
-auto calcHDistance(float t, float speed, const PayloadParams &pp);
+float payloadTimeOfFlight(const PayloadParams &pp, float altitude, float speed);
+float calcHDistance(float t, float speed, const PayloadParams &pp);
 int ballistics(BallisticResult &result, const BallisticInput &input);  // NOLINT(modernize-use-trailing-return-type)

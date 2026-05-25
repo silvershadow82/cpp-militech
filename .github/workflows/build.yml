@@ -62,6 +62,8 @@ jobs:
         with:
           push: never
           runCmd: |
+            cmake --preset debug
+            cmake --build --preset debug
             ctest --test-dir build/debug --output-on-failure
       # Автоматизуємо якість коду      
       - name: Run linter
@@ -69,4 +71,6 @@ jobs:
         with:
           push: never
           runCmd: |
+            cmake --preset debug
+            cmake --build --preset debug
             run-clang-tidy -p build/ homework_06/

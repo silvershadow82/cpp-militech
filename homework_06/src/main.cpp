@@ -35,7 +35,7 @@ void printResult(const BallisticResult &result)
   std::cout << "  |- t=" << result.payloadDropTime << '\n';
 }
 
-int main(int argc, char *argv[]) // NOLINT(modernize-use-trailing-return-type)
+int main(int argc, char *argv[])  // NOLINT(modernize-use-trailing-return-type)
 {
   if (argc < 2) {
     std::cout << "Usage ballistic_cli <input_file.txt>" << '\n';

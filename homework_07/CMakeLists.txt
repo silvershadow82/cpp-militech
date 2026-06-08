@@ -17,7 +17,16 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
 FetchContent_MakeAvailable(json)
 
 # add_library(ballistics src/ballistics.cpp)
-add_executable(simulation src/main.cpp)
+add_executable(
+    simulation
+    src/main.cpp
+    src/AnalyticalSolver.cpp
+    src/ComponentFactory.cpp
+    src/FileConfigLoader.cpp
+    src/JsonTargetProvider.cpp
+    src/MissionProcessor.cpp
+    src/target.cpp
+    src/util.cpp)
 target_include_directories(simulation PUBLIC include)
 target_link_libraries(simulation PRIVATE nlohmann_json::nlohmann_json)
 

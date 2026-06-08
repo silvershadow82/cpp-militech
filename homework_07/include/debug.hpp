@@ -1,3 +1,5 @@
+#pragma once
+
 #define ENABLE_LOG 1
 #define ENABLE_DEBUG 0
 

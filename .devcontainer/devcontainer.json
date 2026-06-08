@@ -102,5 +102,7 @@
         }
       }
     }
-  }
+  },
+
+  "postCreateCommand": "pre-commit install"
 }

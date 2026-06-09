@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug ballistics_tests",
+      "name": "Debug homework_06 ballistics_tests",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_06/ballistics_tests",
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "name": "Debug ballistics_cli",
+      "name": "Debug homework_06 ballistics_cli",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_06/ballistics_cli",
@@ -58,12 +58,12 @@
       ]
     },
     {
-      "name": "Debug homework_07/simulation",
+      "name": "Debug homework_07 simulation",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_07/simulation",
       "args": [
-        "${workspaceFolder}/homework_07/data/basic"
+        "${workspaceFolder}/homework_07/data/elliptic"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",

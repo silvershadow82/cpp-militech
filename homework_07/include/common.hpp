@@ -134,6 +134,13 @@ struct SimState {
   DroneState droneState;
 };
 
+struct BallisticResult {
+  bool ok;
+  Coord dropPoint;
+  Coord aimPoint;
+  float payloadDropTime;
+};
+
 struct SimStep {
   Coord pos;
   int targetIdx;

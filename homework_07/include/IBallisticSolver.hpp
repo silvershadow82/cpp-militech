@@ -5,7 +5,7 @@
 class IBallisticSolver {
 public:
   virtual void init(DroneConfig droneConfig, PayloadParams payloadParams) = 0;
-  virtual int solve(SimState& state) = 0;
+  virtual BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) = 0;
   virtual ~IBallisticSolver(){};
 };
 
@@ -18,5 +18,5 @@ private:
 
 public:
   void init(DroneConfig droneConfig, PayloadParams payloadParams) override;
-  int solve(SimState& state) override;
+  BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) override;
 };

@@ -1,4 +1,6 @@
 #include "IBallisticSolver.hpp"
+#include "common.hpp"
+#include "debug.hpp"
 #include <iostream>
 
 float AnalyticalSolver::payloadTimeOfFlight()
@@ -62,58 +64,61 @@ void AnalyticalSolver::init(DroneConfig droneConfig, PayloadParams payloadParams
   this->droneConfig = droneConfig;
   this->pp = payloadParams;
 }
-int AnalyticalSolver::solve(SimState& state)
+
+BallisticResult AnalyticalSolver::solve(Coord dronePos, Coord targetPos, float droneAngle)
 {
   float t = payloadTimeOfFlight();
 
   if (t <= 0) {
     std::cout << "Invalid t=" << t << std::endl;
-    return 1;
+    return BallisticResult{.ok = false};
   }
 
   float h = calcHDistance(t);
 
   if (h <= 0) {
     std::cout << "Invalid h=" << h << std::endl;
-    return 1;
+    return BallisticResult{.ok = false};
   }
 
   // Calculate drone to target distance
-  float distanceToTarget = Coord::distance(state.dronePos, state.targetPos);
+  float distanceToTarget = Coord::distance(dronePos, targetPos);
 
   if (distanceToTarget <= 0) {
     std::cout << "Invalid D=" << distanceToTarget << std::endl;
-    return 1;
+    return BallisticResult{.ok = false};
   }
   // Check if drone has to maneuvre and calculate new xd, yd
+  Coord newDronePos = dronePos;
 
   if (h + droneConfig.accelPath > distanceToTarget) {
     if (fabs(distanceToTarget) < 1e-6) {
-      state.dronePos.x = state.targetPos.x - (h + droneConfig.accelPath);
-      state.dronePos.y = state.targetPos.y;
-      // outDronePos.x = targetPos.x - (h + accelerationPath);
+      newDronePos.x = targetPos.x - (h + droneConfig.accelPath);
+      newDronePos.y = targetPos.y;
 
       // DEBUG("with intermediate point: NewDronePos=(" << state.dronePos.x << "," << state.dronePos.y << ")");
 
       distanceToTarget = h + droneConfig.accelPath;
     }
     else {
-      state.dronePos = state.targetPos - (state.targetPos - state.dronePos) * (h + droneConfig.accelPath) / distanceToTarget;
+      newDronePos = targetPos - (targetPos - dronePos) * (h + droneConfig.accelPath) / distanceToTarget;
 
       // DEBUG("NewDronePos=(" << state.dronePos.x << ", " << state.dronePos.y << ")");
       // xd = targetX - (targetX - xd) * (h + accelerationPath) / distanceToTarget;
       // yd = targetY - (targetY - yd) * (h + accelerationPath) / distanceToTarget;
-      distanceToTarget = Coord::distance(state.dronePos, state.targetPos);
+      distanceToTarget = Coord::distance(newDronePos, targetPos);
     }
   }
 
   float ratio = (distanceToTarget - h) / distanceToTarget;
 
   // Calculate drop point coordinates
-  Coord dir = {static_cast<float>(cos(state.droneAngle)), static_cast<float>(sin(state.droneAngle))};
-  state.dropPoint = state.dronePos + (state.targetPos - state.dronePos) * ratio;
-  state.aimPoint = state.dronePos + dir * h;
-  state.payloadDropTime = t;
+  Coord dir = {static_cast<float>(cos(droneAngle)), static_cast<float>(sin(droneAngle))};
 
-  return 0;
+  BallisticResult result{
+    .ok = true, .dropPoint = newDronePos + (targetPos - newDronePos) * ratio, .aimPoint = newDronePos + dir * h, .payloadDropTime = t};
+
+  DEBUG("Ballistic Result: " << result);
+
+  return result;
 }

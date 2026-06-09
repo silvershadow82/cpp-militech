@@ -6,6 +6,7 @@
 class MissionProcessor {
 private:
   bool initialized{false};
+  bool done{false};
   SimState state;
   SimStep* statSteps;
   float* timeToTargets;
@@ -15,7 +16,7 @@ private:
   std::string dataFolder;
 
   void initState(const DroneConfig& config, const int targetCount);
-  int computeFirePoint(const Target& target);
+  bool computeFirePoint(const Target& target);
   float leadTimeToTarget(const Target& target);
   void updateDroneState();
   void collectCurrentStepStats();

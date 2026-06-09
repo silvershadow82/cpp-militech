@@ -5,6 +5,7 @@
 #include "util.hpp"
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
+#include <cmath>
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -26,7 +27,8 @@ void MissionProcessor::initState(const DroneConfig& config, const int targetCoun
   state.t = 0.f;
 
   statSteps = new SimStep[MAX_STEPS];
-  timeToTargets = new float[targetCount];
+  timeToTargets = new float[targetCount]{};
+  this->done = false;
 
   LOG("State initialized.");
   LOG("droneAccel=" << state.droneAccel);
@@ -34,61 +36,67 @@ void MissionProcessor::initState(const DroneConfig& config, const int targetCoun
   LOG("droneSpeed=" << state.droneSpeed);
 }
 
-int MissionProcessor::computeFirePoint(const Target& target)
+bool MissionProcessor::computeFirePoint(const Target& target)
 {
   DroneConfig config = this->configLoader->getConfig();
-  Coord origDronePos = state.dronePos;
+  //   Coord origDronePos = state.dronePos;
 
-  state.targetPos = target.at(state.t, config.arrayTimeStep);
-  Coord origTargetPos = state.targetPos;
+  Coord targetPos = target.at(this->state.t, config.arrayTimeStep);
+  //   Coord origTargetPos = state.targetPos;
 
-  Coord targetPosOffset = target.at(state.t + config.arrayTimeStep, config.arrayTimeStep);
-  Coord targetSpeed = (targetPosOffset - origTargetPos) / config.arrayTimeStep;
+  DEBUG("targetPos[" << target.getIndex() << "]=(" << targetPos.x << "," << targetPos.y << ")");
 
-  DEBUG("targetSpeed[" << target.getIndex() << "]=(" << targetSpeed.x << "," << targetSpeed.y << ")");
+  float prevDistToFire{INFINITY};
+  float prevTimeToFire{INFINITY};
+  float distToFire{0.F};
+  float timeToFire{0.F};
 
-  // First pass: ballistics to current target position
-  int returnCode = this->solver->solve(this->state);
+  const int maxApprox = 2;
+  int appox = 0;
 
-  if (returnCode > 0) {
-    return returnCode;
-  }
+  do {
+    // First pass: ballistics to current target position
+    BallisticResult result = this->solver->solve(this->state.dronePos, targetPos, this->state.droneAngle);
 
-  float distToFire = Coord::distance(origDronePos, state.dropPoint);
-  float timeToFire = timeToDistance(distToFire, state.droneSpeed, config.attackSpeed, state.droneAccel, config.accelPath);
+    if (!result.ok) {
+      return false;
+    }
+    prevDistToFire = Coord::distance(this->state.dronePos, result.dropPoint);
+    prevTimeToFire = timeToDistance(prevDistToFire, this->state.droneSpeed, config.attackSpeed, this->state.droneAccel, config.accelPath);
+    // Reset drone pos and aim at predicted position for second pass
+    //   state.dronePos = origDronePos;
 
-  state.predictedTargetPos = Coord::predict(origTargetPos, targetSpeed, timeToFire + state.payloadDropTime);
+    targetPos = target.at(this->state.t + prevTimeToFire + result.payloadDropTime, config.arrayTimeStep);
 
-  // Reset drone pos and aim at predicted position for second pass
-  state.dronePos = origDronePos;
-  state.targetPos = state.predictedTargetPos;
+    // Second pass: ballistics to predicted position
+    result = this->solver->solve(this->state.dronePos, targetPos, this->state.droneAngle);
 
-  // Second pass: ballistics to predicted position
-  int returnCode2 = this->solver->solve(state);
+    if (!result.ok) {
+      return false;
+    }
 
-  if (returnCode2 > 0) {
-    return returnCode2;
-  }
+    distToFire = Coord::distance(this->state.dronePos, result.dropPoint);
+    timeToFire = timeToDistance(distToFire, this->state.droneSpeed, config.attackSpeed, this->state.droneAccel, config.accelPath);
+    // Refine prediction using actual lead time from drone to fireX + payload drop
+    targetPos = target.at(this->state.t + timeToFire + result.payloadDropTime, config.arrayTimeStep);
 
-  // Refine prediction using actual lead time from drone to fireX + payload drop
-  float distToFire2 = Coord::distance(origDronePos, state.dropPoint);
-  float timeToFire2 = timeToDistance(distToFire2, state.droneSpeed, config.attackSpeed, state.droneAccel, config.accelPath);
+    this->state.dropPoint = result.dropPoint;
+    this->state.payloadDropTime = result.payloadDropTime;
+    this->state.aimPoint = result.aimPoint;
+    this->state.predictedTargetPos = targetPos;
 
-  state.predictedTargetPos = Coord::predict(origTargetPos, targetSpeed, timeToFire2 + state.payloadDropTime);
-  state.dronePos = origDronePos;
+  } while (appox++ < maxApprox && (fabsf(distToFire - prevDistToFire) > 1.F || fabsf(timeToFire - prevTimeToFire) > 1.F));
 
-  return 0;
+  return true;
 }
 
 float MissionProcessor::leadTimeToTarget(const Target& target)
 {
   const DroneConfig config = this->configLoader->getConfig();
 
-  int returnCode = computeFirePoint(target);
-
-  if (returnCode > 0) {
+  if (!computeFirePoint(target)) {
     std::cerr << "Invalid ballistics calculated" << std::endl;
-    return returnCode;
+    return -1.F;
   }
 
   float distanceToFirePoint{Coord::distance(state.dronePos, state.dropPoint)};
@@ -140,8 +148,6 @@ void MissionProcessor::updateDroneState()
       state.droneSpeed += state.droneAccel * config.simTimeStep;
       dir = {static_cast<float>(cos(state.droneAngle)), static_cast<float>(sin(state.droneAngle))};
       state.dronePos = state.dronePos + dir * ds;
-      // state.dronePos.x += ds * cos(state.droneAngle);
-      // state.dronePos.y += ds * sin(state.droneAngle);
 
       if (state.droneSpeed >= config.attackSpeed) {
         state.droneSpeed = config.attackSpeed;
@@ -160,8 +166,6 @@ void MissionProcessor::updateDroneState()
       if (ds > 0.f) {
         dir = {static_cast<float>(cos(state.droneAngle)), static_cast<float>(sin(state.droneAngle))};
         state.dronePos = state.dronePos + dir * ds;
-        // outDronePos.x += ds * cos(outDroneAngle);
-        // outDronePos.y += ds * sin(outDroneAngle);
       }
       break;
     case TURNING:  // keep turning until aligned
@@ -230,42 +234,39 @@ bool MissionProcessor::init(ConfigSource configSource, const std::string& dataFo
 }
 bool MissionProcessor::hasNext()
 {
-  return this->state.step < MAX_STEPS;
+  return this->state.step < MAX_STEPS && !this->done;
 };
 bool MissionProcessor::step()
 {
-  if (state.step >= MAX_STEPS) {
-    return false;
-  }
-
   LOG("Simulation at step " << state.step);
 
   const DroneConfig config = this->configLoader->getConfig();
 
   // Calculate travel time to all the targets
-  for (int targetIdx = 0; targetIdx < targetProvider->getTargetCount(); targetIdx++) {
-    Target target = targetProvider->getTarget(targetIdx);
-    timeToTargets[targetIdx] = leadTimeToTarget(target);
+  for (int i = 0; i < targetProvider->getTargetCount(); i++) {
+    Target target = targetProvider->getTarget(i);
+    float timeToTarget = leadTimeToTarget(target);
+    // Skip failed targets
+    if (timeToTarget < 0) {
+      continue;
+    }
+    timeToTargets[i] = timeToTarget;
   }
 
   // Update the target
   state.lastTargetIdx = minValueIdx(timeToTargets, targetProvider->getTargetCount());
   Target target = targetProvider->getTarget(state.lastTargetIdx);
 
-  int returnCode = computeFirePoint(target);
-
-  if (returnCode > 0) {
+  if (!computeFirePoint(target)) {
     return false;
   }
 
-  // If drone reached fire point, check payload lands within 1m of real target
+  // If drone reached fire point, check payload lands within hitRadius of real target
   if (Coord::distance(state.dronePos, state.dropPoint) <= 1.f) {
     Coord realTargetPos = target.at(state.t + state.payloadDropTime, config.arrayTimeStep);
-
     float deviation = Coord::distance(state.predictedTargetPos, realTargetPos);
-
     if (deviation <= config.hitRadius) {
-      return false;
+      this->done = true;
     }
   }
 

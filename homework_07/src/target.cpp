@@ -1,4 +1,4 @@
-#include "target.hpp"
+#include "Target.hpp"
 
 Target::Target()
   : index(0)

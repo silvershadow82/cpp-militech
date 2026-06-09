@@ -12,6 +12,8 @@
 
 using json = nlohmann::json;
 
+const int maxApproxSteps{10};
+const float maxDiffPrecision{1e-6};
 // Implementation for the MissionProcessor
 
 void MissionProcessor::initState(const DroneConfig& config, const int targetCount)
@@ -39,21 +41,16 @@ void MissionProcessor::initState(const DroneConfig& config, const int targetCoun
 bool MissionProcessor::computeFirePoint(const Target& target)
 {
   DroneConfig config = this->configLoader->getConfig();
-  //   Coord origDronePos = state.dronePos;
-
   Coord targetPos = target.at(this->state.t, config.arrayTimeStep);
-  //   Coord origTargetPos = state.targetPos;
-
-  DEBUG("targetPos[" << target.getIndex() << "]=(" << targetPos.x << "," << targetPos.y << ")");
 
   float prevDistToFire{INFINITY};
   float prevTimeToFire{INFINITY};
   float distToFire{0.F};
   float timeToFire{0.F};
 
-  const int maxApprox = 2;
-  int appox = 0;
+  int appox{0};
 
+  // Converge distance to fire or die trying
   do {
     // First pass: ballistics to current target position
     BallisticResult result = this->solver->solve(this->state.dronePos, targetPos, this->state.droneAngle);
@@ -85,7 +82,10 @@ bool MissionProcessor::computeFirePoint(const Target& target)
     this->state.aimPoint = result.aimPoint;
     this->state.predictedTargetPos = targetPos;
 
-  } while (appox++ < maxApprox && (fabsf(distToFire - prevDistToFire) > 1.F || fabsf(timeToFire - prevTimeToFire) > 1.F));
+  } while (appox++ < maxApproxSteps &&
+           (fabsf(distToFire - prevDistToFire) > maxDiffPrecision || fabsf(timeToFire - prevTimeToFire) > maxDiffPrecision));
+
+  DEBUG("Converged to firePoint for target=" << target.getIndex() << ", maxSteps=" << appox);
 
   return true;
 }
@@ -238,7 +238,7 @@ bool MissionProcessor::hasNext()
 };
 bool MissionProcessor::step()
 {
-  LOG("Simulation at step " << state.step);
+  DEBUG("Simulation at step " << state.step);
 
   const DroneConfig config = this->configLoader->getConfig();
 
@@ -306,11 +306,9 @@ bool MissionProcessor::step()
   DEBUG(" |- droneSpeed=" << state.droneSpeed);
   DEBUG(" |- droneAccel=" << state.droneAccel);
   DEBUG(" |- droneAngle=" << state.droneAngle);
-  DEBUG(" |- droneState=" << getDroneStateName(state.droneState));
   DEBUG(" |- dropPoint=(" << state.dropPoint.x << "," << state.dropPoint.y << ")");
   DEBUG(" |- aimPoint=(" << state.aimPoint.x << "," << state.aimPoint.y << ")");
-  DEBUG(" |- targetPos=(" << state.targetPos.x << "," << state.targetPos.y << ")");
-  DEBUG(" |- predictedTargetPos=(" << state.predictedTarget.x << ", " << state.predictedTarget.y << ")");
+  DEBUG(" |- predictedTargetPos=(" << state.predictedTargetPos.x << ", " << state.predictedTargetPos.y << ")");
 
   state.step++;
   state.t += config.simTimeStep;

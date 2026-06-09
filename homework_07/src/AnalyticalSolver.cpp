@@ -118,7 +118,7 @@ BallisticResult AnalyticalSolver::solve(Coord dronePos, Coord targetPos, float d
   BallisticResult result{
     .ok = true, .dropPoint = newDronePos + (targetPos - newDronePos) * ratio, .aimPoint = newDronePos + dir * h, .payloadDropTime = t};
 
-  DEBUG("Ballistic Result: " << result);
+  DEBUG("Ballistic Result: dropPoint=(" << result.dropPoint.x << "," << result.dropPoint.y << ")");
 
   return result;
 }

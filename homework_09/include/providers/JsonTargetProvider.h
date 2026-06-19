@@ -1,0 +1,18 @@
+#pragma once
+#include "interfaces/ITargetProvider.h"
+#include "models/Target.h"
+#include <vector>
+#include <string>
+
+class JsonTargetProvider : public ITargetProvider {
+private:
+  std::string jsonFileName;
+  std::vector<Target> targets;
+
+  int readTargetData();
+
+public:
+  JsonTargetProvider(const std::string &jsonFileName);
+  int getTargetCount() override;
+  Target getTarget(int index) override;
+};

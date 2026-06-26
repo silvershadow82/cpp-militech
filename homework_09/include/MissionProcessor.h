@@ -31,6 +31,7 @@ public:
   MissionProcessor(std::unique_ptr<IBallisticSolver> solver,
                    std::unique_ptr<ITargetProvider> targetProvider,
                    std::unique_ptr<IConfigLoader> configLoader);
+  ~MissionProcessor();
   bool init(ConfigSource configSource, const std::string &dataFolder);
   bool hasNext();
   bool step();

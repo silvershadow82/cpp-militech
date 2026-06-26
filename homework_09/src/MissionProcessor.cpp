@@ -25,6 +25,8 @@ MissionProcessor::MissionProcessor(std::unique_ptr<IBallisticSolver> solver,
 {
 }
 
+MissionProcessor::~MissionProcessor() = default;
+
 void MissionProcessor::initState(const DroneConfig &config, const int targetCount)
 {
   this->state = SimState{

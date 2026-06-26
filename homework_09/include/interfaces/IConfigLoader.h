@@ -10,4 +10,5 @@ public:
   virtual DroneConfig getConfig() = 0;
   virtual std::unordered_map<std::string, AmmoParams> getAmmoParams() = 0;
   virtual int getAmmoCount() = 0;
+  virtual ~IConfigLoader() = default;
 };

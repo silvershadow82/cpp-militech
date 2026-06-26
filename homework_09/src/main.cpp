@@ -1,6 +1,10 @@
 #include "ComponentFactory.h"
 #include "MissionProcessor.h"
+#include "StatCollector.h"
 #include "debug.h"
+#include "interfaces/IBallisticSolver.h"
+#include "interfaces/IConfigLoader.h"
+#include "interfaces/ITargetProvider.h"
 #include <cstring>
 #include <iostream>
 

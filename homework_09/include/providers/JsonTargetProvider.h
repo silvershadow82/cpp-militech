@@ -13,6 +13,7 @@ private:
 
 public:
   JsonTargetProvider(const std::string &jsonFileName);
+  ~JsonTargetProvider() override;
   int getTargetCount() override;
   Target getTarget(int index) override;
 };

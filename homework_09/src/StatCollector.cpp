@@ -16,13 +16,14 @@ StatCollector::StatCollector(const std::string &outputFileName)
 
 void StatCollector::collectStateStepStats(const DroneContext &ctx)
 {
-  statSteps[ctx.step].pos = ctx.dronePos;
-  statSteps[ctx.step].direction = ctx.droneAngle;
-  statSteps[ctx.step].targetIdx = ctx.lastTargetIdx;
-  statSteps[ctx.step].dropPoint = ctx.dropPoint;
-  statSteps[ctx.step].state = ctx.state;
-  statSteps[ctx.step].predictedTarget = ctx.predictedTargetPos;
-  statSteps[ctx.step].aimPoint = ctx.aimPoint;
+  this->statSteps[ctx.step].pos = ctx.dronePos;
+  this->statSteps[ctx.step].direction = ctx.droneAngle;
+  this->statSteps[ctx.step].targetIdx = ctx.lastTargetIdx;
+  this->statSteps[ctx.step].dropPoint = ctx.dropPoint;
+  this->statSteps[ctx.step].state = ctx.state;
+  this->statSteps[ctx.step].predictedTarget = ctx.predictedTargetPos;
+  this->statSteps[ctx.step].aimPoint = ctx.aimPoint;
+  this->filledSteps++;
 }
 
 void StatCollector::printStats()
@@ -35,12 +36,11 @@ void StatCollector::printStats()
   }
 
   json out{};
-  const int stepCount = this->statSteps.size();
-
-  out["totalSteps"] = stepCount;
+  out["totalSteps"] = this->filledSteps;
   out["steps"] = json::array();
 
-  for (auto statStep : this->statSteps) {
+  for (int i = 0; i < filledSteps; i++) {
+    auto statStep = this->statSteps[i];
     json step{};
     step["position"] = {{"x", statStep.pos.x}, {"y", statStep.pos.y}};
     step["direction"] = statStep.direction;

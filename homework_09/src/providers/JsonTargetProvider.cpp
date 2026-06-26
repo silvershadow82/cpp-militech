@@ -21,7 +21,8 @@ int JsonTargetProvider::readTargetData()
   int timeStepCount = jt["timeSteps"];
   int targetCount = jt["targetCount"];
 
-  this->targets = std::vector<Target>(targetCount);
+  this->targets.clear();
+  this->targets.reserve(targetCount);
 
   for (int i = 0; i < targetCount; i++) {
     this->targets.emplace_back(Target(i));

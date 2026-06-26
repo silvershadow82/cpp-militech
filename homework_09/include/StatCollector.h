@@ -9,6 +9,7 @@ class StatCollector {
 private:
   std::string outputFileName;
   std::vector<SimStep> statSteps;
+  int filledSteps{0};
 
 public:
   StatCollector(const std::string &outputFileName);

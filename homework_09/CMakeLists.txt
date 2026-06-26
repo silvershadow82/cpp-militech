@@ -25,6 +25,11 @@ add_executable(
     src/providers/JsonTargetProvider.cpp
     src/models/Coord.cpp
     src/models/Target.cpp
+    src/states/StateAccelerating.cpp
+    src/states/StateDecelerating.cpp
+    src/states/StateMoving.cpp
+    src/states/StateStopped.cpp
+    src/states/StateTurning.cpp
     src/StatCollector.cpp
     src/MissionProcessor.cpp
     src/util.cpp)

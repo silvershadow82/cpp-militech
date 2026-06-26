@@ -21,19 +21,19 @@ float util::timeToDistance(float distance, float currentSpeed, float attackSpeed
   return static_cast<float>(accTime + diff / attackSpeed);
 }
 
-void util::normalizeAngle(float &angleDiff)
+float util::normalizeAngle(float angle)
 {
-  while (angleDiff > M_PI)
-    angleDiff -= static_cast<float>(2.f * M_PI);
-  while (angleDiff < -M_PI)
-    angleDiff += static_cast<float>(2.f * M_PI);
+  while (angle > M_PI)
+    angle -= static_cast<float>(2.f * M_PI);
+  while (angle < -M_PI)
+    angle += static_cast<float>(2.f * M_PI);
+
+  return angle;
 }
 
 float util::convergeAngle(float &droneAngle, float targetAngle, const DroneConfig &droneConfig)
 {
-  float angleDiff = targetAngle - droneAngle;
-
-  util::normalizeAngle(angleDiff);
+  float angleDiff = util::normalizeAngle(targetAngle - droneAngle);
 
   float maxAngleStep = droneConfig.angularSpeed * droneConfig.simTimeStep;
 
@@ -47,7 +47,7 @@ float util::convergeAngle(float &droneAngle, float targetAngle, const DroneConfi
     droneAngle -= maxAngleStep;
   }
 
-  util::normalizeAngle(droneAngle);
+  droneAngle = util::normalizeAngle(droneAngle);
 
   return fabsf(angleDiff);
 }

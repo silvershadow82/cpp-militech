@@ -14,15 +14,15 @@ StatCollector::StatCollector(const std::string &outputFileName)
   this->statSteps = std::vector<SimStep>(MAX_STEPS);
 };
 
-void StatCollector::collectStateStepStats(const SimState &state)
+void StatCollector::collectStateStepStats(const DroneContext &ctx)
 {
-  statSteps[state.step].pos = state.dronePos;
-  statSteps[state.step].direction = state.droneAngle;
-  statSteps[state.step].targetIdx = state.lastTargetIdx;
-  statSteps[state.step].dropPoint = state.dropPoint;
-  statSteps[state.step].state = state.droneState;
-  statSteps[state.step].predictedTarget = state.predictedTargetPos;
-  statSteps[state.step].aimPoint = state.aimPoint;
+  statSteps[ctx.step].pos = ctx.dronePos;
+  statSteps[ctx.step].direction = ctx.droneAngle;
+  statSteps[ctx.step].targetIdx = ctx.lastTargetIdx;
+  statSteps[ctx.step].dropPoint = ctx.dropPoint;
+  statSteps[ctx.step].state = ctx.state;
+  statSteps[ctx.step].predictedTarget = ctx.predictedTargetPos;
+  statSteps[ctx.step].aimPoint = ctx.aimPoint;
 }
 
 void StatCollector::printStats()

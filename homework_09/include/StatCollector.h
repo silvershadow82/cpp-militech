@@ -12,7 +12,7 @@ private:
 
 public:
   StatCollector(const std::string &outputFileName);
-  void collectStateStepStats(const SimState &state);
+  void collectStateStepStats(const DroneContext &ctx);
   void resetStats();
   void printStats();
 };

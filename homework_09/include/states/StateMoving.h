@@ -6,5 +6,5 @@
 class StateMoving : public IDroneState {
 public:
   const char* name() const override { return "Moving"; }
-  std::unique_ptr<IDroneState> execute(DroneContext& ctx) override { return std::make_unique<StateMoving>(); }
+  std::unique_ptr<IDroneState> execute(DroneContext& ctx) override;
 };

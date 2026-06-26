@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Types.h"
+#include "interfaces/IDroneState.h"
 #include "models/Target.h"
 #include <memory>
 #include <vector>
@@ -14,15 +15,16 @@ class MissionProcessor {
 private:
   bool initialized{false};
   bool done{false};
-  SimState state;
+  DroneContext context;
   std::vector<float> timeToTargets;
+  std::unique_ptr<IDroneState> currentState;
   std::unique_ptr<StatCollector> statCollector;
   std::unique_ptr<IBallisticSolver> solver;
   std::unique_ptr<ITargetProvider> targetProvider;
   std::unique_ptr<IConfigLoader> configLoader;
   std::string dataFolder;
 
-  void initState(const DroneConfig &config, const int targetCount);
+  void initContext(const DroneConfig &config, const int targetCount);
   bool computeFirePoint(const Target &target);
   float leadTimeToTarget(const Target &target);
   void updateDroneState();

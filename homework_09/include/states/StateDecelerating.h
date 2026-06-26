@@ -2,10 +2,9 @@
 #include <memory>
 #include "Types.h"
 #include "interfaces/IDroneState.h"
-#include "states/StateMoving.h"
 
 class StateDecelerating : public IDroneState {
 public:
   const char* name() const override { return "Decelerating"; }
-  std::unique_ptr<IDroneState> execute(DroneContext& ctx) override { return std::make_unique<StateMoving>(); }
+  std::unique_ptr<IDroneState> execute(DroneContext& ctx) override;
 };

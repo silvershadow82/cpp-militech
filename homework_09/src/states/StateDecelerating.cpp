@@ -7,7 +7,7 @@
 #include <cmath>
 #include <memory>
 
-std::unique_ptr<IDroneState> StateDecelerating::execute(DroneContext &ctx)
+std::unique_ptr<IDroneState> StateDecelerating::execute(MissionContext &ctx)
 {
   ctx.state = this->name();
 
@@ -22,7 +22,7 @@ std::unique_ptr<IDroneState> StateDecelerating::execute(DroneContext &ctx)
   if (ds > 0.f) {
     Coord dir = {static_cast<float>(cos(ctx.droneAngle)), static_cast<float>(sin(ctx.droneAngle))};
     ctx.dronePos = ctx.dronePos + dir * ds;
-    ctx.timeToStop = (ctx.cfg.attackSpeed - ctx.droneSpeed) / ctx.droneAccel;
+    ctx.timeToStop = ctx.droneSpeed / ctx.droneAccel;
   }
 
   return std::make_unique<StateDecelerating>();

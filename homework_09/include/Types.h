@@ -62,7 +62,7 @@ struct DroneConfig {
   float turnThreshold;
 };
 
-struct DroneContext {
+struct MissionContext {
   Coord dronePos;
   Coord dropPoint;
   Coord aimPoint;

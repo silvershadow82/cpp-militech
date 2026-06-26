@@ -7,7 +7,7 @@
 #include <cmath>
 #include <memory>
 
-std::unique_ptr<IDroneState> StateTurning::execute(DroneContext &ctx)
+std::unique_ptr<IDroneState> StateTurning::execute(MissionContext &ctx)
 {
   ctx.state = this->name();
 

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <memory>
 
-std::unique_ptr<IDroneState> StateStopped::execute(DroneContext &ctx)
+std::unique_ptr<IDroneState> StateStopped::execute(MissionContext &ctx)
 {
   ctx.state = this->name();
   // Check to see if we need to turn towards the selected target

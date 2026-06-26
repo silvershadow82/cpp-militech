@@ -14,7 +14,7 @@ StatCollector::StatCollector(const std::string &outputFileName)
   this->statSteps = std::vector<SimStep>(MAX_STEPS);
 };
 
-void StatCollector::collectStateStepStats(const DroneContext &ctx)
+void StatCollector::collectStateStepStats(const MissionContext &ctx)
 {
   this->statSteps[ctx.step].pos = ctx.dronePos;
   this->statSteps[ctx.step].direction = ctx.droneAngle;

@@ -6,5 +6,5 @@
 class StateAccelerating : public IDroneState {
 public:
   const char* name() const override { return "Accelerating"; }
-  std::unique_ptr<IDroneState> execute(DroneContext& ctx) override;
+  std::unique_ptr<IDroneState> execute(MissionContext& ctx) override;
 };

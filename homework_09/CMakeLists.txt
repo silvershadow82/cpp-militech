@@ -20,6 +20,7 @@ add_executable(
     simulation9
     src/main.cpp
     src/solvers/AnalyticalSolver.cpp
+    src/solvers/TableSolver.cpp
     src/config/ComponentFactory.cpp
     src/config/FileConfigLoader.cpp
     src/providers/JsonTargetProvider.cpp
@@ -35,6 +36,17 @@ add_executable(
     src/util.cpp)
 target_include_directories(simulation9 PUBLIC include)
 target_link_libraries(simulation9 PRIVATE nlohmann_json::nlohmann_json)
+
+add_custom_command(
+    TARGET simulation9 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/../data/table/ballistic_table.txt
+        ${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt
+    COMMENT "Copying ballistic table to build directory"
+)
+target_compile_definitions(simulation9 PRIVATE
+    BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt"
+)
 
 if(NOT CMAKE_CROSSCOMPILING)
     include(GoogleTest)

@@ -15,7 +15,7 @@ class MissionProcessor {
 private:
   bool initialized{false};
   bool done{false};
-  DroneContext context;
+  MissionContext context;
   std::vector<float> timeToTargets;
   std::unique_ptr<IDroneState> currentState;
   std::unique_ptr<StatCollector> statCollector;

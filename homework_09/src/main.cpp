@@ -20,7 +20,7 @@ int main(int argc, char **argv)
   ComponentFactory componentFactory = ComponentFactory();
 
   auto configLoader = componentFactory.createLoader(LoaderType::FILE, dataFolder);
-  auto solver = componentFactory.createSolver(SolverType::ANALYTICAL);
+  auto solver = componentFactory.createSolver(SolverType::TABLE);
   auto targetProvider = componentFactory.createProvider(ProviderType::JSON, dataFolder + "/targets.json");
 
   auto missionProcessor = MissionProcessor(std::move(solver), std::move(targetProvider), std::move(configLoader));

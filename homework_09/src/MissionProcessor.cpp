@@ -24,27 +24,28 @@ MissionProcessor::MissionProcessor(std::unique_ptr<IBallisticSolver> solver,
   , targetProvider(std::move(targetProvider))
   , configLoader(std::move(configLoader))
 {
+  LOG("Mission processor created successfully.");
 }
 
 MissionProcessor::~MissionProcessor() = default;
 
 void MissionProcessor::initContext(const DroneConfig &config, const int targetCount)
 {
-  this->context = DroneContext{.dronePos = config.startPos,
-                               .cfg = config,
-                               .droneSpeed = 0.f,
-                               .droneAngle = config.initialDir,
-                               .droneAccel = config.attackSpeed * config.attackSpeed / (2 * config.accelPath),
-                               .timeToStop = 0.f,
-                               .step = 0,
-                               .lastTargetIdx = 0,
-                               .t = 0.f};
+  this->context = MissionContext{.dronePos = config.startPos,
+                                 .cfg = config,
+                                 .droneSpeed = 0.f,
+                                 .droneAngle = config.initialDir,
+                                 .droneAccel = config.attackSpeed * config.attackSpeed / (2 * config.accelPath),
+                                 .timeToStop = 0.f,
+                                 .step = 0,
+                                 .lastTargetIdx = 0,
+                                 .t = 0.f};
 
   this->timeToTargets = std::vector<float>(targetCount);
   this->currentState = std::make_unique<StateStopped>();
   this->done = false;
 
-  LOG("context initialized.");
+  LOG("Mission context initialized successfully");
   LOG("droneAccel=" << this->context.droneAccel);
   LOG("dronePos=(" << this->context.dronePos.x << "," << this->context.dronePos.y << ")");
   LOG("droneSpeed=" << this->context.droneSpeed);

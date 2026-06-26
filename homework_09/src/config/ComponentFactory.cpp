@@ -3,6 +3,7 @@
 #include "config/FileConfigLoader.h"
 #include "providers/JsonTargetProvider.h"
 #include "solvers/AnalyticalSolver.h"
+#include "solvers/TableSolver.h"
 #include <memory>
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
@@ -13,6 +14,7 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solv
       solver = std::make_unique<AnalyticalSolver>();
       break;
     case SolverType::TABLE:
+      solver = std::make_unique<TableSolver>();
       break;
     default:
       break;

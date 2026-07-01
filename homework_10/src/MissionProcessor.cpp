@@ -53,7 +53,7 @@ void MissionProcessor::initContext(const DroneConfig &config, const int targetCo
 
 bool MissionProcessor::computeFirePoint(const Target &target)
 {
-  auto targetPos = target.at(this->context.t, this->context.cfg.arrayTimeStep);
+  auto targetPos = target.pos;
 
   float prevDistToFire{INFINITY};
   float prevTimeToFire{INFINITY};
@@ -76,7 +76,8 @@ bool MissionProcessor::computeFirePoint(const Target &target)
     // Reset drone pos and aim at predicted position for second pass
     //   context.dronePos = origDronePos;
 
-    targetPos = target.at(this->context.t + prevTimeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
+    // targetPos = target.at(this->context.t + prevTimeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
+    targetPos = target.pos;
 
     // Second pass: ballistics to predicted position
     result = this->solver->solve(this->context.dronePos, targetPos, this->context.droneAngle);
@@ -90,7 +91,8 @@ bool MissionProcessor::computeFirePoint(const Target &target)
       distToFire, this->context.droneSpeed, this->context.cfg.attackSpeed, this->context.droneAccel, this->context.cfg.accelPath);
     // Refine prediction using actual lead time from drone to fireX + payload
     // drop
-    targetPos = target.at(this->context.t + timeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
+    // targetPos = target.at(this->context.t + timeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
+    targetPos = target.pos;
 
     this->context.dropPoint = result.dropPoint;
     this->context.payloadDropTime = result.payloadDropTime;
@@ -195,7 +197,9 @@ bool MissionProcessor::step()
   // If drone reached fire point, check payload lands within hitRadius of real
   // target
   if (Coord::distance(this->context.dronePos, this->context.dropPoint) <= 1.f) {
-    Coord realTargetPos = target.at(this->context.t + this->context.payloadDropTime, this->context.cfg.arrayTimeStep);
+    // Coord realTargetPos = target.at(this->context.t + this->context.payloadDropTime, this->context.cfg.arrayTimeStep);
+    // TODO: figure out how to get the real target position at the time of payload drop
+    Coord realTargetPos = target.pos;
     float deviation = Coord::distance(this->context.predictedTargetPos, realTargetPos);
     if (deviation <= this->context.cfg.hitRadius) {
       this->done = true;

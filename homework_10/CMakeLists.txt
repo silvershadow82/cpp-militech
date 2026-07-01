@@ -23,9 +23,8 @@ add_executable(
     src/solvers/TableSolver.cpp
     src/config/ComponentFactory.cpp
     src/config/FileConfigLoader.cpp
-    src/providers/JsonTargetProvider.cpp
+    src/providers/ThreadSafeTargetProvider.cpp
     src/models/Coord.cpp
-    src/models/Target.cpp
     src/states/StateAccelerating.cpp
     src/states/StateDecelerating.cpp
     src/states/StateMoving.cpp

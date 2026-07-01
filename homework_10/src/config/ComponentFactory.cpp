@@ -1,7 +1,7 @@
 #include "ComponentFactory.h"
 #include "Types.h"
 #include "config/FileConfigLoader.h"
-#include "providers/JsonTargetProvider.h"
+#include "providers/ThreadSafeTargetProvider.h"
 #include "solvers/AnalyticalSolver.h"
 #include "solvers/TableSolver.h"
 #include <memory>
@@ -27,7 +27,8 @@ std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType p
   std::unique_ptr<ITargetProvider> provider = nullptr;
   switch (providerType) {
     case ProviderType::JSON:
-      provider = std::make_unique<JsonTargetProvider>(param);
+      // TODO: populate real arrayTimeStep from config or parameter
+      provider = std::make_unique<ThreadSafeTargetProvider>(param, 5);
       break;
     default:
       break;

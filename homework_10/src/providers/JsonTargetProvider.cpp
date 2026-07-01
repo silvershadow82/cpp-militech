@@ -49,7 +49,7 @@ int JsonTargetProvider::getTargetCount()
   return this->targets.size();
 }
 
-Target JsonTargetProvider::getTarget(int index)
+LegacyTarget JsonTargetProvider::getTarget(int index)
 {
   return this->targets.at(index);
 }

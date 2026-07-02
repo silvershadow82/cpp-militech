@@ -15,7 +15,7 @@ private:
   IConfigLoader* configLoader;
   std::string dataFolder;
 
-  void initState(const DroneConfig& config, const int targetCount);
+  void initContext(const DroneConfig& config, const int targetCount);
   bool computeFirePoint(const Target& target);
   float leadTimeToTarget(const Target& target);
   void updateDroneState();

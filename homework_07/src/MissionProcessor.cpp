@@ -16,7 +16,7 @@ const int maxApproxSteps{10};
 const float maxDiffPrecision{1e-6};
 // Implementation for the MissionProcessor
 
-void MissionProcessor::initState(const DroneConfig& config, const int targetCount)
+void MissionProcessor::initContext(const DroneConfig& config, const int targetCount)
 {
   state = SimState{};
   state.dronePos = config.startPos;
@@ -225,7 +225,7 @@ bool MissionProcessor::init(ConfigSource configSource, const std::string& dataFo
     }
     PayloadParams pp = selectedAmmo->payloadParams();
     solver->init(config, pp);
-    this->initState(config, targetProvider->getTargetCount());
+    this->initContext(config, targetProvider->getTargetCount());
     this->initialized = true;
 
     LOG("DroneConfig loaded attackSpeed=" << config.attackSpeed);
@@ -318,7 +318,7 @@ bool MissionProcessor::step()
 
 void MissionProcessor::reset()
 {
-  initState(this->configLoader->getConfig(), this->targetProvider->getTargetCount());
+  initContext(this->configLoader->getConfig(), this->targetProvider->getTargetCount());
 };
 void MissionProcessor::changeSolver(IBallisticSolver* solver)
 {

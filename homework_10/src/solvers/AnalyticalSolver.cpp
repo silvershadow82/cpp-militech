@@ -66,7 +66,7 @@ void AnalyticalSolver::init(const DroneConfig &droneConfig, const PayloadParams 
   this->pp = payloadParams;
 }
 
-BallisticResult AnalyticalSolver::solve(Coord dronePos, Coord targetPos, float droneAngle)
+BallisticResult AnalyticalSolver::solve()
 {
   float t = payloadTimeOfFlight();
 
@@ -82,46 +82,8 @@ BallisticResult AnalyticalSolver::solve(Coord dronePos, Coord targetPos, float d
     return BallisticResult{.ok = false};
   }
 
-  // Calculate drone to target distance
-  float distanceToTarget = Coord::distance(dronePos, targetPos);
+  // Pure ballistics only: the mission processor turns t/h into drop/aim points.
+  DEBUG("Ballistic Result: t=" << t << ", h=" << h);
 
-  if (distanceToTarget <= 0) {
-    std::cout << "Invalid D=" << distanceToTarget << std::endl;
-    return BallisticResult{.ok = false};
-  }
-  // Check if drone has to maneuvre and calculate new xd, yd
-  Coord newDronePos = dronePos;
-
-  if (h + droneConfig.accelPath > distanceToTarget) {
-    if (fabs(distanceToTarget) < 1e-6) {
-      newDronePos.x = targetPos.x - (h + droneConfig.accelPath);
-      newDronePos.y = targetPos.y;
-
-      // DEBUG("with intermediate point: NewDronePos=(" << state.dronePos.x <<
-      // "," << state.dronePos.y << ")");
-
-      distanceToTarget = h + droneConfig.accelPath;
-    }
-    else {
-      newDronePos = targetPos - (targetPos - dronePos) * (h + droneConfig.accelPath) / distanceToTarget;
-
-      // DEBUG("NewDronePos=(" << state.dronePos.x << ", " << state.dronePos.y
-      // << ")"); xd = targetX - (targetX - xd) * (h + accelerationPath) /
-      // distanceToTarget; yd = targetY - (targetY - yd) * (h +
-      // accelerationPath) / distanceToTarget;
-      distanceToTarget = Coord::distance(newDronePos, targetPos);
-    }
-  }
-
-  float ratio = (distanceToTarget - h) / distanceToTarget;
-
-  // Calculate drop point coordinates
-  Coord dir = {static_cast<float>(cos(droneAngle)), static_cast<float>(sin(droneAngle))};
-
-  BallisticResult result{
-    .ok = true, .dropPoint = newDronePos + (targetPos - newDronePos) * ratio, .aimPoint = newDronePos + dir * h, .payloadDropTime = t};
-
-  DEBUG("Ballistic Result: dropPoint=(" << result.dropPoint.x << "," << result.dropPoint.y << ")");
-
-  return result;
+  return BallisticResult{.ok = true, .t = t, .h = h};
 }

@@ -30,6 +30,7 @@ private:
   std::string dataFolder;
 
   void initContext(const DroneConfig &config, const int targetCount);
+  bool computeFireGeometry(const Coord &dronePos, const Coord &targetPos, float droneAngle, const BallisticResult &ballistics);
   bool computeFirePoint(const Target &target);
   float leadTimeToTarget(const Target &target);
   void updateDroneState();

@@ -86,11 +86,13 @@ struct MissionContext {
   float timeSecSinceStart;
 };
 
+// Pure ballistics output: projectile flight time and horizontal travel distance.
+// Fire-point geometry (drop point, aim point, accel-path maneuver) is the mission
+// processor's responsibility, not the solver's (SRP).
 struct BallisticResult {
   bool ok;
-  Coord dropPoint;
-  Coord aimPoint;
-  float payloadDropTime;
+  float t;  // час польоту снаряда
+  float h;  // горизонтальна балістична дистанція
 };
 
 struct SimStep {

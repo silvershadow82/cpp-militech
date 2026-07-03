@@ -8,7 +8,7 @@
 
 DronePhysics::DronePhysics(const DroneConfig& config)
 {
-  this->config = config;  // store full config; step() reads config.angularSpeed / config.turnThreshold
+  this->config = config;
   this->speed = 0.f;
   this->timeSecSinceStart = 0.f;
   this->physicsTimeStep = config.physicsTimeStep;
@@ -51,7 +51,7 @@ void DronePhysics::step()
 
   switch (this->mode) {
     case STOPPED:
-      // no integration, no position change
+      // no position change
       break;
 
     case TURNING:
@@ -60,10 +60,6 @@ void DronePhysics::step()
 
     case ACCELERATING: {
       util::convergeAngle(this->currentAngle, this->targetAngle, this->config, dt);
-      float angleDelta = util::normalizeAngle(this->targetAngle - this->currentAngle);
-      if (fabsf(angleDelta) > this->config.turnThreshold) {
-        break;
-      }
       float ds = static_cast<float>(this->speed * dt + 0.5f * this->accel * dt * dt);
       Coord dir = {static_cast<float>(cos(this->currentAngle)), static_cast<float>(sin(this->currentAngle))};
       this->speed += this->accel * dt;
@@ -76,10 +72,6 @@ void DronePhysics::step()
 
     case MOVING: {
       util::convergeAngle(this->currentAngle, this->targetAngle, this->config, dt);
-      float angleDelta = util::normalizeAngle(this->targetAngle - this->currentAngle);
-      if (fabsf(angleDelta) > this->config.turnThreshold) {
-        break;
-      }
       float ds = static_cast<float>(this->speed * dt);
       Coord dir = {static_cast<float>(cos(this->currentAngle)), static_cast<float>(sin(this->currentAngle))};
       this->position = this->position + dir * ds;
@@ -114,17 +106,16 @@ void DronePhysics::run()
 {
   LOG("DronePhysics thread up (run() entry)");
 
-  // Signal readiness, then wait on the start gate (non-busy: 1ms poll).
   this->ready.store(true);
+
   while (!this->started.load() && !this->stopFlag.load()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
-  // step() locks/unlocks its own mutex internally and returns before we sleep,
-  // so the sleep below always happens with the mutex released.
+  // мютекс не потрібен для sleep, бо step() сам блокує доступ до стану дрона
   while (!this->stopFlag.load()) {
     this->step();
-    // sleep without holding the mutex to allow other threads to enqueue commands or read telemetry
+    // Спимо без мютекса на час, що відповідає кроку фізики, з урахуванням масштабу часу
     std::this_thread::sleep_for(std::chrono::duration<float>(this->physicsTimeStep / this->timeScale));
   }
 }

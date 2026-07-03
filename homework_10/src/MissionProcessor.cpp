@@ -17,7 +17,6 @@
 
 const int maxApproxSteps{10};
 const float maxDiffPrecision{1e-6};
-// Implementation for the MissionProcessor
 
 MissionProcessor::MissionProcessor(std::unique_ptr<IBallisticSolver> solver,
                                    std::unique_ptr<ITargetProvider> targetProvider,
@@ -55,9 +54,55 @@ void MissionProcessor::initContext(const DroneConfig &config, const int targetCo
   LOG("droneSpeed=" << this->context.droneSpeed);
 }
 
+bool MissionProcessor::computeFireGeometry(const Coord &dronePos,
+                                           const Coord &targetPos,
+                                           float droneAngle,
+                                           const BallisticResult &ballistics)
+{
+  const float t = ballistics.t;
+  const float h = ballistics.h;
+
+  // Drone-to-target distance.
+  float distanceToTarget = Coord::distance(dronePos, targetPos);
+  if (distanceToTarget <= 0) {
+    std::cout << "Invalid D=" << distanceToTarget << std::endl;
+    return false;
+  }
+
+  // Дивимось, чи потрібна проміжна точка для скидання боєприпасу, щоб дрон встиг розігнатися до необхідної швидкості
+  Coord newDronePos = dronePos;
+  if (h + this->context.cfg.accelPath > distanceToTarget) {
+    if (fabsf(distanceToTarget) < 1e-6) {
+      newDronePos.x = targetPos.x - (h + this->context.cfg.accelPath);
+      newDronePos.y = targetPos.y;
+      distanceToTarget = h + this->context.cfg.accelPath;
+    }
+    else {
+      newDronePos = targetPos - (targetPos - dronePos) * (h + this->context.cfg.accelPath) / distanceToTarget;
+      distanceToTarget = Coord::distance(newDronePos, targetPos);
+    }
+  }
+
+  float ratio = (distanceToTarget - h) / distanceToTarget;
+  Coord dir = {static_cast<float>(cos(droneAngle)), static_cast<float>(sin(droneAngle))};
+
+  this->context.dropPoint = newDronePos + (targetPos - newDronePos) * ratio;
+  this->context.aimPoint = newDronePos + dir * h;
+  this->context.payloadDropTime = t;
+
+  DEBUG("Fire geometry: dropPoint=(" << this->context.dropPoint.x << "," << this->context.dropPoint.y << ")");
+  return true;
+}
+
 bool MissionProcessor::computeFirePoint(const Target &target)
 {
-  auto targetPos = target.pos;
+  BallisticResult ballistics = this->solver->solve();
+
+  if (!ballistics.ok) {
+    return false;
+  }
+
+  Coord targetPos = target.pos;
 
   float prevDistToFire{INFINITY};
   float prevTimeToFire{INFINITY};
@@ -66,41 +111,27 @@ bool MissionProcessor::computeFirePoint(const Target &target)
 
   int appox{0};
 
-  // Converge distance to fire or die trying
   do {
-    // First pass: ballistics to current target position
-    auto result = this->solver->solve(this->context.dronePos, targetPos, this->context.droneAngle);
-
-    if (!result.ok) {
+    // First pass - geometry to the current predicted target position.
+    if (!this->computeFireGeometry(this->context.dronePos, targetPos, this->context.droneAngle, ballistics)) {
       return false;
     }
-    prevDistToFire = Coord::distance(this->context.dronePos, result.dropPoint);
+    prevDistToFire = Coord::distance(this->context.dronePos, this->context.dropPoint);
     prevTimeToFire = util::timeToDistance(
       prevDistToFire, this->context.droneSpeed, this->context.cfg.attackSpeed, this->context.droneAccel, this->context.cfg.accelPath);
-    // Reset drone pos and aim at predicted position for second pass
-    //   context.dronePos = origDronePos;
 
-    // targetPos = target.at(this->context.t + prevTimeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
-    targetPos = target.pos;
+    // Використовуємо тільки позицію цілі та її швидкість для прогнозування, без врахування майбутньої точки скидання боєприпасу
+    targetPos = target.pos + target.velocity * (prevTimeToFire + this->context.payloadDropTime);
 
-    // Second pass: ballistics to predicted position
-    result = this->solver->solve(this->context.dronePos, targetPos, this->context.droneAngle);
-
-    if (!result.ok) {
+    if (!this->computeFireGeometry(this->context.dronePos, targetPos, this->context.droneAngle, ballistics)) {
       return false;
     }
-
-    distToFire = Coord::distance(this->context.dronePos, result.dropPoint);
+    distToFire = Coord::distance(this->context.dronePos, this->context.dropPoint);
     timeToFire = util::timeToDistance(
       distToFire, this->context.droneSpeed, this->context.cfg.attackSpeed, this->context.droneAccel, this->context.cfg.accelPath);
-    // Refine prediction using actual lead time from drone to fireX + payload
-    // drop
-    // targetPos = target.at(this->context.t + timeToFire + result.payloadDropTime, this->context.cfg.arrayTimeStep);
-    targetPos = target.pos;
 
-    this->context.dropPoint = result.dropPoint;
-    this->context.payloadDropTime = result.payloadDropTime;
-    this->context.aimPoint = result.aimPoint;
+    // Прохід 2 - прогнозування позиції цілі на основі часу до точки скидання боєприпасу
+    targetPos = target.pos + target.velocity * (timeToFire + this->context.payloadDropTime);
     this->context.predictedTargetPos = targetPos;
 
   } while (appox++ < maxApproxSteps &&
@@ -125,7 +156,7 @@ float MissionProcessor::leadTimeToTarget(const Target &target)
 
   if (context.lastTargetIdx != target.index) {
     context.targetAngle = Coord::angle(context.dronePos, context.predictedTargetPos);
-    // Switch target and calculate time to stop based on new target angle
+    // Якщо дрон змінює ціль, то потрібно врахувати час на розгін/гальмування до нової цілі
     timeToStop = this->context.timeToStop;
   }
   return timeToTarget + timeToStop;
@@ -176,38 +207,35 @@ bool MissionProcessor::step()
 {
   DEBUG("Simulation at step " << this->context.step);
 
-  // Mirror the current drone kinematics from physics telemetry into the context
-  // BEFORE ballistics/FSM decide (read-only inputs; physics owns the kinematics).
   DroneTelemetry t = this->dronePhysics->getTelemetry();
+
   this->context.dronePos = t.pos;
   this->context.droneSpeed = t.speed;
   this->context.droneAngle = t.angle;
 
-  // Calculate travel time to all the targets
+  // Розраховуємо час до всіх цілей, щоб визначити, яка з них буде досягнута першою
   for (int i = 0; i < this->targetProvider->getTargetCount(); i++) {
-    Target target = this->targetProvider->getTarget(i);
-    float timeToTarget = this->leadTimeToTarget(target);
-    // Skip failed targets
+    auto target = this->targetProvider->getTarget(i);
+    auto timeToTarget = this->leadTimeToTarget(target);
+
     if (timeToTarget < 0) {
       continue;
     }
     timeToTargets[i] = timeToTarget;
   }
 
-  // Update the target
-  context.lastTargetIdx = util::minValueIdx(timeToTargets);
-  Target target = this->targetProvider->getTarget(context.lastTargetIdx);
+  // Оновлюємо індекс останньої цілі, яка буде досягнута першою, та розраховуємо точку скидання боєприпасу
+  this->context.lastTargetIdx = util::minValueIdx(timeToTargets);
+  auto target = this->targetProvider->getTarget(this->context.lastTargetIdx);
 
   if (!this->computeFirePoint(target)) {
     return false;
   }
 
-  // If drone reached fire point, check payload lands within hitRadius of real
-  // target
+  // Якщо дрон знаходиться на відстані <= 1 м від точки скидання боєприпасу, перевіряємо,
+  // чи буде ціль у межах радіусу попадання
   if (Coord::distance(this->context.dronePos, this->context.dropPoint) <= 1.f) {
-    // Coord realTargetPos = target.at(this->context.t + this->context.payloadDropTime, this->context.cfg.arrayTimeStep);
-    // TODO: figure out how to get the real target position at the time of payload drop
-    Coord realTargetPos = target.pos;
+    auto realTargetPos = target.pos + target.velocity * this->context.payloadDropTime;
     float deviation = Coord::distance(this->context.predictedTargetPos, realTargetPos);
     if (deviation <= this->context.cfg.hitRadius) {
       this->done = true;
@@ -216,16 +244,12 @@ bool MissionProcessor::step()
 
   context.targetAngle = Coord::angle(this->context.dronePos, this->context.predictedTargetPos);
 
-  // FSM decide-only: sets ctx.commandMode + ctx.targetAngle and advances currentState.
   this->updateDroneState();
 
-  // Hand the command to physics. The physics thread integrates asynchronously now,
-  // so we do NOT step physics here (Stage 3: physics runs on its own thread).
+  // Формуємо команду для фізики дрона на основі поточного стану та бажаного курсу
   this->dronePhysics->enqueueCommand(DroneCommand{this->context.commandMode, this->context.targetAngle});
 
-  // Re-read telemetry so the logged step reflects the drone's latest kinematics.
-  // The physics thread advances state between the two reads; this asynchronous
-  // sampling is the accepted real-time behavior.
+  // Перечитуємо телеметрію дрона після виконання кроку фізики
   DroneTelemetry t2 = this->dronePhysics->getTelemetry();
   this->context.dronePos = t2.pos;
   this->context.droneSpeed = t2.speed;
@@ -233,7 +257,7 @@ bool MissionProcessor::step()
   this->context.state = t2.mode;
   this->context.timeSecSinceStart = t2.timeSecSinceStart;
 
-  // Collect step stats
+  // Зберемо статистику
   this->statCollector->collectStateStepStats(this->context);
 
   DEBUG("Step " << this->context.step);
@@ -253,7 +277,7 @@ bool MissionProcessor::step()
 
 void MissionProcessor::run()
 {
-  LOG("MissionProcessor thread up (run() entry)");
+  LOG("MissionProcessor thread up");
   while (!this->stopFlag.load() && this->hasNext()) {
     this->step();
     std::this_thread::sleep_for(std::chrono::duration<double>(this->context.cfg.simTimeStep / this->context.cfg.timeScale));

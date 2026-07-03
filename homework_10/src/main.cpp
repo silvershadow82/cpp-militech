@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     LOG("Error: failed to create config loader");
     return 1;
   }
-  // load config before constructing physics-dependent components.
+
   configLoader->load();
   DroneConfig config = configLoader->getConfig();
 
@@ -38,13 +38,11 @@ int main(int argc, char **argv)
     componentFactory.createProvider(ProviderType::JSON, dataFolder + "/targets.json", config.arrayTimeStep, config.timeScale);
   auto physics = componentFactory.createDronePhysics(config);
 
-  // Capture raw handles BEFORE moving ownership into the MissionProcessor.
-  // ITargetProvider is polymorphic (virtual dtor), so dynamic_cast is valid.
+  // Щоб не втратити доступ до об'єктів після передачі у MissionProcessor, зберігаємо сирі вказівники на них
+  // динамічно приведений до потрібного типу, щоб не плодити зайві методи в інтерфейсі
   auto *provider = dynamic_cast<ThreadSafeTargetProvider *>(providerUniquePtr.get());
-  DronePhysics *physicsHandle = physics.get();  // raw handle captured BEFORE the move below (moved-from unique_ptr is empty)
+  auto *physicsHandle = physics.get();
 
-  // Validate handles BEFORE moving ownership into MissionProcessor (afterwards
-  // the unique_ptrs are empty and these raw pointers would be moot).
   if (provider == nullptr || !physics) {
     LOG("Error: failed to construct provider/physics components (prov=" << provider << ", phys=" << physics.get() << ")");
     return 1;
@@ -59,7 +57,7 @@ int main(int argc, char **argv)
   std::thread providerThread(&ThreadSafeTargetProvider::run, provider);
   std::thread physicsThread(&DronePhysics::run, physicsHandle);
 
-  // Wait until both worker threads report ready
+  // чекаємо, поки обидва потоки не будуть готові до роботи
   while (!(provider->isThreadReady() && physicsHandle->isThreadReady())) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }

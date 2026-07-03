@@ -5,7 +5,6 @@
 #include "nlohmann/json_fwd.hpp"
 #include "debug.h"
 #include <chrono>
-#include <cstddef>
 #include <thread>
 #include <fstream>
 #include <iostream>
@@ -20,10 +19,8 @@ ThreadSafeTargetProvider::ThreadSafeTargetProvider(const std::string &jsonFileNa
 {
   this->readTargetData();
 
-  // Seed initial positions/velocities so getTarget() returns valid data
-  // immediately, before the run() thread lands its first step-0 update. This
-  // eliminates the degenerate (0,0) first-sample regardless of thread timing.
-  // targetSpeed() does NOT lock mtx, so this is safe from the constructor.
+  // Ініціалізуємо поточний крок часу та встановлюємо початкові позиції та швидкості цілей
+  this->currentTimeStep.store(0);
   for (int i = 0; i < this->targets.size(); i++) {
     if (i < this->timeSteps.size() && !this->timeSteps[i].empty()) {
       this->targets[i].pos = this->timeSteps[i][0];
@@ -75,7 +72,7 @@ Coord ThreadSafeTargetProvider::targetSpeed(int targetId, int timeStep)
     return Coord(0.0f, 0.0f);  // Invalid time step
   }
 
-  // wrap timeStep to ensure the previous of 0 is the last time step
+  // Зациклюємо індекс попереднього кроку часу
   int prevTimeStep = (timeStep - 1 + length) % length;
 
   const Coord &prevPos = this->timeSteps[targetId][prevTimeStep];
@@ -106,8 +103,8 @@ void ThreadSafeTargetProvider::run()
 {
   LOG("ThreadSafeTargetProvider thread up (run() entry)");
 
-  // Signal readiness, then wait on the start gate (non-busy: 1ms poll).
   this->ready.store(true);
+
   while (!this->started.load() && !this->stopFlag.load()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -123,11 +120,11 @@ void ThreadSafeTargetProvider::run()
         this->targets[i].velocity = this->targetSpeed(i, step);
       }
     }
-    // Increment the current time step and wrap around if necessary (mutex released).
+    // Зациклюємо індекс поточного кроку часу, якщо є дані для оновлення
     if (length > 0) {
       this->currentTimeStep.store((this->currentTimeStep.load() + 1) % length);
     }
-    // Sleep (mutex released) for the scaled arrayTimeStep duration before the next update.
+    // Спимо на час, що відповідає кроку часу масиву, з урахуванням масштабу часу
     std::this_thread::sleep_for(std::chrono::duration<float>(this->arrayTimeStep / this->timeScale));
   }
 }
@@ -148,6 +145,7 @@ Target ThreadSafeTargetProvider::getTarget(int index) const
       return targets[index];
     }
   }
-  // Handle out-of-bounds access, possibly throw an exception or return a default Target
+  // Якщо індекс недійсний, повертаємо порожню ціль
+  LOG("Warning: getTarget() called with invalid index " << index);
   return Target();
 }

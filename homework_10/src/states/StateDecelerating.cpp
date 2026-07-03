@@ -11,6 +11,7 @@ std::unique_ptr<IDroneState> StateDecelerating::execute(MissionContext &ctx)
 {
   ctx.commandMode = DECELERATING;
 
+  // Сповільнення дрона до зупинки
   float ds = static_cast<float>(ctx.droneSpeed * ctx.cfg.simTimeStep - 0.5f * ctx.droneAccel * ctx.cfg.simTimeStep * ctx.cfg.simTimeStep);
   float postSpeed = ctx.droneSpeed - ctx.droneAccel * ctx.cfg.simTimeStep;
 

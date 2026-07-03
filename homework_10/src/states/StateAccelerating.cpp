@@ -15,7 +15,9 @@ std::unique_ptr<IDroneState> StateAccelerating::execute(MissionContext &ctx)
   // Залишаємо час для прискорення, поки не досягнемо швидкості атаки або не перевищимо поріг повороту.
   // Фізика оновить дані сама
   float postAngle = ctx.droneAngle;
+
   util::convergeAngle(postAngle, ctx.targetAngle, ctx.cfg, ctx.cfg.simTimeStep);
+
   float angleDelta = util::normalizeAngle(ctx.targetAngle - postAngle);
 
   if (fabsf(angleDelta) > ctx.cfg.turnThreshold) {

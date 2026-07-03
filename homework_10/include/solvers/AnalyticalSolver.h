@@ -10,5 +10,5 @@ private:
 
 public:
   void init(const DroneConfig &droneConfig, const PayloadParams &payloadParams) override;
-  BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) override;
+  BallisticResult solve() override;
 };

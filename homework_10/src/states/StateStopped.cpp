@@ -11,7 +11,10 @@
 std::unique_ptr<IDroneState> StateStopped::execute(MissionContext &ctx)
 {
   ctx.commandMode = STOPPED;
-  // Check to see if we need to turn towards the selected target
+
+  // Дивимось, чи потрібно розпочати прискорення або поворот.
+  // Якщо кут між поточним курсом і бажаним курсом перевищує поріг, переходимо до стану TURNING.
+  // Інакше переходимо до стану ACCELERATING.
   float angleDelta = util::normalizeAngle(ctx.targetAngle - ctx.droneAngle);
 
   if (fabsf(angleDelta) > ctx.cfg.turnThreshold) {

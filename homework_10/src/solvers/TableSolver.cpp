@@ -31,11 +31,10 @@ void TableSolver::init(const DroneConfig& config, const PayloadParams& payloadPa
 
   this->altitude = config.altitude;
   this->speed = config.attackSpeed;
-  this->accelPath = config.accelPath;
   this->pp = payloadParams;
 }
 
-BallisticResult TableSolver::solve(Coord dronePos, Coord targetPos, float droneAngle)
+BallisticResult TableSolver::solve()
 {
   auto result = this->table->lookup(this->altitude, this->speed, this->pp.m, this->pp.d, this->pp.l);
 
@@ -52,38 +51,8 @@ BallisticResult TableSolver::solve(Coord dronePos, Coord targetPos, float droneA
     return BallisticResult{.ok = false};
   }
 
-  // Calculate drone to target distance
-  float distanceToTarget = Coord::distance(dronePos, targetPos);
+  // Pure ballistics only: the mission processor turns t/h into drop/aim points.
+  DEBUG("Ballistic Result: t=" << t << ", h=" << h);
 
-  if (distanceToTarget <= 0) {
-    std::cout << "Invalid D=" << distanceToTarget << std::endl;
-    return BallisticResult{.ok = false};
-  }
-  // Check if drone has to maneuvre and calculate new xd, yd
-  Coord newDronePos = dronePos;
-
-  if (h + this->accelPath > distanceToTarget) {
-    if (fabsf(distanceToTarget) < 1e-6) {
-      newDronePos.x = targetPos.x - (h + this->accelPath);
-      newDronePos.y = targetPos.y;
-
-      distanceToTarget = h + this->accelPath;
-    }
-    else {
-      newDronePos = targetPos - (targetPos - dronePos) * (h + this->accelPath) / distanceToTarget;
-      distanceToTarget = Coord::distance(newDronePos, targetPos);
-    }
-  }
-
-  float ratio = (distanceToTarget - h) / distanceToTarget;
-
-  // Calculate drop point coordinates
-  Coord dir = {static_cast<float>(cos(droneAngle)), static_cast<float>(sin(droneAngle))};
-
-  BallisticResult ret{
-    .ok = true, .dropPoint = newDronePos + (targetPos - newDronePos) * ratio, .aimPoint = newDronePos + dir * h, .payloadDropTime = t};
-
-  DEBUG("Ballistic Result: dropPoint=(" << ret.dropPoint.x << "," << ret.dropPoint.y << ")");
-
-  return ret;
+  return BallisticResult{.ok = true, .t = t, .h = h};
 }

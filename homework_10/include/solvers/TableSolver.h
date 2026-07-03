@@ -13,10 +13,9 @@ private:
   PayloadParams pp;
   float altitude{0};
   float speed{0};
-  float accelPath{0};
 
 public:
   TableSolver();
   void init(const DroneConfig &droneConfig, const PayloadParams &payloadParams) override;
-  BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) override;
+  BallisticResult solve() override;
 };

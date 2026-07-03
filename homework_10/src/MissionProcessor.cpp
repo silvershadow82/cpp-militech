@@ -7,10 +7,12 @@
 #include "interfaces/ITargetProvider.h"
 #include "states/StateStopped.h"
 #include "util.h"
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <thread>
 #include <vector>
 
 const int maxApproxSteps{10};
@@ -19,10 +21,12 @@ const float maxDiffPrecision{1e-6};
 
 MissionProcessor::MissionProcessor(std::unique_ptr<IBallisticSolver> solver,
                                    std::unique_ptr<ITargetProvider> targetProvider,
-                                   std::unique_ptr<IConfigLoader> configLoader)
+                                   std::unique_ptr<IConfigLoader> configLoader,
+                                   std::unique_ptr<DronePhysics> dronePhysics)
   : solver(std::move(solver))
   , targetProvider(std::move(targetProvider))
   , configLoader(std::move(configLoader))
+  , dronePhysics(std::move(dronePhysics))
 {
   LOG("Mission processor created successfully.");
 }
@@ -102,7 +106,7 @@ bool MissionProcessor::computeFirePoint(const Target &target)
   } while (appox++ < maxApproxSteps &&
            (fabsf(distToFire - prevDistToFire) > maxDiffPrecision || fabsf(timeToFire - prevTimeToFire) > maxDiffPrecision));
 
-  DEBUG("Converged to firePoint for target=" << target.getIndex() << ", maxSteps=" << appox);
+  DEBUG("Converged to firePoint for target=" << target.index << ", maxSteps=" << appox);
 
   return true;
 }
@@ -119,7 +123,7 @@ float MissionProcessor::leadTimeToTarget(const Target &target)
     distanceToFirePoint, this->context.droneSpeed, this->context.cfg.attackSpeed, this->context.droneAccel, this->context.cfg.accelPath)};
   float timeToStop{0.f};
 
-  if (context.lastTargetIdx != target.getIndex()) {
+  if (context.lastTargetIdx != target.index) {
     context.targetAngle = Coord::angle(context.dronePos, context.predictedTargetPos);
     // Switch target and calculate time to stop based on new target angle
     timeToStop = this->context.timeToStop;
@@ -129,9 +133,6 @@ float MissionProcessor::leadTimeToTarget(const Target &target)
 
 void MissionProcessor::updateDroneState()
 {
-  float ds{0.f};
-  Coord dir;
-
   auto next = this->currentState->execute(this->context);
 
   if (next) {
@@ -175,6 +176,13 @@ bool MissionProcessor::step()
 {
   DEBUG("Simulation at step " << this->context.step);
 
+  // Mirror the current drone kinematics from physics telemetry into the context
+  // BEFORE ballistics/FSM decide (read-only inputs; physics owns the kinematics).
+  DroneTelemetry t = this->dronePhysics->getTelemetry();
+  this->context.dronePos = t.pos;
+  this->context.droneSpeed = t.speed;
+  this->context.droneAngle = t.angle;
+
   // Calculate travel time to all the targets
   for (int i = 0; i < this->targetProvider->getTargetCount(); i++) {
     Target target = this->targetProvider->getTarget(i);
@@ -208,9 +216,22 @@ bool MissionProcessor::step()
 
   context.targetAngle = Coord::angle(this->context.dronePos, this->context.predictedTargetPos);
 
-  // Main state machine
-  // Update drone speed, coords and direction
+  // FSM decide-only: sets ctx.commandMode + ctx.targetAngle and advances currentState.
   this->updateDroneState();
+
+  // Hand the command to physics. The physics thread integrates asynchronously now,
+  // so we do NOT step physics here (Stage 3: physics runs on its own thread).
+  this->dronePhysics->enqueueCommand(DroneCommand{this->context.commandMode, this->context.targetAngle});
+
+  // Re-read telemetry so the logged step reflects the drone's latest kinematics.
+  // The physics thread advances state between the two reads; this asynchronous
+  // sampling is the accepted real-time behavior.
+  DroneTelemetry t2 = this->dronePhysics->getTelemetry();
+  this->context.dronePos = t2.pos;
+  this->context.droneSpeed = t2.speed;
+  this->context.droneAngle = t2.angle;
+  this->context.state = t2.mode;
+  this->context.timeSecSinceStart = t2.timeSecSinceStart;
 
   // Collect step stats
   this->statCollector->collectStateStepStats(this->context);
@@ -228,6 +249,20 @@ bool MissionProcessor::step()
   this->context.t += this->context.cfg.simTimeStep;
 
   return true;
+}
+
+void MissionProcessor::run()
+{
+  LOG("MissionProcessor thread up (run() entry)");
+  while (!this->stopFlag.load() && this->hasNext()) {
+    this->step();
+    std::this_thread::sleep_for(std::chrono::duration<double>(this->context.cfg.simTimeStep / this->context.cfg.timeScale));
+  }
+}
+
+void MissionProcessor::stop()
+{
+  this->stopFlag.store(true);
 }
 
 void MissionProcessor::reset()

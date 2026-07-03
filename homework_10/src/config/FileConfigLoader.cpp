@@ -2,6 +2,7 @@
 #include "Types.h"
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
+#include "debug.h"
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -38,6 +39,22 @@ int FileConfigLoader::readConfig()
   this->droneConfig.simTimeStep = jc["simulation"]["timeStep"];
   this->droneConfig.hitRadius = jc["simulation"]["hitRadius"];
   this->droneConfig.arrayTimeStep = jc["targetArrayTimeStep"];
+
+  this->droneConfig.physicsTimeStep = jc["simulation"].value("physicsTimeStep", 0.02f);
+  this->droneConfig.timeScale = jc["simulation"].value("timeScale", 1.0f);
+
+  if (this->droneConfig.physicsTimeStep >= this->droneConfig.simTimeStep) {
+    LOG("Warning: physicsTimeStep (" << this->droneConfig.physicsTimeStep << ") >= simTimeStep (" << this->droneConfig.simTimeStep
+                                     << "); clamping physicsTimeStep to simTimeStep/2");
+    this->droneConfig.physicsTimeStep = this->droneConfig.simTimeStep / 2.0f;
+  }
+
+  if (this->droneConfig.timeScale <= 0.0f) {
+    LOG("Warning: timeScale (" << this->droneConfig.timeScale
+                               << ") <= 0; resetting to 1.0 (a zero/negative timeScale makes the "
+                                  "per-step sleep infinite/negative -> hang or busy-spin)");
+    this->droneConfig.timeScale = 1.0f;
+  }
 
   configFile.close();
 

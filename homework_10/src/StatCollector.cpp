@@ -23,6 +23,7 @@ void StatCollector::collectStateStepStats(const MissionContext &ctx)
   this->statSteps[ctx.step].state = ctx.state;
   this->statSteps[ctx.step].predictedTarget = ctx.predictedTargetPos;
   this->statSteps[ctx.step].aimPoint = ctx.aimPoint;
+  this->statSteps[ctx.step].timeSecSinceStart = ctx.timeSecSinceStart;
   this->filledSteps++;
 }
 
@@ -44,11 +45,12 @@ void StatCollector::printStats()
     json step{};
     step["position"] = {{"x", statStep.pos.x}, {"y", statStep.pos.y}};
     step["direction"] = statStep.direction;
-    step["state"] = statStep.state;
+    step["state"] = (int)statStep.state;
     step["targetIndex"] = statStep.targetIdx;
     step["dropPoint"] = {{"x", statStep.dropPoint.x}, {"y", statStep.dropPoint.y}};
     step["aimPoint"] = {{"x", statStep.aimPoint.x}, {"y", statStep.aimPoint.y}};
     step["predictedTarget"] = {{"x", statStep.predictedTarget.x}, {"y", statStep.predictedTarget.y}};
+    step["timeSecSinceStart"] = statStep.timeSecSinceStart;
 
     out["steps"].push_back(step);
   }

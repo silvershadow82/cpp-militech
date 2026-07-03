@@ -10,25 +10,23 @@
 
 std::unique_ptr<IDroneState> StateAccelerating::execute(MissionContext &ctx)
 {
-  ctx.state = this->name();
+  ctx.commandMode = ACCELERATING;
 
-  util::convergeAngle(ctx.droneAngle, ctx.targetAngle, ctx.cfg);
-
-  float angleDelta = util::normalizeAngle(ctx.targetAngle - ctx.droneAngle);
+  // Залишаємо час для прискорення, поки не досягнемо швидкості атаки або не перевищимо поріг повороту.
+  // Фізика оновить дані сама
+  float postAngle = ctx.droneAngle;
+  util::convergeAngle(postAngle, ctx.targetAngle, ctx.cfg, ctx.cfg.simTimeStep);
+  float angleDelta = util::normalizeAngle(ctx.targetAngle - postAngle);
 
   if (fabsf(angleDelta) > ctx.cfg.turnThreshold) {
     return std::make_unique<StateDecelerating>();
   }
 
-  float ds = static_cast<float>(ctx.droneSpeed * ctx.cfg.simTimeStep + 0.5f * ctx.droneAccel * ctx.cfg.simTimeStep * ctx.cfg.simTimeStep);
-  Coord dir = {static_cast<float>(cos(ctx.droneAngle)), static_cast<float>(sin(ctx.droneAngle))};
+  float postSpeed = ctx.droneSpeed + ctx.droneAccel * ctx.cfg.simTimeStep;
 
-  ctx.droneSpeed += ctx.droneAccel * ctx.cfg.simTimeStep;
-  ctx.dronePos = ctx.dronePos + dir * ds;
-  ctx.timeToStop = (ctx.cfg.attackSpeed - ctx.droneSpeed) / ctx.droneAccel;
+  ctx.timeToStop = (ctx.cfg.attackSpeed - postSpeed) / ctx.droneAccel;
 
-  if (ctx.droneSpeed >= ctx.cfg.attackSpeed) {
-    ctx.droneSpeed = ctx.cfg.attackSpeed;
+  if (postSpeed >= ctx.cfg.attackSpeed) {
     return std::make_unique<StateMoving>();
   }
   return std::make_unique<StateAccelerating>();

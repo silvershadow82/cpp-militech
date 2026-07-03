@@ -9,20 +9,16 @@
 
 std::unique_ptr<IDroneState> StateDecelerating::execute(MissionContext &ctx)
 {
-  ctx.state = this->name();
+  ctx.commandMode = DECELERATING;
 
-  util::convergeAngle(ctx.droneAngle, ctx.targetAngle, ctx.cfg);
   float ds = static_cast<float>(ctx.droneSpeed * ctx.cfg.simTimeStep - 0.5f * ctx.droneAccel * ctx.cfg.simTimeStep * ctx.cfg.simTimeStep);
-  ctx.droneSpeed -= ctx.droneAccel * ctx.cfg.simTimeStep;
+  float postSpeed = ctx.droneSpeed - ctx.droneAccel * ctx.cfg.simTimeStep;
 
-  if (ctx.droneSpeed <= 0.f) {
-    ctx.droneSpeed = 0.f;
+  if (postSpeed <= 0.f) {
     return std::make_unique<StateStopped>();
   }
   if (ds > 0.f) {
-    Coord dir = {static_cast<float>(cos(ctx.droneAngle)), static_cast<float>(sin(ctx.droneAngle))};
-    ctx.dronePos = ctx.dronePos + dir * ds;
-    ctx.timeToStop = ctx.droneSpeed / ctx.droneAccel;
+    ctx.timeToStop = postSpeed / ctx.droneAccel;
   }
 
   return std::make_unique<StateDecelerating>();

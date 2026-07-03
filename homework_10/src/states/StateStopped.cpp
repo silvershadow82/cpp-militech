@@ -10,16 +10,14 @@
 
 std::unique_ptr<IDroneState> StateStopped::execute(MissionContext &ctx)
 {
-  ctx.state = this->name();
+  ctx.commandMode = STOPPED;
   // Check to see if we need to turn towards the selected target
   float angleDelta = util::normalizeAngle(ctx.targetAngle - ctx.droneAngle);
 
   if (fabsf(angleDelta) > ctx.cfg.turnThreshold) {
     ctx.timeToStop = fabsf(angleDelta) / ctx.cfg.angularSpeed;
-    // ctx.targetAngle = ctx.desiredAngle;
     return std::make_unique<StateTurning>();
   }
-  //   ctx.droneAngle = ctx.desiredAngle;
   ctx.timeToStop = 0.f;
   return std::make_unique<StateAccelerating>();
 }

@@ -1,9 +1,11 @@
-#include "ComponentFactory.h"
+
 #include "Types.h"
+#include "config/ComponentFactory.h"
 #include "config/FileConfigLoader.h"
 #include "providers/ThreadSafeTargetProvider.h"
 #include "solvers/AnalyticalSolver.h"
 #include "solvers/TableSolver.h"
+#include "DronePhysics.h"
 #include <memory>
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
@@ -22,13 +24,15 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solv
   return solver;
 }
 
-std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType providerType, const std::string &param)
+std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType providerType,
+                                                                  const std::string &param,
+                                                                  float arrayTimeStep,
+                                                                  float timeScale)
 {
   std::unique_ptr<ITargetProvider> provider = nullptr;
   switch (providerType) {
     case ProviderType::JSON:
-      // TODO: populate real arrayTimeStep from config or parameter
-      provider = std::make_unique<ThreadSafeTargetProvider>(param, 5);
+      provider = std::make_unique<ThreadSafeTargetProvider>(param, arrayTimeStep, timeScale);
       break;
     default:
       break;
@@ -47,4 +51,9 @@ std::unique_ptr<IConfigLoader> ComponentFactory::createLoader(LoaderType loaderT
       break;
   }
   return loader;
+}
+
+std::unique_ptr<DronePhysics> ComponentFactory::createDronePhysics(const DroneConfig &config)
+{
+  return std::make_unique<DronePhysics>(config);
 }

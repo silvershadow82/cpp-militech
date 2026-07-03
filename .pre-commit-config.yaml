@@ -4,6 +4,6 @@ repos:
       - id: clang-format
         name: clang-format
         entry: clang-format
-        args: [--dry-run, --Werror]
+        args: [-i, --Werror]
         language: system
         files: \.(cpp|hpp|h|c|cxx|cc)$

@@ -31,11 +31,11 @@ float util::normalizeAngle(float angle)
   return angle;
 }
 
-float util::convergeAngle(float &droneAngle, float targetAngle, const DroneConfig &droneConfig)
+float util::convergeAngle(float &droneAngle, float targetAngle, const DroneConfig &droneConfig, float dt)
 {
   float angleDiff = util::normalizeAngle(targetAngle - droneAngle);
 
-  float maxAngleStep = droneConfig.angularSpeed * droneConfig.simTimeStep;
+  float maxAngleStep = droneConfig.angularSpeed * dt;
 
   if (fabsf(angleDiff) <= maxAngleStep) {
     droneAngle = targetAngle;

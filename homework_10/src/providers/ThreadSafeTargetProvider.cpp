@@ -4,6 +4,8 @@
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
 #include "debug.h"
+#include <chrono>
+#include <cstddef>
 #include <thread>
 #include <fstream>
 #include <iostream>
@@ -11,11 +13,23 @@
 
 using json = nlohmann::json;
 
-ThreadSafeTargetProvider::ThreadSafeTargetProvider(const std::string &jsonFileName, int arrayTimeStep)
+ThreadSafeTargetProvider::ThreadSafeTargetProvider(const std::string &jsonFileName, float arrayTimeStep, float timeScale)
   : jsonFileName(jsonFileName)
   , arrayTimeStep(arrayTimeStep)
+  , timeScale(timeScale)
 {
   this->readTargetData();
+
+  // Seed initial positions/velocities so getTarget() returns valid data
+  // immediately, before the run() thread lands its first step-0 update. This
+  // eliminates the degenerate (0,0) first-sample regardless of thread timing.
+  // targetSpeed() does NOT lock mtx, so this is safe from the constructor.
+  for (int i = 0; i < this->targets.size(); i++) {
+    if (i < this->timeSteps.size() && !this->timeSteps[i].empty()) {
+      this->targets[i].pos = this->timeSteps[i][0];
+      this->targets[i].velocity = this->targetSpeed(i, 0);
+    }
+  }
 }
 
 ThreadSafeTargetProvider::~ThreadSafeTargetProvider() {}
@@ -37,8 +51,10 @@ int ThreadSafeTargetProvider::readTargetData()
   this->targets.reserve(targetCount);
 
   for (int i = 0; i < targetCount; i++) {
-    this->targets.emplace_back(Target{.pos = Coord(), .velocity = Coord()});
-    this->timeSteps.emplace_back(std::vector<Coord>());
+    std::vector<Coord> steps = std::vector<Coord>();
+    steps.reserve(timeStepCount);
+    this->targets.emplace_back(Target{.index = i, .pos = Coord(), .velocity = Coord()});
+    this->timeSteps.emplace_back(steps);
     for (int j = 0; j < timeStepCount; j++) {
       this->timeSteps[i].emplace_back(Coord(jt["targets"][i]["positions"][j]["x"], jt["targets"][i]["positions"][j]["y"]));
     }
@@ -53,15 +69,17 @@ int ThreadSafeTargetProvider::readTargetData()
 
 Coord ThreadSafeTargetProvider::targetSpeed(int targetId, int timeStep)
 {
-  if (timeStep < 0 || timeStep > this->timeSteps.size()) {
+  int length = this->timeSteps.empty() ? 0 : (int)this->timeSteps[targetId].size();
+
+  if (timeStep < 0 || timeStep >= length) {
     return Coord(0.0f, 0.0f);  // Invalid time step
   }
 
   // wrap timeStep to ensure the previous of 0 is the last time step
-  float prevTimeStep = (timeStep - 1 + this->timeSteps.size()) % this->timeSteps.size();
+  int prevTimeStep = (timeStep - 1 + length) % length;
 
-  const Coord &prevPos = this->timeSteps[prevTimeStep][targetId];
-  const Coord &currPos = this->timeSteps[timeStep][targetId];
+  const Coord &prevPos = this->timeSteps[targetId][prevTimeStep];
+  const Coord &currPos = this->timeSteps[targetId][timeStep];
 
   float dx = currPos.x - prevPos.x;
   float dy = currPos.y - prevPos.y;
@@ -71,12 +89,12 @@ Coord ThreadSafeTargetProvider::targetSpeed(int targetId, int timeStep)
 
 bool ThreadSafeTargetProvider::isThreadReady()
 {
-  return !this->stopFlag.load();
+  return this->ready.load();
 }
 
 void ThreadSafeTargetProvider::start()
 {
-  this->stopFlag.store(false);
+  this->started.store(true);
 }
 
 void ThreadSafeTargetProvider::stop()
@@ -86,25 +104,35 @@ void ThreadSafeTargetProvider::stop()
 
 void ThreadSafeTargetProvider::run()
 {
-  if (this->stopFlag.load()) {
-    return;
+  LOG("ThreadSafeTargetProvider thread up (run() entry)");
+
+  // Signal readiness, then wait on the start gate (non-busy: 1ms poll).
+  this->ready.store(true);
+  while (!this->started.load() && !this->stopFlag.load()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  {
-    // Lock the mutex while updating targets to ensure thread safety
-    std::lock_guard<std::mutex> lock(mtx);
-    for (int i = 0; i < this->targets.size(); i++) {
+
+  int length = this->timeSteps.empty() ? 0 : this->timeSteps[0].size();
+
+  while (!this->stopFlag.load()) {
+    {
+      std::lock_guard<std::mutex> lock(mtx);
       int step = this->currentTimeStep.load();
-      this->targets[i].pos = this->timeSteps[step][i];
-      this->targets[i].velocity = this->targetSpeed(i, step);
+      for (int i = 0; i < this->targets.size(); i++) {
+        this->targets[i].pos = this->timeSteps[i][step];
+        this->targets[i].velocity = this->targetSpeed(i, step);
+      }
     }
+    // Increment the current time step and wrap around if necessary (mutex released).
+    if (length > 0) {
+      this->currentTimeStep.store((this->currentTimeStep.load() + 1) % length);
+    }
+    // Sleep (mutex released) for the scaled arrayTimeStep duration before the next update.
+    std::this_thread::sleep_for(std::chrono::duration<float>(this->arrayTimeStep / this->timeScale));
   }
-  // Increment the current time step and wrap around if necessary
-  this->currentTimeStep.store((this->currentTimeStep.load() + 1) % this->timeSteps.size());
-  // Sleep for the specified arrayTimeStep duration before the next update
-  std::this_thread::sleep_for(std::chrono::seconds(this->arrayTimeStep));
 }
 
-int ThreadSafeTargetProvider::getTargetCount()
+int ThreadSafeTargetProvider::getTargetCount() const
 {
   {
     std::lock_guard<std::mutex> lock(mtx);
@@ -112,14 +140,14 @@ int ThreadSafeTargetProvider::getTargetCount()
   }
 }
 
-Target ThreadSafeTargetProvider::getTarget(int index)
+Target ThreadSafeTargetProvider::getTarget(int index) const
 {
   {
     std::lock_guard<std::mutex> lock(mtx);
-    if (index >= 0 && index < targets.size()) {
+    if (index >= 0 && index < static_cast<int>(targets.size())) {
       return targets[index];
     }
   }
   // Handle out-of-bounds access, possibly throw an exception or return a default Target
-  return Target();  // Placeholder return value
+  return Target();
 }

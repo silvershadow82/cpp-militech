@@ -6,6 +6,7 @@
 constexpr int MAX_AMMO_NAME{32};
 constexpr float G{9.81F};
 
+enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 enum class SolverType { ANALYTICAL, TABLE };
 enum class ProviderType { JSON };
 enum class LoaderType { FILE };
@@ -60,6 +61,8 @@ struct DroneConfig {
   float hitRadius;
   float angularSpeed;
   float turnThreshold;
+  float physicsTimeStep;
+  float timeScale;
 };
 
 struct MissionContext {
@@ -68,7 +71,8 @@ struct MissionContext {
   Coord aimPoint;
   Coord predictedTargetPos;
   DroneConfig cfg;
-  const char* state;
+  DroneState state;
+  DroneState commandMode;
   float droneSpeed;
   float droneAngle;
   float desiredAngle;
@@ -79,6 +83,7 @@ struct MissionContext {
   int step;
   int lastTargetIdx;
   float t;
+  float timeSecSinceStart;
 };
 
 struct BallisticResult {
@@ -92,8 +97,9 @@ struct SimStep {
   Coord pos;
   int targetIdx;
   float direction;
-  const char* state;
+  DroneState state;
   Coord dropPoint;
   Coord aimPoint;
   Coord predictedTarget;
+  float timeSecSinceStart;
 };

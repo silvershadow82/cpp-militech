@@ -4,7 +4,7 @@
 
 class ITargetProvider {
 public:
-  virtual int getTargetCount() = 0;
-  virtual Target getTarget(int index) = 0;
+  virtual int getTargetCount() const = 0;
+  virtual Target getTarget(int index) const = 0;
   virtual ~ITargetProvider() = default;
 };

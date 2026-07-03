@@ -9,9 +9,12 @@
 
 class ThreadSafeTargetProvider : public ITargetProvider {
 private:
-  int arrayTimeStep;
-  std::mutex mtx;
+  float arrayTimeStep;
+  float timeScale;
+  mutable std::mutex mtx;
   std::atomic<bool> stopFlag{false};
+  std::atomic<bool> ready{false};
+  std::atomic<bool> started{false};
   std::atomic<int> currentTimeStep{0};
   std::string jsonFileName;
   std::vector<Target> targets;
@@ -21,13 +24,13 @@ private:
   Coord targetSpeed(int targetId, int timeStep);
 
 public:
-  ThreadSafeTargetProvider(const std::string &jsonFileName, int arrayTimeStep);
+  ThreadSafeTargetProvider(const std::string &jsonFileName, float arrayTimeStep, float timeScale);
   ~ThreadSafeTargetProvider();
 
   bool isThreadReady();
   void start();
   void stop();
   void run();
-  int getTargetCount() override;
-  Target getTarget(int) override;
+  int getTargetCount() const override;
+  Target getTarget(int) const override;
 };

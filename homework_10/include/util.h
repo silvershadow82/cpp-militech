@@ -8,5 +8,5 @@ namespace util {
 int minValueIdx(const std::vector<float> &array);
 float timeToDistance(float distance, float currentSpeed, float attackSpeed, float acceleration, float accPath);
 float normalizeAngle(float angle);
-float convergeAngle(float &droneAngle, float targetAngle, const DroneConfig &droneConfig);
+float convergeAngle(float &droneAngle, float targetAngle, const DroneConfig &droneConfig, float dt);
 }  // namespace util

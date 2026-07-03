@@ -10,18 +10,18 @@
 
 std::unique_ptr<IDroneState> StateMoving::execute(MissionContext &ctx)
 {
-  ctx.state = this->name();
+  ctx.commandMode = MOVING;
 
-  util::convergeAngle(ctx.droneAngle, ctx.targetAngle, ctx.cfg);
+  // Decide-only: physics integrates; here we only read the post-converge angle
+  // on a local copy to pick the next state.
+  float postAngle = ctx.droneAngle;
+  util::convergeAngle(postAngle, ctx.targetAngle, ctx.cfg, ctx.cfg.simTimeStep);
 
-  float angleDelta = util::normalizeAngle(ctx.targetAngle - ctx.droneAngle);
+  float angleDelta = util::normalizeAngle(ctx.targetAngle - postAngle);
 
   if (fabsf(angleDelta) > ctx.cfg.turnThreshold) {
     return std::make_unique<StateDecelerating>();
   }
 
-  float ds = static_cast<float>(ctx.droneSpeed * ctx.cfg.simTimeStep);
-  Coord dir = {static_cast<float>(cos(ctx.droneAngle)), static_cast<float>(sin(ctx.droneAngle))};
-  ctx.dronePos = ctx.dronePos + dir * ds;
   return std::make_unique<StateMoving>();
 }

@@ -26,6 +26,17 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/aarch64-linux-gnu.cmake"
       }
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer (homework_10)",
+      "description": "Debug build з ThreadSanitizer лише для таргетів homework_10 (SIMULATION10_TSAN=ON).",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SIMULATION10_TSAN": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -34,6 +45,12 @@
       "displayName": "Build Debug",
       "description": "Зібрати debug preset після configure.",
       "configurePreset": "debug"
+    },
+    {
+      "name": "tsan",
+      "displayName": "Build ThreadSanitizer (homework_10)",
+      "description": "Зібрати tsan preset після configure.",
+      "configurePreset": "tsan"
     },
     {
       "name": "aarch64-debug",

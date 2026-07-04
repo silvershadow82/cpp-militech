@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Багатопотокова симуляція вимагає pthread (std::thread / std::mutex / ...).
 find_package(Threads REQUIRED)
 
-# Опційна інструментація ThreadSanitizer лише для таргетів homework_10.
+# Інструментація ThreadSanitizer лише для таргетів homework_10.
 option(SIMULATION10_TSAN "Build homework_10 targets with ThreadSanitizer" OFF)
 
 # Add JSON library via CMake
@@ -31,6 +31,7 @@ add_library(
     src/config/ComponentFactory.cpp
     src/config/FileConfigLoader.cpp
     src/providers/ThreadSafeTargetProvider.cpp
+    src/models/BallisticTable.cpp
     src/models/Coord.cpp
     src/states/StateAccelerating.cpp
     src/states/StateDecelerating.cpp
@@ -44,8 +45,8 @@ add_library(
 target_include_directories(simulation10_lib PUBLIC include)
 target_link_libraries(simulation10_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 
-# Шлях до балістичної таблиці «зашитий» у бібліотеку (використовує лише TableSolver.cpp).
-# PRIVATE, щоб не проштовхувати макрос у тести (вони визначають власний, ідентичний).
+# Шлях до балістичної таблиці зашитий у бібліотеку (використовує лише TableSolver.cpp). PRIVATE, щоб
+# не проштовхувати макрос у тести (вони визначають власний).
 target_compile_definitions(
     simulation10_lib
     PRIVATE BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt")
@@ -73,8 +74,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(simulation10_tests tests/simulation_tests.cpp)
-    target_link_libraries(
-        simulation10_tests PRIVATE simulation10_lib GTest::gtest_main Threads::Threads)
+    target_link_libraries(simulation10_tests PRIVATE simulation10_lib GTest::gtest_main
+                                                     Threads::Threads)
     target_compile_definitions(
         simulation10_tests
         PRIVATE BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt"

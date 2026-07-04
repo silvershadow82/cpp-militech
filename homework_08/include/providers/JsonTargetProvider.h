@@ -2,7 +2,6 @@
 #include "interfaces/ITargetProvider.h"
 #include "models/Target.h"
 #include <vector>
-#include <string>
 
 class JsonTargetProvider : public ITargetProvider {
 private:

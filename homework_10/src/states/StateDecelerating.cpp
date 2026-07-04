@@ -2,7 +2,6 @@
 #include "interfaces/IDroneState.h"
 #include "states/StateDecelerating.h"
 #include "states/StateStopped.h"
-#include "util.h"
 
 #include <cmath>
 #include <memory>

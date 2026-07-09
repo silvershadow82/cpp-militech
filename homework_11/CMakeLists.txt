@@ -13,7 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Threads REQUIRED)
 
 # Інструментація ThreadSanitizer лише для таргетів homework_10.
-option(SIMULATION10_TSAN "Build homework_10 targets with ThreadSanitizer" OFF)
+option(SIMULATION11_TSAN "Build homework_11 targets with ThreadSanitizer" OFF)
 
 # Add JSON library via CMake
 include(FetchContent)
@@ -25,7 +25,7 @@ FetchContent_MakeAvailable(json)
 # --- Статична бібліотека з усіма продакшн-джерелами (окрім main.cpp) ---------
 # Спільна кодова база для виконуваного файлу та тестів: компілюємо один раз.
 add_library(
-    simulation10_lib STATIC
+    simulation11_lib STATIC
     src/solvers/AnalyticalSolver.cpp
     src/solvers/TableSolver.cpp
     src/config/ComponentFactory.cpp
@@ -42,21 +42,21 @@ add_library(
     src/StatCollector.cpp
     src/MissionProcessor.cpp
     src/util.cpp)
-target_include_directories(simulation10_lib PUBLIC include)
-target_link_libraries(simulation10_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
+target_include_directories(simulation11_lib PUBLIC include)
+target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 
 # Шлях до балістичної таблиці зашитий у бібліотеку (використовує лише TableSolver.cpp). PRIVATE, щоб
 # не проштовхувати макрос у тести (вони визначають власний).
 target_compile_definitions(
-    simulation10_lib
+    simulation11_lib
     PRIVATE BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt")
 
 # --- Виконуваний файл: тонкий main.cpp поверх бібліотеки -----------------------
-add_executable(simulation10 src/main.cpp)
-target_link_libraries(simulation10 PRIVATE simulation10_lib)
+add_executable(simulation11 src/main.cpp)
+target_link_libraries(simulation11 PRIVATE simulation11_lib)
 
 add_custom_command(
-    TARGET simulation10
+    TARGET simulation11
     POST_BUILD
     COMMAND
         ${CMAKE_COMMAND} -E copy_if_different
@@ -73,18 +73,18 @@ if(NOT CMAKE_CROSSCOMPILING)
                        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
     FetchContent_MakeAvailable(googletest)
 
-    add_executable(simulation10_tests tests/simulation_tests.cpp)
-    target_link_libraries(simulation10_tests PRIVATE simulation10_lib GTest::gtest_main
+    add_executable(simulation11_tests tests/simulation_tests.cpp)
+    target_link_libraries(simulation11_tests PRIVATE simulation11_lib GTest::gtest_main
                                                      Threads::Threads)
     target_compile_definitions(
-        simulation10_tests
+        simulation11_tests
         PRIVATE BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt"
                 DATA_BASIC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/basic"
                 STATES_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/states")
 
     # Таблиця має бути й поруч із тестовим бінарником — деякі тести залежать від неї.
     add_custom_command(
-        TARGET simulation10_tests
+        TARGET simulation11_tests
         POST_BUILD
         COMMAND
             ${CMAKE_COMMAND} -E copy_if_different
@@ -92,17 +92,17 @@ if(NOT CMAKE_CROSSCOMPILING)
             ${CMAKE_CURRENT_BINARY_DIR}/table/ballistic_table.txt
         COMMENT "Copying ballistic table to tests build directory")
 
-    gtest_discover_tests(simulation10_tests DISCOVERY_MODE PRE_TEST)
+    gtest_discover_tests(simulation11_tests DISCOVERY_MODE PRE_TEST)
 endif()
 
-# --- ThreadSanitizer (лише для таргетів homework_10) --------------------------
+# --- ThreadSanitizer (лише для таргетів >= homework_10) --------------------------
 # Не додаємо глобальних прапорців, щоб не інструментувати homework_04..08.
-if(SIMULATION10_TSAN)
+if(SIMULATION11_TSAN)
     set(SIMULATION10_TSAN_FLAGS -fsanitize=thread -fno-omit-frame-pointer -g -O1)
-    foreach(sim10_target simulation10_lib simulation10 simulation10_tests)
-        if(TARGET ${sim10_target})
-            target_compile_options(${sim10_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
-            target_link_options(${sim10_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
+    foreach(sim11_target simulation11_lib simulation11 simulation11_tests)
+        if(TARGET ${sim11_target})
+            target_compile_options(${sim11_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
+            target_link_options(${sim11_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
         endif()
     endforeach()
 endif()

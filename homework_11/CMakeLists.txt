@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Окремий CMake-проєкт для домашньої роботи 10. Його можна збирати як через root CMakeLists.txt, так
+# Окремий CMake-проєкт для домашньої роботи 11. Його можна збирати як через root CMakeLists.txt, так
 # і напряму з цієї директорії.
 project(simulation LANGUAGES CXX)
 
@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Багатопотокова симуляція вимагає pthread (std::thread / std::mutex / ...).
 find_package(Threads REQUIRED)
 
-# Інструментація ThreadSanitizer лише для таргетів homework_10.
+# Інструментація ThreadSanitizer лише для таргетів >= homework_10.
 option(SIMULATION11_TSAN "Build homework_11 targets with ThreadSanitizer" OFF)
 
 # Add JSON library via CMake

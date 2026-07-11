@@ -41,7 +41,8 @@ add_library(
     src/DronePhysics.cpp
     src/StatCollector.cpp
     src/MissionProcessor.cpp
-    src/util.cpp)
+    src/util.cpp
+    src/comms/SerialLink.cpp)
 target_include_directories(simulation11_lib PUBLIC include)
 target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 
@@ -98,11 +99,11 @@ endif()
 # --- ThreadSanitizer (лише для таргетів >= homework_10) --------------------------
 # Не додаємо глобальних прапорців, щоб не інструментувати homework_04..08.
 if(SIMULATION11_TSAN)
-    set(SIMULATION10_TSAN_FLAGS -fsanitize=thread -fno-omit-frame-pointer -g -O1)
+    set(SIMULATION11_TSAN_FLAGS -fsanitize=thread -fno-omit-frame-pointer -g -O1)
     foreach(sim11_target simulation11_lib simulation11 simulation11_tests)
         if(TARGET ${sim11_target})
-            target_compile_options(${sim11_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
-            target_link_options(${sim11_target} PRIVATE ${SIMULATION10_TSAN_FLAGS})
+            target_compile_options(${sim11_target} PRIVATE ${SIMULATION11_TSAN_FLAGS})
+            target_link_options(${sim11_target} PRIVATE ${SIMULATION11_TSAN_FLAGS})
         endif()
     endforeach()
 endif()

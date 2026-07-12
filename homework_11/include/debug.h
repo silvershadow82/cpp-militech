@@ -4,7 +4,7 @@
 #include <mutex>
 
 #define ENABLE_LOG 1
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG 1
 
 // Shared mutex so concurrent log output from multiple threads does not race on
 inline std::mutex &logMutex()

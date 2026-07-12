@@ -1,4 +1,4 @@
-
+#include "debug.h"
 #include "Types.h"
 #include "config/ComponentFactory.h"
 #include "comms/SerialLink.h"
@@ -6,6 +6,7 @@
 #include "config/UartConfigLoader.h"
 #include "control/FlightController.h"
 #include "gpio/IGpioController.h"
+#include "gpio/LibGpiodController.h"
 #include "interfaces/IBallisticSolver.h"
 #include "models/FireGeometry.h"
 #include "providers/ThreadSafeTargetProvider.h"
@@ -91,7 +92,7 @@ std::shared_ptr<comms::SerialLink> ComponentFactory::createSerialLink()
 std::shared_ptr<gpio::IGpioController> ComponentFactory::createGpioController()
 {
 #if defined(USE_GPIOD)
-  LOG("Using libgpiod controller")
+  LOG("Using libgpiod controller");
   return std::make_shared<gpio::LibGpiodController>();
 #else
   return nullptr;

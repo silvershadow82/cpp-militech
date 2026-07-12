@@ -29,7 +29,7 @@ void UartTargetProvider::update(const dlink::TargetPos &pos)
     if (dtSim > 1e-3) // щоб коректно обчислювати швидкість, потрібен ненульовий інтервал часу
     {
       Coord rawVelocity = (newPos - tracked.target.pos) / dtSim;
-      tracked.target.velocity = tracked.target.velocity + rawVelocity;
+      tracked.target.velocity = rawVelocity;
     }
   }
   else

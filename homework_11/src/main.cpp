@@ -23,7 +23,7 @@ void handleSigint(int)
   stopRequested.store(true);
 }
 
-constexpr const char *UART_DEVICE = "/dev/serial0";
+constexpr const char *UART_DEVICE = "/dev/ttyAMA3";
 constexpr const char *GPIO_CHIP = "gpiochip0";
 constexpr int START_LINE = 24;
 constexpr int DROP_LINE = 23;
@@ -60,11 +60,6 @@ int main(int argc, char **argv)
   }
 
   bool configReady = UartMissionProcessor::initConfig(*serial.get(), *rawConfigLoader, configInitTimeout);
-
-  if (!rawConfigLoader->firstTelem().has_value()) {
-    std::cerr << "No PKT_TELEMETRY received within " << configInitTimeout.count() << "ms -- aborting" << std::endl;
-    return 1;
-  }
 
   if (!configReady) {
     LOG("config init incomplete after " << configInitTimeout.count() << "ms");

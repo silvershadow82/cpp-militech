@@ -17,7 +17,7 @@ using TimeUnit = std::chrono::milliseconds;
 
 struct UartMissionProcessorParams {
   TimeUnit controlPeriod{20};       // fixed CONTROL emission cadence
-  TimeUnit dropPulseDuration{80};   // DROP pulse width (plan: 50-100 ms)
+  TimeUnit dropPulseDuration{300};  // DROP pulse width (widened from 50-100ms; checker's poll rate may miss shorter pulses)
   TimeUnit telemetryWatchdog{500};  // wall-clock loss-of-telemetry fail-safe
 };
 

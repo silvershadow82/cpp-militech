@@ -8,7 +8,6 @@ class FlightController {
 private:
   DroneConfig cfg;
   float velocityGain;
-  float angleTurnGain;
 
 public:
   FlightController(const DroneConfig &cfg);

@@ -28,15 +28,13 @@ public:
   UartConfigLoader() = default;
   ~UartConfigLoader() override = default;
   // Зчитує кадр протоколу drone_link і накопичує стан.
-  // Підтримує тільки PKT_AMMO, PKT_CONFIG, PKT_TELEMETRY
+  // Підтримує PKT_AMMO, PKT_CONFIG, і опціонально захоплює перший PKT_TELEMETRY
+  // (для altitude/startPos/initialDir), але не вимагає його для isReady().
   void feed(const comms::Frame &frame);
 
   bool isReady() const;
   bool hasConfig() const;
 
-  // Встановлює перший отриманий PKT_TELEMETRY
-  // для ініціалізації дрона (startPos, altitude, initialDir)
-  std::optional<Telem> firstTelem() const;
   uint8_t targetCount() const;
   void load() override;
   DroneConfig getConfig() override;

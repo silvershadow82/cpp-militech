@@ -34,17 +34,12 @@ void UartConfigLoader::feed(const comms::Frame &frame)
 
 bool UartConfigLoader::isReady() const
 {
-  return this->ammoReceived && this->configReceived && this->firstTelemetry.has_value();
+  return this->ammoReceived && this->configReceived;
 }
 
 bool UartConfigLoader::hasConfig() const
 {
   return this->configReceived;
-}
-
-std::optional<Telem> UartConfigLoader::firstTelem() const
-{
-  return this->firstTelemetry;
 }
 
 uint8_t UartConfigLoader::targetCount() const

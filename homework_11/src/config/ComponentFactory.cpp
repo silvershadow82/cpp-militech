@@ -1,6 +1,7 @@
 
 #include "Types.h"
 #include "config/ComponentFactory.h"
+#include "comms/SerialLink.h"
 #include "config/FileConfigLoader.h"
 #include "config/UartConfigLoader.h"
 #include "control/FlightController.h"
@@ -12,8 +13,8 @@
 #include "solvers/AnalyticalSolver.h"
 #include "solvers/TableSolver.h"
 #include "DronePhysics.h"
-#include <cstddef>
 #include <memory>
+#include <string>
 #include <utility>
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
@@ -82,10 +83,15 @@ std::unique_ptr<DronePhysics> ComponentFactory::createDronePhysics(const DroneCo
   return std::make_unique<DronePhysics>(config);
 }
 
-std::unique_ptr<gpio::IGpioController> ComponentFactory::createGpioController()
+std::shared_ptr<comms::SerialLink> ComponentFactory::createSerialLink()
+{
+  return std::make_shared<comms::SerialLink>();
+}
+
+std::shared_ptr<gpio::IGpioController> ComponentFactory::createGpioController()
 {
 #if defined(USE_GPIOD)
-  return std::make_unique<gpio::LibGpiodController>();
+  return std::make_shared<gpio::LibGpiodController>();
 #else
   return nullptr;
 #endif

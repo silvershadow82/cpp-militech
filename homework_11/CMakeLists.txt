@@ -49,6 +49,7 @@ add_library(
     src/DronePhysics.cpp
     src/StatCollector.cpp
     src/MissionProcessor.cpp
+    src/UartMissionProcessor.cpp
     src/util.cpp
     src/comms/SerialLink.cpp)
 target_include_directories(simulation11_lib PUBLIC include)

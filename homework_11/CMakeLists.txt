@@ -35,6 +35,8 @@ add_library(
     src/providers/UartTargetProvider.cpp
     src/models/BallisticTable.cpp
     src/models/Coord.cpp
+    src/models/FireGeometry.cpp
+    src/control/FlightController.cpp
     src/states/StateAccelerating.cpp
     src/states/StateDecelerating.cpp
     src/states/StateMoving.cpp

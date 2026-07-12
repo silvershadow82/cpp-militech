@@ -82,9 +82,6 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
     this->targetProvider && this->fireGeometry && this->targetProvider->allSeen() && this->targetProvider->getTargetCount() > 0;
 
   if (!haveUsableTargets) {
-    // No PKT_CONFIG (geometry==nullptr), no targets yet, or the cold-start
-    // target set is still incomplete (plan §3.5) -- hold neutrally rather
-    // than lock onto an unproven target.
     this->lastControl = this->flightController->compute(this->telem, this->telem.angle, 0.0f);
     return;
   }
@@ -108,14 +105,10 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
   }
 
   if (bestIndex < 0) {
-    // No valid solve this tick (e.g. degenerate geometry for every target) -- hold.
     this->lastControl = this->flightController->compute(this->telem, this->telem.angle, 0.0f);
     return;
   }
 
-  // Once DROP has fired (one-shot), hold heading but zero the speed setpoint
-  // so the drone stops driving forward after release instead of continuing
-  // past the target.
   float desiredSpeed = this->dropped ? 0.0f : best.desiredSpeed;
   this->lastControl = this->flightController->compute(this->telem, best.aimAngle, desiredSpeed);
 
@@ -123,13 +116,12 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
     this->gpio->setDrop(true);
     this->dropActive = true;
     this->dropOffAt = now + this->params.dropPulseDuration;
-    this->dropped = true;  // one-shot: extras ignored (plan §9)
+    this->dropped = true;
   }
 }
 
 void UartMissionProcessor::step(Clock::time_point now)
 {
-  // 1) Drain everything currently available on the wire.
   auto frame = this->serial->readFrame();
 
   while (frame.ok) {
@@ -137,13 +129,11 @@ void UartMissionProcessor::step(Clock::time_point now)
     frame = this->serial->readFrame();
   }
 
-  // 2) Non-blocking DROP
   if (this->dropActive && now >= this->dropOffAt) {
     this->gpio->setDrop(false);
     this->dropActive = false;
   }
 
-  // 3) Control update
   if (this->telemetrySeen) {
     if (now - this->lastRxTime > this->params.telemetryWatchdog) {
       this->lastControl = dlink::Control{0.0f, 0.0f};  // telemetry lost -> neutral control
@@ -153,8 +143,6 @@ void UartMissionProcessor::step(Clock::time_point now)
     }
   }
 
-  // 4) Fixed-rate CONTROL emission, holding the last computed value --
-  // decoupled from telemetry arrival and from the drop pulse.
   if (!this->txPrimed || (now - this->lastTxTime) >= this->params.controlPeriod) {
     this->serial->sendControl(this->lastControl.accel, this->lastControl.turnRate);
     this->lastTxTime = now;

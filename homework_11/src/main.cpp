@@ -1,86 +1,125 @@
+#include "Types.h"
+#include "UartMissionProcessor.h"
+#include "comms/SerialLink.h"
 #include "config/ComponentFactory.h"
-#include "DronePhysics.h"
-#include "MissionProcessor.h"
-#include "StatCollector.h"
+#include "config/UartConfigLoader.h"
 #include "debug.h"
+#include "gpio/IGpioController.h"
 #include "interfaces/IBallisticSolver.h"
-#include "interfaces/IConfigLoader.h"
-#include "interfaces/ITargetProvider.h"
-#include "providers/ThreadSafeTargetProvider.h"
+#include "models/FireGeometry.h"
+#include "providers/UartTargetProvider.h"
+
+#include <atomic>
 #include <chrono>
-#include <cstring>
+#include <csignal>
+#include <exception>
 #include <iostream>
+#include <memory>
 #include <thread>
+
+std::atomic<bool> stopRequested{false};
+
+void handleSigint(int)
+{
+  stopRequested.store(true);
+}
+
+constexpr const char *UART_DEVICE = "/dev/serial0";
+constexpr const char *GPIO_CHIP = "gpiochip0";
+constexpr int START_LINE = 24;
+constexpr int DROP_LINE = 23;
+
+constexpr std::chrono::milliseconds configInitTimeout{5000};
+constexpr std::chrono::milliseconds sleepTime{5};
 
 int main(int argc, char **argv)
 {
-  if (argc != 2) {
-    std::cout << "Usage simulation <data_folder>" << '\n';
-    return 0;
-  }
+  ComponentFactory componentFactory;
 
-  const std::string dataFolder = argv[1];
+  auto serial = componentFactory.createSerialLink();
 
-  ComponentFactory componentFactory = ComponentFactory();
-
-  auto configLoader = componentFactory.createLoader(LoaderType::FILE, dataFolder);
-
-  if (!configLoader) {
-    LOG("Error: failed to create config loader");
+  if (!serial->open(UART_DEVICE)) {
+    std::cerr << "Failed to open UART device: " << UART_DEVICE << std::endl;
     return 1;
   }
 
-  configLoader->load();
-  DroneConfig config = configLoader->getConfig();
+  auto gpio = componentFactory.createGpioController();
 
-  auto solver = componentFactory.createSolver(SolverType::TABLE);
-  auto providerUniquePtr =
-    componentFactory.createProvider(ProviderType::JSON, dataFolder + "/targets.json", config.arrayTimeStep, config.timeScale);
-  auto physics = componentFactory.createDronePhysics(config);
-
-  // Щоб не втратити доступ до об'єктів після передачі у MissionProcessor, зберігаємо сирі вказівники на них
-  // динамічно приведений до потрібного типу, щоб не плодити зайві методи в інтерфейсі
-  auto *provider = dynamic_cast<ThreadSafeTargetProvider *>(providerUniquePtr.get());
-  auto *physicsHandle = physics.get();
-
-  if (provider == nullptr || !physics) {
-    LOG("Error: failed to construct provider/physics components (prov=" << provider << ", phys=" << physics.get() << ")");
+  if (!gpio || !gpio->init(GPIO_CHIP, START_LINE, DROP_LINE)) {
+    std::cerr << "Failed to init GPIO chip=" << GPIO_CHIP << std::endl;
     return 1;
   }
 
-  MissionProcessor missionProcessor(std::move(solver), std::move(providerUniquePtr), std::move(configLoader), std::move(physics));
+  gpio->setStart(true);  // поїхали
 
-  if (!missionProcessor.init(ConfigSource::FILE, dataFolder)) {
+  auto configLoader = componentFactory.createLoader(LoaderType::UART, UART_DEVICE);
+  auto *rawConfigLoader = dynamic_cast<UartConfigLoader *>(configLoader.get());
+
+  if (!rawConfigLoader) {
+    std::cerr << "Failed to construct UartConfigLoader" << std::endl;
     return 1;
   }
 
-  std::thread providerThread(&ThreadSafeTargetProvider::run, provider);
-  std::thread physicsThread(&DronePhysics::run, physicsHandle);
+  bool configReady = UartMissionProcessor::initConfig(*serial.get(), *rawConfigLoader, configInitTimeout);
 
-  // чекаємо, поки обидва потоки не будуть готові до роботи
-  while (!(provider->isThreadReady() && physicsHandle->isThreadReady())) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  if (!rawConfigLoader->firstTelem().has_value()) {
+    std::cerr << "No PKT_TELEMETRY received within " << configInitTimeout.count() << "ms -- aborting" << std::endl;
+    return 1;
   }
 
-  provider->start();
-  physicsHandle->start();
+  if (!configReady) {
+    LOG("config init incomplete after " << configInitTimeout.count() << "ms");
+  }
 
-  std::thread missionThread(&MissionProcessor::run, &missionProcessor);
+  if (!rawConfigLoader->hasConfig()) {
+    std::cerr << "PKT_CONFIG never arrived -- aborting" << std::endl;
+    return 1;
+  }
 
-  missionThread.join();
-  LOG("Mission thread joined.");
+  DroneConfig config = rawConfigLoader->getConfig();
 
-  provider->stop();
-  physicsHandle->stop();
+  auto targetProvider =
+    componentFactory.createProvider(ProviderType::UART, static_cast<int>(rawConfigLoader->targetCount()), config.timeScale);
 
-  providerThread.join();
-  LOG("Provider thread joined.");
-  physicsThread.join();
-  LOG("Physics thread joined.");
+  std::unique_ptr<FireGeometry> geometry;
+  if (rawConfigLoader->hasConfig()) {
+    auto ammoParams = rawConfigLoader->getAmmoParams();
+    if (ammoParams.contains(config.ammoName)) {
+      try {
+        auto solver = componentFactory.createSolver(SolverType::TABLE);
+        solver->init(config, ammoParams.at(config.ammoName).payloadParams());
+        geometry = componentFactory.createFireGeometry(config, std::move(solver));
+      }
+      catch (const std::exception &e) {
+        std::cerr << "TableSolver::init failed (" << e.what() << ") -- running FlightController fallback" << std::endl;
+        geometry.reset();
+      }
+    }
+    else {
+      std::cerr << "Unknown ammo '" << config.ammoName << "' -- running FlightController fallback." << std::endl;
+    }
+  }
 
-  missionProcessor.printStats();
+  auto flightController = componentFactory.createFlightController(config);
 
-  LOG("Simulation complete. Steps=" << missionProcessor.totalSteps());
+  // Нам вже не потрібен інтерфейсний вказівник на configLoader, але потрібен вказівник на UartConfigLoader
+  configLoader.release();
+  std::unique_ptr<UartConfigLoader> uartConfigLoader(rawConfigLoader);
+  // теж саме і targetProvider
+  auto rawTargetProvider = dynamic_cast<UartTargetProvider *>(targetProvider.get());
+  targetProvider.release();
+  std::unique_ptr<UartTargetProvider> uartTargetProvider(rawTargetProvider);
 
+  UartMissionProcessor missionProcessor(serial, gpio, uartConfigLoader, uartTargetProvider, geometry, flightController, {});
+
+  LOG("UartMissionProcessor started: uart=" << UART_DEVICE << " gpiochip=" << GPIO_CHIP << " startLine=" << START_LINE
+                                            << " dropLine=" << DROP_LINE);
+
+  while (!stopRequested.load()) {
+    missionProcessor.step(std::chrono::steady_clock::now());
+    std::this_thread::sleep_for(sleepTime);
+  }
+
+  LOG("Shutting down");
   return 0;
 }

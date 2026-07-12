@@ -91,6 +91,7 @@ std::shared_ptr<comms::SerialLink> ComponentFactory::createSerialLink()
 std::shared_ptr<gpio::IGpioController> ComponentFactory::createGpioController()
 {
 #if defined(USE_GPIOD)
+  LOG("Using libgpiod controller")
   return std::make_shared<gpio::LibGpiodController>();
 #else
   return nullptr;

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include <utility>
 
 std::atomic<bool> stopRequested{false};
 
@@ -110,7 +111,9 @@ int main(int argc, char **argv)
   targetProvider.release();
   std::unique_ptr<UartTargetProvider> uartTargetProvider(rawTargetProvider);
 
-  UartMissionProcessor missionProcessor(serial, gpio, uartConfigLoader, uartTargetProvider, geometry, flightController, {});
+  // Створюємо процесор місій тут
+  UartMissionProcessor missionProcessor(
+    serial, gpio, std::move(uartConfigLoader), std::move(uartTargetProvider), std::move(geometry), std::move(flightController));
 
   LOG("UartMissionProcessor started: uart=" << UART_DEVICE << " gpiochip=" << GPIO_CHIP << " startLine=" << START_LINE
                                             << " dropLine=" << DROP_LINE);

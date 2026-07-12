@@ -15,6 +15,9 @@ find_package(Threads REQUIRED)
 # Інструментація ThreadSanitizer лише для таргетів >= homework_10.
 option(SIMULATION11_TSAN "Build homework_11 targets with ThreadSanitizer" OFF)
 
+# Опція використовувати реальний libgpiod, бо на Маку не працює збірка
+option(USE_GPIOD "Use actual libgpiod" OFF)
+
 # Add JSON library via CMake
 include(FetchContent)
 
@@ -37,6 +40,7 @@ add_library(
     src/models/Coord.cpp
     src/models/FireGeometry.cpp
     src/control/FlightController.cpp
+    src/gpio/LibGpiodController.cpp
     src/states/StateAccelerating.cpp
     src/states/StateDecelerating.cpp
     src/states/StateMoving.cpp
@@ -49,6 +53,12 @@ add_library(
     src/comms/SerialLink.cpp)
 target_include_directories(simulation11_lib PUBLIC include)
 target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
+
+if(USE_GPIOD)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBGPIOD REQUIRED IMPORTED_TARGET libgpiod)
+    target_link_libraries(simulation11_lib PUBLIC PkgConfig::LIBGRPIOD)
+endif()
 
 # Шлях до балістичної таблиці зашитий у бібліотеку (використовує лише TableSolver.cpp). PRIVATE, щоб
 # не проштовхувати макрос у тести (вони визначають власний).

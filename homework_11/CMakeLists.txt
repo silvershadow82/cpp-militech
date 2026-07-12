@@ -57,7 +57,7 @@ target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threa
 if(USE_GPIOD)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBGPIOD REQUIRED IMPORTED_TARGET libgpiod)
-    target_link_libraries(simulation11_lib PUBLIC PkgConfig::LIBGRPIOD)
+    target_link_libraries(simulation11_lib PUBLIC PkgConfig::LIBGPIOD)
 endif()
 
 # Шлях до балістичної таблиці зашитий у бібліотеку (використовує лише TableSolver.cpp). PRIVATE, щоб

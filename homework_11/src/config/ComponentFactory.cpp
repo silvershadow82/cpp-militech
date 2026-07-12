@@ -14,9 +14,6 @@
 #include "solvers/AnalyticalSolver.h"
 #include "solvers/TableSolver.h"
 #include "DronePhysics.h"
-#include <memory>
-#include <string>
-#include <utility>
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
 {
@@ -50,12 +47,12 @@ std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType p
   return provider;
 }
 
-std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType providerType, int nTargets, float timeScale)
+std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType providerType, int nTargets)
 {
   std::unique_ptr<ITargetProvider> provider = nullptr;
   switch (providerType) {
     case ProviderType::UART:
-      provider = std::make_unique<UartTargetProvider>(nTargets, timeScale);
+      provider = std::make_unique<UartTargetProvider>(nTargets);
       break;
     default:
       break;

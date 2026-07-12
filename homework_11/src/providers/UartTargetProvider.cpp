@@ -1,7 +1,6 @@
 #include "providers/UartTargetProvider.h"
 
-UartTargetProvider::UartTargetProvider(int nTargets, float timeScale)
-    : timeScale(timeScale > 0.0f ? timeScale : 1.0f)
+UartTargetProvider::UartTargetProvider(int nTargets)
 {
   int count = nTargets > 0 ? nTargets : 0;
   this->targets.resize(static_cast<size_t>(count));
@@ -11,7 +10,7 @@ UartTargetProvider::UartTargetProvider(int nTargets, float timeScale)
   }
 }
 
-void UartTargetProvider::update(const dlink::TargetPos &pos)
+void UartTargetProvider::update(const dlink::TargetPos &pos, uint32_t simTimeMs)
 {
   if (pos.id >= this->targets.size())
   {
@@ -20,16 +19,13 @@ void UartTargetProvider::update(const dlink::TargetPos &pos)
 
   TrackedTarget &tracked = this->targets[pos.id];
   Coord newPos{pos.x, pos.y};
-  auto now = std::chrono::steady_clock::now();
 
   if (tracked.seen)
   {
-    float dt = std::chrono::duration<float>(now - tracked.lastUpdate).count();
-    float dtSim = dt * this->timeScale;
-    if (dtSim > 1e-3) // щоб коректно обчислювати швидкість, потрібен ненульовий інтервал часу
+    float dtSim = static_cast<float>(simTimeMs - tracked.lastUpdateMs) / 1000.0f;
+    if (dtSim > 1e-3f) // щоб коректно обчислювати швидкість, потрібен ненульовий інтервал часу
     {
-      Coord rawVelocity = (newPos - tracked.target.pos) / dtSim;
-      tracked.target.velocity = rawVelocity;
+      tracked.target.velocity = (newPos - tracked.target.pos) / dtSim;
     }
   }
   else
@@ -39,7 +35,7 @@ void UartTargetProvider::update(const dlink::TargetPos &pos)
   }
 
   tracked.target.pos = newPos;
-  tracked.lastUpdate = now;
+  tracked.lastUpdateMs = simTimeMs;
 }
 
 bool UartTargetProvider::allSeen() const

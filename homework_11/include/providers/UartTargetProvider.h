@@ -4,7 +4,6 @@
 #include "models/Coord.h"
 #include "models/Target.h"
 #include "models/drone_link.h"
-#include <chrono>
 #include <cstdint>
 #include <vector>
 
@@ -15,20 +14,23 @@ private:
   {
     Target target{};
     bool seen{false};
-    std::chrono::steady_clock::time_point lastUpdate{};
+    uint32_t lastUpdateMs{0};
   };
 
   std::vector<TrackedTarget> targets;
   int seenCount{0};
-  float timeScale{1.0f};
 
 public:
-  explicit UartTargetProvider(int nTargets, float timeScale = 1.0f);
+  explicit UartTargetProvider(int nTargets);
   ~UartTargetProvider() override = default;
 
   // Оновлює стан цілі з отриманого кадру PKT_TARGET. Якщо це новий id, додає його в список.
   // Якщо це вже відомий id, оновлює його позицію і швидкість.
-  void update(const dlink::TargetPos &pos);
+  // simTimeMs — час місії (t_ms з останньої отриманої телеметрії): швидкість цілі рахується
+  // за симульованим часом чекера, а не wall-clock часом прийому кадру, який спотворюється
+  // затримками читання з UART (напр. пачкова обробка кількох кадрів одразу дає майже нульовий
+  // виміряний dt і завищену швидкість).
+  void update(const dlink::TargetPos &pos, uint32_t simTimeMs);
 
   bool allSeen() const;
 

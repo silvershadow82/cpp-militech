@@ -5,8 +5,6 @@
 #include "models/Coord.h"
 #include "models/Target.h"
 #include <chrono>
-#include <limits>
-#include <memory>
 #include <thread>
 
 using TimeUnit = std::chrono::milliseconds;
@@ -59,13 +57,12 @@ void UartMissionProcessor::processFrame(const comms::Frame &frame, Clock::time_p
       this->telemetrySeen = true;
       this->lastRxTime = now;
       DEBUG("PKT_TELEMETRY: pos=(" << this->telem.pos.x << "," << this->telem.pos.y << ") alt=" << this->telem.altitude
-                                   << " speed=" << this->telem.speed << " angle=" << this->telem.angle
-                                   << " t_ms=" << this->telem.t_ms);
+                                   << " speed=" << this->telem.speed << " angle=" << this->telem.angle << " t_ms=" << this->telem.t_ms);
       break;
     }
     case dlink::PKT_TARGET:
       if (this->targetProvider) {
-        this->targetProvider->update(frame.as<dlink::TargetPos>());
+        this->targetProvider->update(frame.as<dlink::TargetPos>(), this->telem.t_ms);
       }
       break;
     case dlink::PKT_RESULT: {
@@ -85,11 +82,10 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
     this->targetProvider && this->fireGeometry && this->targetProvider->allSeen() && this->targetProvider->getTargetCount() > 0;
 
   if (!haveUsableTargets) {
-    DEBUG("updateGuidance: no usable targets (haveTargetProvider=" << (this->targetProvider != nullptr)
-                                                                    << " haveFireGeometry=" << (this->fireGeometry != nullptr)
-                                                                    << " allSeen=" << (this->targetProvider ? this->targetProvider->allSeen() : false)
-                                                                    << " targetCount=" << (this->targetProvider ? this->targetProvider->getTargetCount() : -1)
-                                                                    << ")");
+    DEBUG("updateGuidance: no usable targets (haveTargetProvider="
+          << (this->targetProvider != nullptr) << " haveFireGeometry=" << (this->fireGeometry != nullptr)
+          << " allSeen=" << (this->targetProvider ? this->targetProvider->allSeen() : false)
+          << " targetCount=" << (this->targetProvider ? this->targetProvider->getTargetCount() : -1) << ")");
     this->lastControl = this->flightController->compute(this->telem, this->telem.angle, 0.0f);
     return;
   }
@@ -101,10 +97,9 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
   for (int i = 0; i < this->targetProvider->getTargetCount(); ++i) {
     Target target = this->targetProvider->getTarget(i);
     FireSolution solution = this->fireGeometry->solve(this->telem, target);
-    DEBUG("  target[" << i << "] pos=(" << target.pos.x << "," << target.pos.y << ") vel=(" << target.velocity.x << ","
-                       << target.velocity.y << ") ok=" << solution.ok << " aimAngle=" << solution.aimAngle
-                       << " dropPoint=(" << solution.dropPoint.x << "," << solution.dropPoint.y << ")"
-                       << " inDropWindow=" << solution.inDropWindow);
+    DEBUG("  target[" << i << "] pos=(" << target.pos.x << "," << target.pos.y << ") vel=(" << target.velocity.x << "," << target.velocity.y
+                      << ") ok=" << solution.ok << " aimAngle=" << solution.aimAngle << " dropPoint=(" << solution.dropPoint.x << ","
+                      << solution.dropPoint.y << ")" << " inDropWindow=" << solution.inDropWindow);
     if (!solution.ok) {
       continue;
     }
@@ -124,9 +119,8 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
 
   float desiredSpeed = this->dropped ? 0.0f : best.desiredSpeed;
   this->lastControl = this->flightController->compute(this->telem, best.aimAngle, desiredSpeed);
-  DEBUG("updateGuidance: bestIndex=" << bestIndex << " bestDist=" << bestDist << " aimAngle=" << best.aimAngle
-                                     << " desiredSpeed=" << desiredSpeed << " inDropWindow=" << best.inDropWindow
-                                     << " dropped=" << this->dropped);
+  DEBUG("updateGuidance: bestIndex=" << bestIndex << " bestDist=" << bestDist << " aimAngle=" << best.aimAngle << " desiredSpeed="
+                                     << desiredSpeed << " inDropWindow=" << best.inDropWindow << " dropped=" << this->dropped);
 
   if (best.inDropWindow && !this->dropped) {
     this->gpio->setDrop(true);
@@ -152,7 +146,7 @@ void UartMissionProcessor::step(Clock::time_point now)
 
   if (this->telemetrySeen) {
     if (now - this->lastRxTime > this->params.telemetryWatchdog) {
-      this->lastControl = dlink::Control{0.0f, 0.0f};  // telemetry lost -> neutral control
+      this->lastControl = dlink::Control{0.0f, 0.0f};
     }
     else {
       this->updateGuidance(now);

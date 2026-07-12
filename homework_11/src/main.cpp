@@ -12,7 +12,6 @@
 #include <csignal>
 #include <exception>
 #include <iostream>
-#include <memory>
 #include <thread>
 #include <utility>
 
@@ -72,8 +71,7 @@ int main(int argc, char **argv)
 
   DroneConfig config = rawConfigLoader->getConfig();
 
-  auto targetProvider =
-    componentFactory.createProvider(ProviderType::UART, static_cast<int>(rawConfigLoader->targetCount()), config.timeScale);
+  auto targetProvider = componentFactory.createProvider(ProviderType::UART, static_cast<int>(rawConfigLoader->targetCount()));
 
   std::unique_ptr<FireGeometry> geometry;
   if (rawConfigLoader->hasConfig()) {

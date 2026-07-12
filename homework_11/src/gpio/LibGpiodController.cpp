@@ -4,8 +4,6 @@
 #include "debug.h"
 
 #include <gpiod.h>
-#include <memory>
-#include <string>
 
 namespace gpio {
 

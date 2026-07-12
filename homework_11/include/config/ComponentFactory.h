@@ -20,7 +20,7 @@ public:
                                                   const std::string &param,
                                                   float arrayTimeStep,
                                                   float timeScale);
-  std::unique_ptr<ITargetProvider> createProvider(ProviderType providerType, int nTargets, float timeScale = 1.0f);
+  std::unique_ptr<ITargetProvider> createProvider(ProviderType providerType, int nTargets);
   std::unique_ptr<IConfigLoader> createLoader(LoaderType loaderType, const std::string &param);
   std::unique_ptr<DronePhysics> createDronePhysics(const DroneConfig &config);
   std::shared_ptr<comms::SerialLink> createSerialLink();

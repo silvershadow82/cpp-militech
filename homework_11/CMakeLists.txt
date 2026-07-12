@@ -59,6 +59,7 @@ if(USE_GPIOD)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBGPIOD REQUIRED IMPORTED_TARGET libgpiod)
     target_link_libraries(simulation11_lib PUBLIC PkgConfig::LIBGPIOD)
+    target_compile_definitions(simulation11_lib PRIVATE USE_GPIOD)
 endif()
 
 # Шлях до балістичної таблиці зашитий у бібліотеку (використовує лише TableSolver.cpp). PRIVATE, щоб

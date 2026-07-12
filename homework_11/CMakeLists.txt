@@ -30,7 +30,9 @@ add_library(
     src/solvers/TableSolver.cpp
     src/config/ComponentFactory.cpp
     src/config/FileConfigLoader.cpp
+    src/config/UartConfigLoader.cpp
     src/providers/ThreadSafeTargetProvider.cpp
+    src/providers/UartTargetProvider.cpp
     src/models/BallisticTable.cpp
     src/models/Coord.cpp
     src/states/StateAccelerating.cpp

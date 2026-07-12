@@ -8,8 +8,8 @@ constexpr float G{9.81F};
 
 enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 enum class SolverType { ANALYTICAL, TABLE };
-enum class ProviderType { JSON };
-enum class LoaderType { FILE };
+enum class ProviderType { JSON, UART };
+enum class LoaderType { FILE, UART };
 enum class ConfigSource { FILE };
 
 struct PayloadParams {

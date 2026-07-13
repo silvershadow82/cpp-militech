@@ -6,7 +6,6 @@
 #include "config/UartConfigLoader.h"
 #include "control/FlightController.h"
 #include "gpio/IGpioController.h"
-#include "gpio/LibGpiodController.h"
 #include "interfaces/IBallisticSolver.h"
 #include "models/FireGeometry.h"
 #include "providers/ThreadSafeTargetProvider.h"
@@ -14,6 +13,10 @@
 #include "solvers/AnalyticalSolver.h"
 #include "solvers/TableSolver.h"
 #include "DronePhysics.h"
+
+#if defined(USE_GPIOD)
+#include "gpio/LibGpiodController.h"
+#endif
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
 {

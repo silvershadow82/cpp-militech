@@ -96,7 +96,7 @@ bool MissionProcessor::computeFireGeometry(const Coord &dronePos,
 
 bool MissionProcessor::computeFirePoint(const Target &target)
 {
-  BallisticResult ballistics = this->solver->solve();
+  BallisticResult ballistics = this->solver->solve(this->context.cfg.altitude, this->context.cfg.attackSpeed);
 
   if (!ballistics.ok) {
     return false;

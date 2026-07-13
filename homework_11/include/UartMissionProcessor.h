@@ -16,9 +16,9 @@
 using TimeUnit = std::chrono::milliseconds;
 
 struct UartMissionProcessorParams {
-  TimeUnit controlPeriod{20};       // fixed CONTROL emission cadence
-  TimeUnit dropPulseDuration{300};  // DROP pulse width (widened from 50-100ms; checker's poll rate may miss shorter pulses)
-  TimeUnit telemetryWatchdog{500};  // wall-clock loss-of-telemetry fail-safe
+  TimeUnit controlPeriod{20};
+  TimeUnit dropPulseDuration{300};
+  TimeUnit telemetryWatchdog{500};
 };
 
 class UartMissionProcessor {
@@ -35,6 +35,9 @@ public:
 
   void step(Clock::time_point now);
   static bool initConfig(comms::SerialLink &serial, UartConfigLoader &configLoader, TimeUnit timeout);
+
+  // true після отримання PKT_RESULT: місія завершена, головний цикл може виходити.
+  bool isComplete() const { return this->resultReceived; }
 
 private:
   void processFrame(const comms::Frame &frame, Clock::time_point now);
@@ -60,4 +63,6 @@ private:
   bool dropped{false};
   bool dropActive{false};
   Clock::time_point dropOffAt{};
+
+  bool resultReceived{false};
 };

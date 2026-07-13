@@ -29,14 +29,12 @@ void TableSolver::init(const DroneConfig& config, const PayloadParams& payloadPa
 
   LOG("Ballistic table loaded successfully");
 
-  this->altitude = config.altitude;
-  this->speed = config.attackSpeed;
   this->pp = payloadParams;
 }
 
-BallisticResult TableSolver::solve()
+BallisticResult TableSolver::solve(float altitude, float speed)
 {
-  auto result = this->table->lookup(this->altitude, this->speed, this->pp.m, this->pp.d, this->pp.l);
+  auto result = this->table->lookup(altitude, speed, this->pp.m, this->pp.d, this->pp.l);
 
   float t = result.t;
   float h = result.hDist;

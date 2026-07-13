@@ -16,8 +16,7 @@ FireSolution FireGeometry::solve(const Telem &telem, const Target &target)
 {
   FireSolution solution{};
 
-  // Перераховуємо кожний раз
-  BallisticResult ballistics = this->solver->solve();
+  BallisticResult ballistics = this->solver->solve(telem.altitude, telem.speed);
 
   if (!ballistics.ok) {
     return solution;

@@ -109,11 +109,13 @@ int main(int argc, char **argv)
   LOG("UartMissionProcessor started: uart=" << UART_DEVICE << " gpiochip=" << GPIO_CHIP << " startLine=" << START_LINE
                                             << " dropLine=" << DROP_LINE);
 
-  while (!stopRequested.load()) {
+  while (!stopRequested.load() && !missionProcessor.isComplete()) {
     missionProcessor.step(std::chrono::steady_clock::now());
     std::this_thread::sleep_for(sleepTime);
   }
 
+  gpio->setStart(false);
+  gpio->setDrop(false);
   LOG("Shutting down");
   return 0;
 }

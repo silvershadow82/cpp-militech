@@ -67,8 +67,9 @@ void UartMissionProcessor::processFrame(const comms::Frame &frame, Clock::time_p
       break;
     case dlink::PKT_RESULT: {
       dlink::Result result = frame.as<dlink::Result>();
-      LOG("PKT_RESULT: " << (result.hit ? "HIT" : "MISS") << " targetId=" << result.targetId << " miss_m=" << result.miss_m
-                         << " drop_t_ms=" << result.drop_t_ms);
+      LOG("PKT_RESULT: " << (result.hit ? "HIT" : "MISS") << " targetId=" << static_cast<int>(result.targetId)
+                         << " miss_m=" << result.miss_m << " drop_t_ms=" << result.drop_t_ms);
+      this->resultReceived = true;
       break;
     }
     default:

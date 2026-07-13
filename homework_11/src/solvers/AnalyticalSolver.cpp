@@ -4,13 +4,10 @@
 #include <cmath>
 #include <iostream>
 
-float AnalyticalSolver::payloadTimeOfFlight()
+float AnalyticalSolver::payloadTimeOfFlight(float altitude, float speed)
 {
   // Calculate the payload travel time t
   // Using Cardano formula to the cubic equation at^3+bt^2+c = 0
-  float altitude = this->droneConfig.altitude;
-  float speed = this->droneConfig.attackSpeed;
-
   float a = static_cast<float>(pp.d * G * pp.m - 2.0 * pp.d2 * pp.l * speed);
   float b = static_cast<float>(-3.0 * G * pp.m2 + 3.0 * pp.d * pp.l * pp.m * speed);
   float c = static_cast<float>(6.0 * pp.m2 * altitude);
@@ -36,14 +33,13 @@ float AnalyticalSolver::payloadTimeOfFlight()
   return t;
 }
 
-float AnalyticalSolver::calcHDistance(float t)
+float AnalyticalSolver::calcHDistance(float t, float speed)
 {
   float t2 = t * t;
   float t3 = t2 * t;
   float t4 = t2 * t2;
   float t5 = t3 * t2;
 
-  float speed = this->droneConfig.attackSpeed;
   float e1 = t * speed;
   float e2 = static_cast<float>(-t2 * pp.d * speed / (2.0 * pp.m));
   float e3 = static_cast<float>(t3 * (6.0 * pp.d * G * pp.l * pp.m - 6.0 * pp.d2 * (pp.l2 - 1.0) * speed) / (36.0 * pp.m2));
@@ -66,16 +62,16 @@ void AnalyticalSolver::init(const DroneConfig &droneConfig, const PayloadParams 
   this->pp = payloadParams;
 }
 
-BallisticResult AnalyticalSolver::solve()
+BallisticResult AnalyticalSolver::solve(float altitude, float speed)
 {
-  float t = payloadTimeOfFlight();
+  float t = payloadTimeOfFlight(altitude, speed);
 
   if (t <= 0) {
     std::cout << "Invalid t=" << t << std::endl;
     return BallisticResult{.ok = false};
   }
 
-  float h = calcHDistance(t);
+  float h = calcHDistance(t, speed);
 
   if (h <= 0) {
     std::cout << "Invalid h=" << h << std::endl;

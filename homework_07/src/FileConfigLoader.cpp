@@ -67,7 +67,7 @@ int FileConfigLoader::readAmmoData()
 
 FileConfigLoader::FileConfigLoader(const std::string& configFileName, const std::string& ammoFileName)
   : configFileName(configFileName)
-  , ammoFileName(ammoFileName){};
+  , ammoFileName(ammoFileName) {};
 
 void FileConfigLoader::load()
 {

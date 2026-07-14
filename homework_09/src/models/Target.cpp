@@ -13,7 +13,7 @@ Target::Target()
 Target::Target(const Target &copy)
   : index(copy.index)
   , angle(copy.angle)
-  , timeSteps(copy.timeSteps){};
+  , timeSteps(copy.timeSteps) {};
 
 Target::Target(int index)
   : index(index)

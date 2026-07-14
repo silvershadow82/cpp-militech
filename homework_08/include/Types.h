@@ -24,7 +24,8 @@ struct AmmoParams {
   float drag;
   float lift;
 
-  PayloadParams payloadParams() {
+  PayloadParams payloadParams()
+  {
     // Define payload parameters based on the current ammo
     PayloadParams pp{};
 

@@ -8,7 +8,8 @@
 
 using json = nlohmann::json;
 
-int JsonTargetProvider::readTargetData() {
+int JsonTargetProvider::readTargetData()
+{
   std::ifstream targetFile(this->jsonFileName);
   if (!targetFile.is_open()) {
     std::cerr << "Unable to open targets.json!" << std::endl;
@@ -25,8 +26,7 @@ int JsonTargetProvider::readTargetData() {
   for (int i = 0; i < targetCount; i++) {
     this->targets.emplace_back(Target(i));
     for (int j = 0; j < timeStepCount; j++) {
-      this->targets.at(i).setPosAt(j, jt["targets"][i]["positions"][j]["x"],
-                                   jt["targets"][i]["positions"][j]["y"]);
+      this->targets.at(i).setPosAt(j, jt["targets"][i]["positions"][j]["x"], jt["targets"][i]["positions"][j]["y"]);
     }
   }
   targetFile.close();
@@ -38,13 +38,18 @@ int JsonTargetProvider::readTargetData() {
 }
 
 JsonTargetProvider::JsonTargetProvider(const std::string &jsonFileName)
-    : jsonFileName(jsonFileName) {
+  : jsonFileName(jsonFileName)
+{
   this->readTargetData();
 }
 
-int JsonTargetProvider::getTargetCount() { return this->targets.size(); }
+int JsonTargetProvider::getTargetCount()
+{
+  return this->targets.size();
+}
 
-Target JsonTargetProvider::getTarget(int index) {
+Target JsonTargetProvider::getTarget(int index)
+{
   return this->targets.at(index);
 }
 

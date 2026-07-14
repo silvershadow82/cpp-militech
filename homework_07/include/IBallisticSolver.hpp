@@ -6,7 +6,7 @@ class IBallisticSolver {
 public:
   virtual void init(DroneConfig droneConfig, PayloadParams payloadParams) = 0;
   virtual BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) = 0;
-  virtual ~IBallisticSolver(){};
+  virtual ~IBallisticSolver() {};
 };
 
 class AnalyticalSolver : public IBallisticSolver {

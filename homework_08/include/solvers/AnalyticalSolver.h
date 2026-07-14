@@ -9,8 +9,6 @@ private:
   float calcHDistance(float t);
 
 public:
-  void init(const DroneConfig &droneConfig,
-            const PayloadParams &payloadParams) override;
-  BallisticResult solve(Coord dronePos, Coord targetPos,
-                        float droneAngle) override;
+  void init(const DroneConfig &droneConfig, const PayloadParams &payloadParams) override;
+  BallisticResult solve(Coord dronePos, Coord targetPos, float droneAngle) override;
 };

@@ -1,0 +1,3 @@
+mode=demo
+max_speed_mps=1.5
+controller_bus=vcan0

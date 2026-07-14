@@ -1,0 +1,5 @@
+# Час перезаряджання після прийнятої команди пострілу.
+actuator_server:
+  ros__parameters:
+    reload_ms: 2000
+    status_publish_hz: 2.0

@@ -15,8 +15,7 @@ private:
   int readAmmoData();
 
 public:
-  FileConfigLoader(const std::string &configFileName,
-                   const std::string &ammoFileName);
+  FileConfigLoader(const std::string &configFileName, const std::string &ammoFileName);
   void load() override;
   std::unordered_map<std::string, AmmoParams> getAmmoParams() override;
   DroneConfig getConfig() override;

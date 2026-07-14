@@ -9,11 +9,13 @@
 using json = nlohmann::json;
 
 StatCollector::StatCollector(const std::string &outputFileName)
-    : outputFileName(outputFileName) {
+  : outputFileName(outputFileName)
+{
   this->statSteps = std::vector<SimStep>(MAX_STEPS);
 };
 
-void StatCollector::collectStateStepStats(const SimState &state) {
+void StatCollector::collectStateStepStats(const SimState &state)
+{
   statSteps[state.step].pos = state.dronePos;
   statSteps[state.step].direction = state.droneAngle;
   statSteps[state.step].targetIdx = state.lastTargetIdx;
@@ -23,7 +25,8 @@ void StatCollector::collectStateStepStats(const SimState &state) {
   statSteps[state.step].aimPoint = state.aimPoint;
 }
 
-void StatCollector::printStats() {
+void StatCollector::printStats()
+{
   std::ofstream output(this->outputFileName);
 
   if (!output.is_open()) {
@@ -43,11 +46,9 @@ void StatCollector::printStats() {
     step["direction"] = statStep.direction;
     step["state"] = statStep.state;
     step["targetIndex"] = statStep.targetIdx;
-    step["dropPoint"] = {{"x", statStep.dropPoint.x},
-                         {"y", statStep.dropPoint.y}};
+    step["dropPoint"] = {{"x", statStep.dropPoint.x}, {"y", statStep.dropPoint.y}};
     step["aimPoint"] = {{"x", statStep.aimPoint.x}, {"y", statStep.aimPoint.y}};
-    step["predictedTarget"] = {{"x", statStep.predictedTarget.x},
-                               {"y", statStep.predictedTarget.y}};
+    step["predictedTarget"] = {{"x", statStep.predictedTarget.x}, {"y", statStep.predictedTarget.y}};
 
     out["steps"].push_back(step);
   }
@@ -57,4 +58,7 @@ void StatCollector::printStats() {
   output.close();
 }
 
-void StatCollector::resetStats() { this->statSteps.clear(); }
+void StatCollector::resetStats()
+{
+  this->statSteps.clear();
+}

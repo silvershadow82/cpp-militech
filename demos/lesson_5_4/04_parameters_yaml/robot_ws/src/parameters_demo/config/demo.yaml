@@ -1,0 +1,6 @@
+# Поріг надійності розпізнавання для прикладу контролера.
+parameter_reader:
+  ros__parameters:
+    confidence_threshold: 0.85
+    max_distance_m: 25.0
+    publish_hz: 2.0

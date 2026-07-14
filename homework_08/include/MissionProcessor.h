@@ -27,8 +27,7 @@ private:
   void updateDroneState();
 
 public:
-  MissionProcessor(IBallisticSolver *solver, ITargetProvider *targetProvider,
-                   IConfigLoader *configLoader);
+  MissionProcessor(IBallisticSolver *solver, ITargetProvider *targetProvider, IConfigLoader *configLoader);
   bool init(ConfigSource configSource, const std::string &dataFolder);
   bool hasNext();
   bool step();

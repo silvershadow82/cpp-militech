@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robot_telemetry</name>
+  <version>0.1.0</version>
+  <description>ROS 2 pub/sub demo for Block 5 / Lesson 5.3.</description>
+
+  <maintainer email="robot-dreams@example.com">robot_dreams</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

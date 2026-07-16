@@ -14,7 +14,9 @@
   "ammo": "RKG-3",
   "simulation": {
     "timeStep": 0.1,
-    "hitRadius": 4
+    "hitRadius": 4,
+    "physicsTimeStep": 0.01,
+    "timeScale": 10.0
   },
   "targetArrayTimeStep": 10
 }

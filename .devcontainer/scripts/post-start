@@ -17,7 +17,7 @@ if [[ "${CYCLONEDDS_URI:-}" != "file:///etc/cyclonedds.xml" ]]; then
 fi
 
 if command -v timeout >/dev/null 2>&1; then
-  timeout 3s ros2 daemon stop >/dev/null 2>&1 || true
+  timeout 30s ros2 daemon stop >/dev/null 2>&1 || true
 else
   ros2 daemon stop >/dev/null 2>&1 || true
 fi
@@ -28,10 +28,11 @@ if command -v pgrep >/dev/null 2>&1; then
   done < <(pgrep -f 'ros2cli.daemon.daemonize|--name ros2-daemon|_ros2_daemon' || true)
 fi
 
+# Таймаути більші, бо під QEMU-емуляцією (amd64-образ на arm64-хості)
 if command -v timeout >/dev/null 2>&1; then
-  timeout 5s ros2 daemon start >/dev/null
-  timeout 5s ros2 daemon status >/dev/null
+  timeout 60s ros2 daemon start >/dev/null || echo "post-start: ros2 daemon start не завершився вчасно, продовжуємо" >&2
+  timeout 60s ros2 daemon status >/dev/null || echo "post-start: ros2 daemon status не відповів вчасно, продовжуємо" >&2
 else
-  ros2 daemon start >/dev/null
-  ros2 daemon status >/dev/null
+  ros2 daemon start >/dev/null || true
+  ros2 daemon status >/dev/null || true
 fi

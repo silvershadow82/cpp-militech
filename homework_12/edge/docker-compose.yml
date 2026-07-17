@@ -10,9 +10,9 @@ services:
       auto_stub:
         condition: service_healthy
     volumes:
-      - ./config/c2_config.json:/etc/c2/c2_config.json:ro  # конфiг лише для читання
-      - ./logs:/var/log/c2                                 # логи видно на хостi пiсля stop
-    restart: _____    # для основного C2-сервiсу очiкується unless-stopped
+      - ./config/c2_config.json:/etc/c2/c2_config.json:ro # конфiг лише для читання
+      - ./logs:/var/log/c2 # логи видно на хостi пiсля stop
+    restart: unless-stopped # для основного C2-сервiсу очiкується unless-stopped
     network_mode: host
 
   auto_stub:

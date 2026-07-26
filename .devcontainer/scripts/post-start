@@ -29,8 +29,11 @@ if command -v pgrep >/dev/null 2>&1; then
 fi
 
 if command -v timeout >/dev/null 2>&1; then
-  timeout 5s ros2 daemon start >/dev/null
-  timeout 5s ros2 daemon status >/dev/null
+  # 5s тут не вистачає, коли образ osrf/ros:jazzy-desktop (amd64) виконується
+  # під емуляцією на arm64 host (напр. colima на Apple Silicon), особливо
+  # паралельно з встановленням VS Code extensions під час container start.
+  timeout 20s ros2 daemon start >/dev/null
+  timeout 20s ros2 daemon status >/dev/null
 else
   ros2 daemon start >/dev/null
   ros2 daemon status >/dev/null

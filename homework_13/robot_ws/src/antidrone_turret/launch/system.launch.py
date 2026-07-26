@@ -37,4 +37,10 @@ def generate_launch_description():
             parameters=[config],
             arguments=["--ros-args", "--log-level", log_level],
         ),
+        Node(
+            package="antidrone_turret",
+            executable="turret_controller_node",
+            parameters=[config],
+            arguments=["--ros-args","--log-level", log_level],
+        ),
     ])

@@ -22,6 +22,9 @@ rosidl_generate_interfaces(
     "msg/ServoCommand.msg"
     "srv/TriggerActuator.srv")
 
+add_library(core_controller STATIC src/core_controller.cpp)
+target_include_directories(core_controller PRIVATE include)
+
 ament_auto_add_executable(target_track_publisher_node src/target_track_publisher_node.cpp)
 ament_auto_add_executable(actuator_node src/actuator_node.cpp)
 ament_auto_add_executable(turret_controller_node src/turret_controller_node.cpp)
@@ -34,7 +37,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typ
 
 target_link_libraries(target_track_publisher_node "${cpp_typesupport_target}")
 target_link_libraries(actuator_node "${cpp_typesupport_target}")
-target_link_libraries(turret_controller_node "${cpp_typesupport_target}")
+target_link_libraries(turret_controller_node "${cpp_typesupport_target}" core_controller)
 
 if(BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)

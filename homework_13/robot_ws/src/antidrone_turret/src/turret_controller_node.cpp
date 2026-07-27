@@ -12,6 +12,7 @@
 #include "antidrone_turret/msg/servo_command.hpp"
 #include "antidrone_turret/msg/turret_status.hpp"
 #include "antidrone_turret/srv/trigger_actuator.hpp"
+#include "antidrone_turret/core_controller.hpp"
 
 namespace {
 
@@ -49,6 +50,11 @@ public:
     this->turretStatusPublisher = create_publisher<TurretStatus>(turretStatusTopic, qos);
 
     this->actuatorClient = create_client<TriggerActuator>(actuatorServicePath);
+
+    const auto confidence_threshold = declare_parameter<float>("confidence_threshold", 0.8f);
+    const auto max_distance_m = declare_parameter<float>("max_distance_m", 30.0f);
+
+    this->coreController = std::make_unique<core::CoreController>(confidence_threshold, max_distance_m);
   }
 
 private:
@@ -58,6 +64,8 @@ private:
   rclcpp::Publisher<antidrone_turret::msg::ServoCommand>::SharedPtr servoPublisher;
   rclcpp::Publisher<antidrone_turret::msg::TurretStatus>::SharedPtr turretStatusPublisher;
   rclcpp::Client<antidrone_turret::srv::TriggerActuator>::SharedPtr actuatorClient;
+
+  std::unique_ptr<core::CoreController> coreController;
 
   void onActuatorStatus(const antidrone_turret::msg::ActuatorStatus& status)
   {

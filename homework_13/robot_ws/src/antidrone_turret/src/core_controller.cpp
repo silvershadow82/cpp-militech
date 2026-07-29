@@ -1,28 +1,42 @@
 #include "antidrone_turret/core_controller.hpp"
 #include "antidrone_turret/actuator_model.hpp"
+#include "antidrone_turret/target_sequence.hpp"
 #include <cmath>
 
 constexpr float precision = 1e-5f;
 
-core::TriggerResult core::CoreController::computeTriggerResult(
-  bool targetVisible, float confidence, float targetX, float targetY, float distance, antidrone_turret::ActuatorState actuatorState)
-{
-  TriggerResult result{.triggerState = TriggerState::SKIP, .action = Action::IDLE};
+using ActuatorState = antidrone_turret::ActuatorState;
+using TargetSample = antidrone_turret::TargetSample;
 
-  if (!targetVisible || confidence < confidenceThreshold || distance > maxDistance) {
+core::ComputeResult core::CoreController::computeTriggerResult(const TargetSample& target, ActuatorState actuatorState)
+{
+  ComputeResult result{.action = Action::ACTION_IDLE, .triggerState = TriggerState::TRIGGER_SKIP, .targetState = TargetState::TARGET_NONE};
+
+  if (!target.visible) {
     return result;
   }
 
-  if (distance <= maxDistance) {
-    result.action = Action::TRACK;
-    result.servoDirection = this->computeServoDirection(targetX);
-    result.gimbalDirection = this->computeGimbalDirection(targetY);
+  if (target.confidence < confidenceThreshold) {
+    result.targetState = TargetState::TARGET_LOW_CONFIDENCE;
+  }
+  else if (target.distance_m > maxDistance) {
+    result.action = Action::ACTION_TRACK;
+    result.servoCommand = this->computeServoCommand(target.x);
+    result.gimbalCommand = this->computeGimbalCommand(target.y);
+  }
+  else if (target.distance_m <= maxDistance) {
+    result.action = Action::ACTION_TRACK;
+    result.targetState = TargetState::TARGET_LOCKED;
+    result.servoCommand = this->computeServoCommand(target.x);
+    result.gimbalCommand = this->computeGimbalCommand(target.y);
     switch (actuatorState) {
-      case antidrone_turret::ActuatorState::kReady:
-        result.triggerState = TriggerState::REQUESTED;
+      case ActuatorState::kReady:
+        result.triggerState = TriggerState::TRIGGER_REQUESTED;
         break;
-      case antidrone_turret::ActuatorState::kReloading:
-        result.triggerState = TriggerState::RELOADING;
+      case ActuatorState::kReloading:
+        result.triggerState = TriggerState::TRIGGER_RELOADING;
+        break;
+      default:
         break;
     }
   }
@@ -30,22 +44,45 @@ core::TriggerResult core::CoreController::computeTriggerResult(
   return result;
 }
 
-core::ServoDirection core::CoreController::computeServoDirection(float targetX)
+core::ServoCommand core::CoreController::computeServoCommand(float targetX)
 {
-  auto diff = targetX - 320;
+  ServoCommand command{.targetX = targetX};
+  auto errorX = targetX - 320;
 
-  if (std::fabs(diff) < precision) {
-    return ServoDirection::CENTER;
+  if (std::fabs(errorX) < precision) {
+    command.servoDirection = ServoDirection::CENTER;
+    command.errorX = 0.0F;
   }
-  return (diff < 0) ? ServoDirection::LEFT : ServoDirection::RIGHT;
+  else if (errorX < 0) {
+    command.servoDirection = ServoDirection::LEFT;
+    command.errorX = errorX;
+  }
+  else {
+    command.servoDirection = ServoDirection::RIGHT;
+    command.errorX = errorX;
+  }
+
+  return command;
 };
 
-core::GimbalDirection core::CoreController::computeGimbalDirection(float targetY)
+core::GimbalCommand core::CoreController::computeGimbalCommand(float targetY)
 {
-  auto diff = targetY - 240;
+  GimbalCommand command{.targetY = targetY};
 
-  if (std::fabs(diff) < precision) {
-    return GimbalDirection::CENTER;
+  auto errorY = targetY - 240;
+
+  if (std::fabs(errorY) < precision) {
+    command.gimbalDirection = GimbalDirection::CENTER;
+    command.errorY = 0.0F;
   }
-  return (diff < 0) ? GimbalDirection::UP : GimbalDirection::DOWN;
+  else if (errorY < 0) {
+    command.gimbalDirection = GimbalDirection::UP;
+    command.errorY = errorY;
+  }
+  else {
+    command.gimbalDirection = GimbalDirection::DOWN;
+    command.errorY = errorY;
+  }
+
+  return command;
 };

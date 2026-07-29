@@ -7,8 +7,9 @@
 
 namespace core {
 
-// Порядок значень мусить збігатися з константами msg/TurretStatus.msg,
-// бо turret_controller_node публікує їх через static_cast<uint8_t>.
+constexpr float frameCenterX = 320.0F;
+constexpr float frameCenterY = 240.0F;
+
 enum class Action : uint8_t { ACTION_IDLE, ACTION_TRACK };
 enum class TriggerState : uint8_t { TRIGGER_SKIP, TRIGGER_REQUESTED, TRIGGER_RELOADING };
 enum class ServoDirection : int { LEFT = -1, CENTER, RIGHT };
@@ -35,6 +36,14 @@ struct ComputeResult {
   GimbalCommand gimbalCommand;
 };
 
+struct TurretStatusView {
+  TargetState targetState{TargetState::TARGET_NONE};
+  Action action{Action::ACTION_IDLE};
+  TriggerState triggerState{TriggerState::TRIGGER_SKIP};
+  float confidence{0.0F};
+  float distanceM{0.0F};
+};
+
 class CoreController {
 private:
   float confidenceThreshold;
@@ -52,5 +61,7 @@ public:
 
   ComputeResult computeTriggerResult(const antidrone_turret::TargetSample& target, antidrone_turret::ActuatorState actuatorState);
 };
+
+TurretStatusView makeTurretStatus(const antidrone_turret::TargetSample& target, const ComputeResult& result);
 
 }  // namespace core

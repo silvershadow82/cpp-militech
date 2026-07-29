@@ -26,7 +26,11 @@ private:
 
   void onCommand(const GimbalCommand& command)
   {
-    RCLCPP_INFO(get_logger(), "moving gimbal dir=%d by=%.2f", command.direction, command.error_y);
+    RCLCPP_INFO(get_logger(),
+                "received gimbal command - direction=%d target_y=%.2f error_y=%.2f",
+                command.direction,
+                command.target_y,
+                command.error_y);
   }
 };
 

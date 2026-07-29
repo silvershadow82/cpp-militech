@@ -51,7 +51,7 @@ def generate_launch_description():
         ),
         Node(
             package="antidrone_turret",
-            executable="servo_driver_node",
+            executable="yaw_servo_driver_node",
             parameters=[config],
             arguments=["--ros-args","--log-level", log_level],
         ),

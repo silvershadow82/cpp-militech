@@ -24,7 +24,11 @@ private:
   rclcpp::Subscription<ServoCommand>::SharedPtr subscription;
   void onCommand(const ServoCommand& command)
   {
-    RCLCPP_INFO(get_logger(), "moving servo dir=%d by=%.2f", command.direction, command.error_x);
+    RCLCPP_INFO(get_logger(),
+                "received servo command - direction=%d target_x=%.2f error_x=%.2f",
+                command.direction,
+                command.target_x,
+                command.error_x);
   }
 };
 

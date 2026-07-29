@@ -218,6 +218,36 @@ TEST(CoreControllerTest, FarValidTargetIsLockedAndTrackedWithoutTrigger)
   EXPECT_FLOAT_EQ(result.gimbalCommand.errorY, 40.0F);
 }
 
+TEST(CoreControllerTest, TurretStatusCarriesDecisionAndTargetMetrics)
+{
+  auto controller = make_controller();
+  const auto target = TargetSample{true, 400.0F, 200.0F, 30.5F, 0.95F};
+
+  const auto result = controller.computeTriggerResult(target, ActuatorState::kReady);
+  const auto status = core::makeTurretStatus(target, result);
+
+  EXPECT_EQ(status.targetState, core::TargetState::TARGET_LOCKED);
+  EXPECT_EQ(status.action, core::Action::ACTION_TRACK);
+  EXPECT_EQ(status.triggerState, core::TriggerState::TRIGGER_SKIP);
+  EXPECT_FLOAT_EQ(status.confidence, 0.95F);
+  EXPECT_FLOAT_EQ(status.distanceM, 30.5F);
+}
+
+TEST(CoreControllerTest, TurretStatusKeepsMetricsForIdleTarget)
+{
+  auto controller = make_controller();
+  const auto target = TargetSample{true, 400.0F, 200.0F, 10.0F, 0.79F};
+
+  const auto result = controller.computeTriggerResult(target, ActuatorState::kReady);
+  const auto status = core::makeTurretStatus(target, result);
+
+  EXPECT_EQ(status.targetState, core::TargetState::TARGET_LOW_CONFIDENCE);
+  EXPECT_EQ(status.action, core::Action::ACTION_IDLE);
+  EXPECT_EQ(status.triggerState, core::TriggerState::TRIGGER_SKIP);
+  EXPECT_FLOAT_EQ(status.confidence, 0.79F);
+  EXPECT_FLOAT_EQ(status.distanceM, 10.0F);
+}
+
 TEST(CoreControllerTest, DefaultSequenceLocksEveryConfidentSample)
 {
   auto controller = make_controller();

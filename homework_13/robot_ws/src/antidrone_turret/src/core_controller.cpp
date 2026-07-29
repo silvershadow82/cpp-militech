@@ -21,13 +21,11 @@ core::ComputeResult core::CoreController::computeTriggerResult(const TargetSampl
     return result;
   }
 
-  // Ціль видима і розпізнавання надійне: наводимось незалежно від дистанції.
   result.action = Action::ACTION_TRACK;
   result.targetState = TargetState::TARGET_LOCKED;
   result.servoCommand = this->computeServoCommand(target.x);
   result.gimbalCommand = this->computeGimbalCommand(target.y);
 
-  // Дистанція вирішує тільки постріл: далі за maxDistance лишається TRIGGER_SKIP.
   if (target.distance_m <= maxDistance) {
     switch (actuatorState) {
       case ActuatorState::kReady:
@@ -44,10 +42,21 @@ core::ComputeResult core::CoreController::computeTriggerResult(const TargetSampl
   return result;
 }
 
+core::TurretStatusView core::makeTurretStatus(const TargetSample& target, const ComputeResult& result)
+{
+  return TurretStatusView{
+    .targetState = result.targetState,
+    .action = result.action,
+    .triggerState = result.triggerState,
+    .confidence = target.confidence,
+    .distanceM = target.distance_m,
+  };
+}
+
 core::ServoCommand core::CoreController::computeServoCommand(float targetX)
 {
   ServoCommand command{.targetX = targetX};
-  auto errorX = targetX - 320;
+  auto errorX = targetX - frameCenterX;
 
   if (std::fabs(errorX) < precision) {
     command.servoDirection = ServoDirection::CENTER;
@@ -69,8 +78,7 @@ core::GimbalCommand core::CoreController::computeGimbalCommand(float targetY)
 {
   GimbalCommand command{.targetY = targetY};
 
-  // y у кадрі росте вниз, тому помилка гімбала інвертована відносно кадру.
-  auto errorY = 240 - targetY;
+  auto errorY = frameCenterY - targetY;
 
   if (std::fabs(errorY) < precision) {
     command.gimbalDirection = GimbalDirection::CENTER;

@@ -18,17 +18,17 @@ core::ComputeResult core::CoreController::computeTriggerResult(const TargetSampl
 
   if (target.confidence < confidenceThreshold) {
     result.targetState = TargetState::TARGET_LOW_CONFIDENCE;
+    return result;
   }
-  else if (target.distance_m > maxDistance) {
-    result.action = Action::ACTION_TRACK;
-    result.servoCommand = this->computeServoCommand(target.x);
-    result.gimbalCommand = this->computeGimbalCommand(target.y);
-  }
-  else if (target.distance_m <= maxDistance) {
-    result.action = Action::ACTION_TRACK;
-    result.targetState = TargetState::TARGET_LOCKED;
-    result.servoCommand = this->computeServoCommand(target.x);
-    result.gimbalCommand = this->computeGimbalCommand(target.y);
+
+  // Ціль видима і розпізнавання надійне: наводимось незалежно від дистанції.
+  result.action = Action::ACTION_TRACK;
+  result.targetState = TargetState::TARGET_LOCKED;
+  result.servoCommand = this->computeServoCommand(target.x);
+  result.gimbalCommand = this->computeGimbalCommand(target.y);
+
+  // Дистанція вирішує тільки постріл: далі за maxDistance лишається TRIGGER_SKIP.
+  if (target.distance_m <= maxDistance) {
     switch (actuatorState) {
       case ActuatorState::kReady:
         result.triggerState = TriggerState::TRIGGER_REQUESTED;
@@ -69,13 +69,14 @@ core::GimbalCommand core::CoreController::computeGimbalCommand(float targetY)
 {
   GimbalCommand command{.targetY = targetY};
 
-  auto errorY = targetY - 240;
+  // y у кадрі росте вниз, тому помилка гімбала інвертована відносно кадру.
+  auto errorY = 240 - targetY;
 
   if (std::fabs(errorY) < precision) {
     command.gimbalDirection = GimbalDirection::CENTER;
     command.errorY = 0.0F;
   }
-  else if (errorY < 0) {
+  else if (errorY > 0) {
     command.gimbalDirection = GimbalDirection::UP;
     command.errorY = errorY;
   }

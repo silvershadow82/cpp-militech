@@ -77,39 +77,30 @@ private:
   std::unique_ptr<core::CoreController> coreController;
   antidrone_turret::ActuatorState lastActuatorState = antidrone_turret::ActuatorState::kReady;
 
-  void processTriggerResult(const antidrone_turret::msg::Target& target, const core::ComputeResult& triggerResult)
+  void processTriggerResult(const antidrone_turret::msg::Target& target, const core::ComputeResult& computeResult)
   {
-    if (triggerResult.action == core::Action::ACTION_TRACK) {
+    if (computeResult.action == core::Action::ACTION_TRACK) {
       // Move Gimbal
-      auto gimbalCommand = GimbalCommand{};
-      gimbalCommand.direction = static_cast<int>(triggerResult.gimbalCommand.gimbalDirection);
-      gimbalCommand.target_y = triggerResult.gimbalCommand.targetY;
-      gimbalCommand.error_y = triggerResult.gimbalCommand.errorY;
-
-      this->gimbalPublisher->publish(gimbalCommand);
+      publishGimbalCommand(computeResult);
 
       // Move Servo
-      auto servoCommand = ServoCommand{};
-      servoCommand.direction = static_cast<int>(triggerResult.servoCommand.servoDirection);
-      servoCommand.target_x = triggerResult.servoCommand.targetX;
-      servoCommand.error_x = triggerResult.servoCommand.errorX;
+      publishServoCommand(computeResult);
 
-      this->servoPublisher->publish(servoCommand);
-
-      if (triggerResult.triggerState == core::TriggerState::TRIGGER_REQUESTED) {
+      if (computeResult.triggerState == core::TriggerState::TRIGGER_REQUESTED) {
         // Request trigger
         auto request = std::make_shared<TriggerActuator::Request>();
         request->confidence = target.confidence;
         request->distance_m = target.distance_m;
-        this->actuatorClient->async_send_request(request, [this, &target](rclcpp::Client<TriggerActuator>::SharedFuture future) {
-          auto response = future.get();
-          // publish trigger status to the topic
-        });
-      }
-      else if (triggerResult.triggerState == core::TriggerState::TRIGGER_RELOADING) {
-        // publish trigger status to the topic
+        this->actuatorClient->async_send_request(
+          request, [this, &target, &computeResult](rclcpp::Client<TriggerActuator>::SharedFuture future) {
+            auto response = future.get();
+            RCLCPP_INFO(
+              get_logger(), "actuator service response - accepted: %b, trigger_count: %d", response->accepted, response->trigger_count);
+          });
       }
     }
+
+    this->publishTurretStatus(target, computeResult);
   }
 
   void onActuatorStatus(const antidrone_turret::msg::ActuatorStatus& status)
@@ -123,6 +114,38 @@ private:
     RCLCPP_INFO(get_logger(), "received target update - confidence: %.2f, x: %.3f, y: %.3f", target.confidence, target.x, target.y);
     core::ComputeResult result = this->coreController->computeTriggerResult(toTargetSample(target), this->lastActuatorState);
     this->processTriggerResult(target, result);
+  }
+
+  void publishTurretStatus(const antidrone_turret::msg::Target& target, const core::ComputeResult& computeResult)
+  {
+    TurretStatus status{};
+    status.target_state = static_cast<uint8_t>(computeResult.targetState);
+    status.trigger_state = static_cast<uint8_t>(computeResult.triggerState);
+    status.action = static_cast<uint8_t>(computeResult.action);
+    status.confidence = target.confidence;
+    status.distance_m = target.distance_m;
+
+    this->turretStatusPublisher->publish(status);
+  }
+
+  void publishGimbalCommand(const core::ComputeResult& computeResult)
+  {
+    auto gimbalCommand = GimbalCommand{};
+    gimbalCommand.direction = static_cast<int>(computeResult.gimbalCommand.gimbalDirection);
+    gimbalCommand.target_y = computeResult.gimbalCommand.targetY;
+    gimbalCommand.error_y = computeResult.gimbalCommand.errorY;
+
+    this->gimbalPublisher->publish(gimbalCommand);
+  }
+
+  void publishServoCommand(const core::ComputeResult& computeResult)
+  {
+    auto servoCommand = ServoCommand{};
+    servoCommand.direction = static_cast<int>(computeResult.servoCommand.servoDirection);
+    servoCommand.target_x = computeResult.servoCommand.targetX;
+    servoCommand.error_x = computeResult.servoCommand.errorX;
+
+    this->servoPublisher->publish(servoCommand);
   }
 };
 

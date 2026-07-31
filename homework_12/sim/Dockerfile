@@ -1,4 +1,6 @@
-FROM ardupilot/ardupilot-dev-base:latest
+# amd64: базовий образ ardupilot-dev-base публiкується лише для amd64
+ARG PLATFORM=linux/amd64
+FROM --platform=${PLATFORM} ardupilot/ardupilot-dev-base:edge
 
 ARG ARDUPILOT_TAG=Rover-4.6.3
 
@@ -11,7 +13,7 @@ RUN apt-get update \
 
 # Офiцiйний dev-base мiстить toolchain, але не мiстить source та готових binary.
 RUN git clone --depth 1 --branch "${ARDUPILOT_TAG}" --recurse-submodules \
-      https://github.com/ArduPilot/ardupilot.git /ardupilot \
+    https://github.com/ArduPilot/ardupilot.git /ardupilot \
     && cd /ardupilot \
     && ./waf configure --board sitl \
     && ./waf rover

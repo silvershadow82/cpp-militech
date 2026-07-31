@@ -26,7 +26,7 @@ bool MapMemory::isKnown(const Cell cell) const
 
 bool MapMemory::isVisited(const Cell cell) const
 {
-  return this->cells.find(cell) != this->cells.end();
+  return this->visited.find(cell) != this->visited.end();
 }
 
 bool MapMemory::isFrontier(const Cell cell) const
@@ -101,7 +101,7 @@ std::size_t MapMemory::knownCellCount() const
 
 std::size_t MapMemory::visitedCellCount() const
 {
-  return this->cells.size();
+  return this->visited.size();
 }
 
 }  // namespace mission_control

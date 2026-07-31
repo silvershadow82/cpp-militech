@@ -91,7 +91,7 @@ TEST(ExplorerTest, EngagesVisibleContactBeforeMoving)
   const auto decision = explorer.decide();
 
   ASSERT_EQ(decision.kind, Decision::Kind::Engage);
-  EXPECT_EQ(decision.contact.contact_id, 7);
+  EXPECT_EQ(decision.contact.contactId, 7);
   EXPECT_EQ(decision.contact.cell, (Cell{3, 1}));
 }
 
@@ -186,12 +186,12 @@ TEST(ExplorerTest, EngagesLowestContactIdFirst)
   explorer.observe(observation);
   const auto first = explorer.decide();
   ASSERT_EQ(first.kind, Decision::Kind::Engage);
-  EXPECT_EQ(first.contact.contact_id, 2);
+  EXPECT_EQ(first.contact.contactId, 2);
 
   explorer.markEngaged(2);
   const auto second = explorer.decide();
   ASSERT_EQ(second.kind, Decision::Kind::Engage);
-  EXPECT_EQ(second.contact.contact_id, 5);
+  EXPECT_EQ(second.contact.contactId, 5);
 
   explorer.markEngaged(5);
   EXPECT_EQ(explorer.decide().kind, Decision::Kind::Wait);

@@ -11,6 +11,7 @@ def generate_launch_description():
     # ros2 launch underground_world system.launch.py scenario:=small_rooms.yaml
     scenario = LaunchConfiguration("scenario")
     move_commit_period_ms = LaunchConfiguration("move_commit_period_ms")
+    start_delay_ms = LaunchConfiguration("start_delay_ms")
     scenario_path = PathJoinSubstitution(
         [FindPackageShare("underground_world"), "config", scenario]
     )
@@ -30,7 +31,27 @@ def generate_launch_description():
         ],
     )
 
-    # Тут можна додати керуючі ноди або інший launch-файл з рішенням.
+    # Ноди рішення. payload_action_node йде першим, щоб сервіс /payload/trigger
+    # існував до першого запиту від mission_explorer_node.
+    payload_action_node = Node(
+        package="mission_control",
+        executable="payload_action_node",
+        name="payload_action_node",
+        output="screen",
+    )
+
+    mission_explorer_node = Node(
+        package="mission_control",
+        executable="mission_explorer_node",
+        name="mission_explorer_node",
+        output="screen",
+        parameters=[
+            {
+                "start_delay_ms": ParameterValue(start_delay_ms, value_type=int),
+            }
+        ],
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -43,6 +64,13 @@ def generate_launch_description():
                 default_value="50",
                 description="Delay before applying queued move commands",
             ),
+            DeclareLaunchArgument(
+                "start_delay_ms",
+                default_value="1500",
+                description="Delay before the first move command, lets ros2 bag record attach",
+            ),
             world_node,
+            payload_action_node,
+            mission_explorer_node,
         ]
     )

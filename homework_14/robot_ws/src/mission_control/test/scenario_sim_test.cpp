@@ -63,8 +63,8 @@ SimOutcome runScenario(const std::string& filename)
     outcome.last_decision = decision.kind;
 
     if (decision.kind == Decision::Kind::Engage) {
-      explorer.markEngaged(decision.contact.contact_id);
-      world.apply_enemy_down(decision.contact.contact_id, underground_world::Position{decision.contact.cell.x, decision.contact.cell.y});
+      explorer.markEngaged(decision.contact.contactId);
+      world.apply_enemy_down(decision.contact.contactId, underground_world::Position{decision.contact.cell.x, decision.contact.cell.y});
       continue;
     }
 
@@ -86,7 +86,7 @@ void expectScenarioPasses(const std::string& filename, const std::uint32_t expec
   const auto outcome = runScenario(filename);
 
   SCOPED_TRACE(filename);
-  EXPECT_LT(outcome.iterations, kIterationLimit);
+  EXPECT_LT(outcome.iterations, iterationLimit);
 
   EXPECT_EQ(outcome.result.mission_result, "SUCCESS");
   EXPECT_FLOAT_EQ(outcome.metrics.map_coverage_percent, 100.0F);

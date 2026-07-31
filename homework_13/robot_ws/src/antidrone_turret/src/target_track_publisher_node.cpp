@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <rclcpp/node.hpp>
+#include <rclcpp/logger.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include "antidrone_turret/target_sequence.hpp"

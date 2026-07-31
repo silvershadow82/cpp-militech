@@ -27,3 +27,10 @@ add_subdirectory(homework_10)
 
 # Demo-код для заняття 2.4: локальне і віддалене відлагодження через GDB.
 add_subdirectory(demos/lesson_2_4/debug_probe)
+
+# Demo-код для заняття 5.1: Docker runtime для C++ сервісів.
+add_subdirectory(demos/lesson_5_1/01_multi_stage)
+add_subdirectory(demos/lesson_5_1/02_docker_build)
+add_subdirectory(demos/lesson_5_1/03_docker_run)
+add_subdirectory(demos/lesson_5_1/04_volume_layout)
+add_subdirectory(demos/lesson_5_1/05_healthcheck)

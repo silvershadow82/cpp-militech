@@ -129,7 +129,7 @@ int ballistics(BallisticResult &result, const BallisticInput &input)
   // Copy Ammo name for stats
   std::strncpy(
     result.ammoName,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
-    input.ammoName,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
+    input.ammoName,   // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay) - поки не знаємо про std::string
     MAX_AMMO_LENGTH - 1);
 
   const float t = payloadTimeOfFlight(pp, input.altitude, input.attackSpeed);

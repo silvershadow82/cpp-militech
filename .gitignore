@@ -3,15 +3,23 @@ build/
 build-*/
 out/
 
+# colcon додає до build/ ще install/ і log/ у корені ROS 2 workspace.
+install/
+log/
+
 # CMake генерує ці файли при in-source або ручних локальних збірках.
 CMakeCache.txt
 CMakeFiles/
 CTestTestfile.cmake
-Makefile
+# Makefile
 cmake_install.cmake
 compile_commands.json
 install_manifest.txt
 _deps/
+
+# Python bytecode з'являється після перевірки launch-файлів і не потрібен у repo.
+__pycache__/
+*.py[cod]
 
 # Мінімальний набір compiled/debug артефактів для C++ прикладів.
 *.d
@@ -27,6 +35,7 @@ _deps/
 *.pdb
 core
 core.*
+*.core
 
 # Метадані операційної системи не є частиною навчального репозиторію.
 .DS_Store

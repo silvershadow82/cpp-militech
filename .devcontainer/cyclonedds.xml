@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General>
+      <!--
+        Базовий образ osrf/ros:jazzy-desktop існує лише під amd64, тож на
+        arm64 Mac (colima) контейнер виконується через qemu-user емуляцію.
+        qemu-user не реалізує setsockopt IP_MULTICAST_IF і повертає
+        ENOPROTOOPT на будь-якому interface, включно з lo (IP_MULTICAST_TTL,
+        IP_MULTICAST_LOOP та IP_ADD_MEMBERSHIP при цьому працюють). Через це
+        ddsi_udp_create_conn падає з "set IP_MULTICAST_IF failed: Unsupported"
+        і node не створюється взагалі.
+        Тому multicast вимкнено, а discovery йде unicast-ом по loopback.
+      -->
+      <Interfaces>
+        <NetworkInterface name="lo" priority="default" multicast="false"/>
+      </Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+      <EnableMulticastLoopback>false</EnableMulticastLoopback>
+    </General>
+
+    <Discovery>
+      <!--
+        auto + MaxAutoParticipantIndex дають кільком локальним ROS 2 процесам
+        стабільно отримувати різні participant index-и. При unicast discovery
+        кожен index — це окремий порт, який опитується, тож тримаємо межу
+        помірною заради швидкого discovery.
+      -->
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>32</MaxAutoParticipantIndex>
+
+      <!-- Локальний peer лишає graph видимим для процесів у цьому devcontainer. -->
+      <Peers>
+        <Peer Address="localhost"/>
+      </Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

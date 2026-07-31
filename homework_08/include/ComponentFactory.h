@@ -10,7 +10,6 @@ class IConfigLoader;
 class ComponentFactory {
 public:
   IBallisticSolver *createSolver(SolverType solverType);
-  ITargetProvider *createProvider(ProviderType providerType,
-                                  const std::string &param);
+  ITargetProvider *createProvider(ProviderType providerType, const std::string &param);
   IConfigLoader *createLoader(LoaderType loaderType, const std::string &param);
 };

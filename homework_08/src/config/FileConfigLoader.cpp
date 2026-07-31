@@ -9,11 +9,11 @@
 
 using json = nlohmann::json;
 
-int FileConfigLoader::readConfig() {
+int FileConfigLoader::readConfig()
+{
   std::ifstream configFile(this->configFileName);
   if (!configFile.is_open()) {
-    std::cerr << "Unable to open config file" << this->configFileName
-              << std::endl;
+    std::cerr << "Unable to open config file" << this->configFileName << std::endl;
     return 1;
   }
   json jc;
@@ -44,7 +44,8 @@ int FileConfigLoader::readConfig() {
   return 0;
 }
 
-int FileConfigLoader::readAmmoData() {
+int FileConfigLoader::readAmmoData()
+{
   std::ifstream ammoFile(this->ammoFileName);
   if (!ammoFile.is_open()) {
     std::cerr << "Unable to open ammo file!" << this->ammoFileName << std::endl;
@@ -58,10 +59,7 @@ int FileConfigLoader::readAmmoData() {
 
   for (int i = 0; i < ammoCount; i++) {
     std::string name = ja[i]["name"];
-    this->ammoParams.emplace(name, AmmoParams{.name = name,
-                                              .mass = ja[i]["mass"],
-                                              .drag = ja[i]["drag"],
-                                              .lift = ja[i]["lift"]});
+    this->ammoParams.emplace(name, AmmoParams{.name = name, .mass = ja[i]["mass"], .drag = ja[i]["drag"], .lift = ja[i]["lift"]});
     // this->ammoParams[i] = AmmoParams{};
     // this->ammoParams[i].mass = ja[i]["mass"];
     // this->ammoParams[i].drag = ja[i]["drag"];
@@ -74,11 +72,12 @@ int FileConfigLoader::readAmmoData() {
   return 0;
 }
 
-FileConfigLoader::FileConfigLoader(const std::string &configFileName,
-                                   const std::string &ammoFileName)
-    : configFileName(configFileName), ammoFileName(ammoFileName) {};
+FileConfigLoader::FileConfigLoader(const std::string &configFileName, const std::string &ammoFileName)
+  : configFileName(configFileName)
+  , ammoFileName(ammoFileName) {};
 
-void FileConfigLoader::load() {
+void FileConfigLoader::load()
+{
   int ret_code = this->readConfig();
   if (ret_code == 0) {
     ret_code = this->readAmmoData();
@@ -86,21 +85,24 @@ void FileConfigLoader::load() {
   this->configAvailable = ret_code == 0;
 };
 
-std::unordered_map<std::string, AmmoParams> FileConfigLoader::getAmmoParams() {
+std::unordered_map<std::string, AmmoParams> FileConfigLoader::getAmmoParams()
+{
   if (!this->configAvailable) {
     this->load();
   }
   return this->ammoParams;
 };
 
-DroneConfig FileConfigLoader::getConfig() {
+DroneConfig FileConfigLoader::getConfig()
+{
   if (!this->configAvailable) {
     this->load();
   }
   return this->droneConfig;
 }
 
-int FileConfigLoader::getAmmoCount() {
+int FileConfigLoader::getAmmoCount()
+{
   if (!this->configAvailable) {
     this->load();
   }

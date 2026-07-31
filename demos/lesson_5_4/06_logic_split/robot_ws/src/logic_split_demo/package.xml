@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>logic_split_demo</name>
+  <version>0.1.0</version>
+  <description>Small C++ logic split demo for Block 5 / Lesson 5.4.</description>
+
+  <maintainer email="robot-dreams@example.com">robot_dreams</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <depend>rclcpp</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

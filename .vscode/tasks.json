@@ -32,40 +32,6 @@
         "panel": "dedicated",
         "clear": true
       }
-    },
-    {
-      "label": "CLang-Tidy: run code linter",
-      "type": "shell",
-      "command": "run-clang-tidy -p build/ homework_06/",
-      "group": {
-        "kind": "none",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "clear": true
-      }
-    },
-    {
-      "label": "CTest: run tests",
-      "type": "shell",
-      "command": "ctest --test-dir build/debug --output-on-failure",
-      "group": {
-        "kind": "test",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "clear": true
-      }
-    },
+    }
   ]
 }

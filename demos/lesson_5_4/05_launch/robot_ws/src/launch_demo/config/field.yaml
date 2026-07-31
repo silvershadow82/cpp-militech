@@ -1,0 +1,10 @@
+# Польовий профіль: інша частота і суворіша робоча дистанція.
+sensor_process:
+  ros__parameters:
+    source_name: "field_sensor"
+    publish_hz: 5.0
+
+controller_process:
+  ros__parameters:
+    mode: "FIELD"
+    max_distance_m: 25.0

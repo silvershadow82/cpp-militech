@@ -1,16 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# Ubuntu 24.04 LTS (noble), закріплено по SHA256 digest.
-#
-# Теги на Docker Hub змінюються: :noble перевипускається кілька разів
-# на рік з оновленнями безпеки. Той самий Dockerfile з тим самим тегом
-# завтра може витягнути інший образ. Пін по digest робить так, щоб
-# через будь-який час збірка давала ту саму базу.
-#
-# Оновити digest (коли планово бампаємо базу):
-#   docker pull ubuntu:noble
-#   docker inspect --format='{{index .RepoDigests 0}}' ubuntu:noble
-FROM ubuntu:noble@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
+# ROS 2 Jazzy desktop як базовий devcontainer-образ.
+# Це лишає Ubuntu 24.04 під капотом, але одразу дає /opt/ros/jazzy,
+# rviz2, rqt-інструменти і системні залежності ROS 2.
+FROM osrf/ros:jazzy-desktop
 
 # Неінтерактивний frontend, щоб apt не зависнув чекаючи відповіді на
 # питання (часовий пояс, клавіатура, kernel upgrade prompt). У Dockerfile
@@ -42,16 +35,27 @@ COPY .clang-format /.clang-format
 COPY .clang-tidy /.clang-tidy
 COPY .clangd /.clangd
 COPY .cmake-format.json /.cmake-format.json
+COPY cyclonedds.xml /etc/cyclonedds.xml
 
 # Змінні середовища:
 # - TZ: UTC як нейтральний дефолт. Логи завжди в UTC, без суперечок з
 #   літнім часом різних регіонів.
 # - LC_ALL / LANG / LANGUAGE: en_US.UTF-8 щоб stdout/stderr коректно
 #   виводили UTF-8 текст (кирилиця, emoji, JSON з non-ASCII ключами).
+# - RMW_IMPLEMENTATION: CycloneDDS як default middleware для ROS 2 demo.
+#   Це робить discovery стабільнішим у host-network devcontainer.
+# - CYCLONEDDS_URI: явний DDS config для локального devcontainer graph.
+#   Config лишає autodetect interface і multicast loopback для host network.
 ENV TZ=Etc/UTC
 ENV LC_ALL=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
+ENV ROS_DISTRO=jazzy
+ENV ROS_VERSION=2
+ENV ROS_PYTHON_VERSION=3
+ENV ROS_DOMAIN_ID=0
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI=file:///etc/cyclonedds.xml
 
 # sudo без пароля для dev-контейнера: зручно для apt install на ходу,
 # debug tools, etc. У прод-образах ніколи - там контейнер має жорстко
@@ -92,7 +96,7 @@ RUN if id ubuntu >/dev/null 2>&1; then \
       userdel -r ubuntu && groupdel ubuntu 2>/dev/null || true; \
     fi && \
     useradd -s /bin/bash -m ${CONTAINER_USER} && \
-  echo "\nexport PROMPT_COMMAND=\"history -a; history -n\n\"" >> /home/${CONTAINER_USER}/.bashrc
+    printf '\nsource /opt/ros/jazzy/setup.bash\nexport PROMPT_COMMAND="history -a; history -n"\n' >> /home/${CONTAINER_USER}/.bashrc
 
 # Всі подальші команди у контейнері (включно з процесами VS Code remote
 # extension) виконуються від CONTAINER_USER, не від root.

@@ -1,0 +1,20 @@
+from launch import LaunchDescription
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
+
+def generate_launch_description():
+    config = PathJoinSubstitution([
+        FindPackageShare("service_status_demo"),
+        "config",
+        "actuator.yaml",
+    ])
+
+    return LaunchDescription([
+        Node(
+            package="service_status_demo",
+            executable="actuator_server",
+            parameters=[config],
+        ),
+    ])

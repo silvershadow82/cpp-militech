@@ -1,0 +1,10 @@
+# Симуляційний профіль: повільніший sensor process і м'якша дистанція.
+sensor_process:
+  ros__parameters:
+    source_name: "sim_sensor"
+    publish_hz: 1.0
+
+controller_process:
+  ros__parameters:
+    mode: "SIM"
+    max_distance_m: 30.0

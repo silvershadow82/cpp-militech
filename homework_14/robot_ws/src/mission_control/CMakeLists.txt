@@ -45,7 +45,6 @@ if(BUILD_TESTING)
         REQUIRED
     )
 
-    # Прогін алгоритму проти справжнього world node з наданого пакета.
     ament_add_gtest(mission_control_scenario_sim_test test/scenario_sim_test.cpp)
     target_link_libraries(mission_control_scenario_sim_test
         mission_control_core

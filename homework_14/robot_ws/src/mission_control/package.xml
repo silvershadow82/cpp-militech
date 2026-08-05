@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mission_control</name>
+  <version>0.1.0</version>
+  <description>Homework 14 solution: trench exploration and payload action for the underground world scenario.</description>
+
+  <maintainer email="cjshadow@gmail.com">Ruslan</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>underground_world</depend>
+  <depend>ament_index_cpp</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

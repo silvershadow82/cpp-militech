@@ -28,6 +28,10 @@ target_link_libraries(reporter PRIVATE reporter_lib)
 
 # --- Тести (GoogleTest) -------------------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
+    # Потрібен для standalone-збірки з цієї директорії: без нього CTestTestfile.cmake не
+    # генерується і ctest не бачить тестів. При збірці через root CMakeLists.txt це no-op.
+    enable_testing()
+
     include(GoogleTest)
 
     FetchContent_Declare(

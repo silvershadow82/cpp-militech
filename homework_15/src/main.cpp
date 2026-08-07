@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 
   for (int i = 1; i <= TEST_COUNT; i++) {
     auto result = reporter.report(i);
-    std::cout << result.testId << " --> " << result.httpStatusCode << " --> " << result.attempt << std::endl;
+    std::cout << result.testId << " --> " << result.httpStatusCode << " --> " << (result.attempt + 1) << std::endl;
   }
 
   return 0;

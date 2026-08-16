@@ -5,6 +5,37 @@
 #include <thread>
 #include <chrono>
 #include <cmath>
+#include <stdexcept>
+
+namespace {
+
+enum class Oversampling : uint8_t {
+  x1 = 0,
+  x2 = 1,
+  x4 = 2,
+  x8 = 3,
+  x16 = 4,
+  x32 = 5,
+};
+
+// Регістри BMP388 віддають дані little-endian, тому параметри названо за порядком
+// значущості байтів, а не за порядком читання.
+uint16_t toLittleEndianUnsigned16(uint8_t lsb, uint8_t msb)
+{
+  return (static_cast<uint16_t>(msb) << 8) | lsb;
+}
+
+int16_t toLittleEndianSigned16(uint8_t lsb, uint8_t msb)
+{
+  return static_cast<int16_t>(toLittleEndianUnsigned16(lsb, msb));
+}
+
+uint32_t toLittleEndianUnsigned24(uint8_t msb, uint8_t lsb, uint8_t xlsb)
+{
+  return (static_cast<uint32_t>(msb) << 16) | (static_cast<uint32_t>(lsb) << 8) | xlsb;
+}
+
+}  // namespace
 
 uint8_t BMP388::identify()
 {
@@ -140,6 +171,7 @@ Reading BMP388::readOnce()
       ready = true;
       break;
     }
+    std::this_thread::sleep_for(poll_interval);
   }
   if (!ready) {
     uint8_t error = 0;
@@ -150,10 +182,11 @@ Reading BMP388::readOnce()
   uint8_t raw[6];  // 3 temp + 3 pressure
   this->readRegister(BMP388_REGISTER_DATA_0, raw, sizeof(raw));
 
-  uint32_t uncomp_pressure = toLittleEndianUnsigned32(raw[2], raw[1], raw[0]);
-  int32_t uncomp_temp = toLittleEndianSigned32(raw[5], raw[4], raw[3]);
+  // Обидва сирі значення — 24-бітні беззнакові (data_0..data_2 — тиск, data_3..data_5 —
+  // температура), тому знакове перетворення тут не застосовується.
+  uint32_t uncomp_pressure = toLittleEndianUnsigned24(raw[2], raw[1], raw[0]);
+  uint32_t uncomp_temp = toLittleEndianUnsigned24(raw[5], raw[4], raw[3]);
 
-  double temp;
   double temperature_c = this->compensateTemperature(uncomp_temp, this->calibration);
   double pressure_pa = this->compensatePressure(uncomp_pressure, this->calibration, temperature_c);
 

@@ -27,43 +27,12 @@
 
 #define BMP388_CALIBRATION_DATA_SIZE 21
 
-namespace {
-
-enum class Oversampling : uint8_t {
-  x1 = 0,
-  x2 = 1,
-  x4 = 2,
-  x8 = 3,
-  x16 = 4,
-  x32 = 5,
-};
-
+// Результат одного вимірювання. Тип з зовнішнім зв'язуванням: він є частиною публічного
+// API BMP388::readOnce(), тому не може жити в анонімному просторі імен.
 struct Reading {
   double temperature_c;
   double pressure_pa;
 };
-
-uint16_t toLittleEndianUnsigned16(uint8_t lsb, uint8_t msb)
-{
-  return (static_cast<uint16_t>(msb) << 8) | lsb;
-}
-
-int16_t toLittleEndianSigned16(uint8_t lsb, uint8_t msb)
-{
-  return static_cast<int16_t>(toLittleEndianUnsigned16(lsb, msb));
-}
-
-uint32_t toLittleEndianUnsigned32(uint8_t lsb, uint8_t msb, uint8_t xlsb)
-{
-  return (static_cast<uint32_t>(lsb) << 16) | (static_cast<uint32_t>(msb) << 8) | xlsb;
-}
-
-uint32_t toLittleEndianSigned32(uint8_t lsb, uint8_t msb, uint8_t xlsb)
-{
-  return static_cast<int32_t>(toLittleEndianUnsigned32(lsb, msb, xlsb));
-}
-
-}  // namespace
 
 class BMP388 : public I2CDevice {
 private:
@@ -82,7 +51,7 @@ private:
 
 public:
   BMP388(std::string device, uint8_t address)
-    : I2CDevice(device, address){};
+    : I2CDevice(device, address) {};
   Reading readOnce();
   uint8_t identify() override;
   void init() override;

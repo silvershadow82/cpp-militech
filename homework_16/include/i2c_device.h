@@ -11,7 +11,7 @@ private:
 
 public:
   I2CDevice(std::string i2c_device, uint8_t i2c_address);
-  ~I2CDevice();
+  virtual ~I2CDevice();
   virtual uint8_t identify();
   virtual void init();
   bool writeRegister(uint8_t reg, uint8_t value);

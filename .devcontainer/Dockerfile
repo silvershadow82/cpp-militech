@@ -93,10 +93,10 @@ ARG WORKSPACE_FOLDER=/workspace
 # після кожної команди. У devcontainer.json цей файл змонтований з
 # хоста - тому історія переживає перезапуск контейнера.
 RUN if id ubuntu >/dev/null 2>&1; then \
-      userdel -r ubuntu && groupdel ubuntu 2>/dev/null || true; \
-    fi && \
-    useradd -s /bin/bash -m ${CONTAINER_USER} && \
-    printf '\nsource /opt/ros/jazzy/setup.bash\nexport PROMPT_COMMAND="history -a; history -n"\n' >> /home/${CONTAINER_USER}/.bashrc
+  userdel -r ubuntu && groupdel ubuntu 2>/dev/null || true; \
+  fi && \
+  useradd -s /bin/bash -m ${CONTAINER_USER} && \
+  printf '\nsource /opt/ros/jazzy/setup.bash\nexport PROMPT_COMMAND="history -a; history -n"\n' >> /home/${CONTAINER_USER}/.bashrc
 
 # Всі подальші команди у контейнері (включно з процесами VS Code remote
 # extension) виконуються від CONTAINER_USER, не від root.

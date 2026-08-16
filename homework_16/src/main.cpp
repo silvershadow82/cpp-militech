@@ -1,33 +1,13 @@
-
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
+#include "bmp388.h"
 #include <cstdint>
 #include <iostream>
 
-constexpr auto I2C_SLAVE = 0x0703;
-
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-  if (argc < 3) {
-    std::cout << "Usage: " << argv[0] << " <i2c device>" << " <i2c address>" << std::endl;
-    return 1;
-  }
+  BMP388 device{"/dev/i2c-1", BMP388_ADDRESS};
+  device.init();
 
-  auto device = argv[1];
-  auto address = std::stoul(argv[2], nullptr, 16);
+  std::cout << "Identify from register 0x" << std::hex << BMP388_REGISTER_CHIP_ID << ": 0x" << std::hex << device.identify() << std::endl;
 
-  auto fd = open(device, O_RDWR);
-  ioctl(fd, I2C_SLAVE, address);
-
-  uint8_t reg = 0x75;  // WHO_AM_I register
-  write(fd, &reg, 1);
-
-  uint8_t value = 0;
-  read(fd, &value, 1);
-
-  std::cout << "Value read from register 0x" << std::hex << static_cast<int>(reg) << ": 0x" << std::hex << static_cast<int>(value)
-            << std::endl;
-  close(fd);
   return 0;
 }

@@ -18,7 +18,7 @@ FetchContent_MakeAvailable(json)
 
 # --- Статична бібліотека з усіма продакшн-джерелами (окрім main.cpp) ---------
 # Спільна кодова база для виконуваного файлу та тестів: компілюємо один раз.
-add_library(i2chardware_lib STATIC src/lib.cpp)
+add_library(i2chardware_lib STATIC src/i2c_device.cpp src/bmp388.cpp)
 target_include_directories(i2chardware_lib PUBLIC include)
 target_link_libraries(i2chardware_lib PUBLIC nlohmann_json::nlohmann_json)
 
@@ -36,8 +36,7 @@ if(NOT CMAKE_CROSSCOMPILING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(i2chardware_tests tests/i2chardware_tests.cpp)
-    target_link_libraries(i2chardware_tests PRIVATE i2chardware_lib GTest::gtest_main
-                                                    Threads::Threads)
+    target_link_libraries(i2chardware_tests PRIVATE i2chardware_lib GTest::gtest_main)
 
     gtest_discover_tests(i2chardware_tests DISCOVERY_MODE PRE_TEST)
 endif()

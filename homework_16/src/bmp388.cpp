@@ -18,8 +18,6 @@ enum class Oversampling : uint8_t {
   x32 = 5,
 };
 
-// Регістри BMP388 віддають дані little-endian, тому параметри названо за порядком
-// значущості байтів, а не за порядком читання.
 uint16_t toLittleEndianUnsigned16(uint8_t lsb, uint8_t msb)
 {
   return (static_cast<uint16_t>(msb) << 8) | lsb;
@@ -58,12 +56,12 @@ void BMP388::init()
 {
   I2CDevice::init();
 
-  uint8_t chip_id = 0;
-  if (this->readRegister(BMP388_REGISTER_CHIP_ID, &chip_id, 1)) {
-    if (chip_id != BMP388_CHIP_ID) {
-      std::cerr << "BMP388 invalid chipID: " << chip_id << " vs expected " << BMP388_CHIP_ID << std::endl;
-      return;
-    }
+  uint8_t chip_id = this->identify();
+
+  if (chip_id != BMP388_CHIP_ID) {
+    std::cerr << "BMP388 invalid chipID: 0x" << std::hex << static_cast<unsigned int>(chip_id) << " vs expected 0x" << BMP388_CHIP_ID
+              << std::dec << std::endl;
+    return;
   }
 
   this->reset();
@@ -73,6 +71,8 @@ void BMP388::init()
 
   this->writeRegister(BMP388_REGISTER_OSR, osr_value);
   this->writeRegister(BMP388_REGISTER_CONFIG, 0x00);
+
+  std::cout << "Initialization complete" << std::endl;
 }
 
 void BMP388::reset()
@@ -182,8 +182,6 @@ Reading BMP388::readOnce()
   uint8_t raw[6];  // 3 temp + 3 pressure
   this->readRegister(BMP388_REGISTER_DATA_0, raw, sizeof(raw));
 
-  // Обидва сирі значення — 24-бітні беззнакові (data_0..data_2 — тиск, data_3..data_5 —
-  // температура), тому знакове перетворення тут не застосовується.
   uint32_t uncomp_pressure = toLittleEndianUnsigned24(raw[2], raw[1], raw[0]);
   uint32_t uncomp_temp = toLittleEndianUnsigned24(raw[5], raw[4], raw[3]);
 

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # Окремий CMake-проєкт для домашньої роботи 15. Його можна збирати як через root CMakeLists.txt, так
 # і напряму з цієї директорії.
-project(simulation LANGUAGES CXX)
+project(i2c LANGUAGES CXX)
 
 # Код домашньої роботи збирається з тим самим стандартом, що й лекційні приклади.
 set(CMAKE_CXX_STANDARD 20)

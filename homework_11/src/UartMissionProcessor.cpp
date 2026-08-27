@@ -168,10 +168,12 @@ void UartMissionProcessor::publishMavlink(Clock::time_point now)
   position.z = this->telem.altitude;
   position.speed = this->telem.speed;
   position.dir = this->telem.angle;
+  position.timeBootMs = this->telem.t_ms;
   this->mavLink->send_global_position(position);
 
   comms::Attitude attitude{};
   attitude.yaw = static_cast<float>(M_PI / 2.0) - this->telem.angle;  // курс від півночі, за годинниковою
+  attitude.timeBootMs = this->telem.t_ms;
   this->mavLink->send_attitude(attitude);
 }
 

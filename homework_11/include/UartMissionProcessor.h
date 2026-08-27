@@ -20,7 +20,6 @@ struct UartMissionProcessorParams {
   TimeUnit controlPeriod{20};
   TimeUnit dropPulseDuration{300};
   TimeUnit telemetryWatchdog{500};
-  // Чекер вимагає ATTITUDE і GLOBAL_POSITION_INT не рідше 2 Гц; 10 Гц дає запас.
   TimeUnit mavlinkTelemetryPeriod{100};
 };
 
@@ -46,7 +45,6 @@ public:
 private:
   void processFrame(const comms::Frame &frame, Clock::time_point now);
   void updateGuidance(Clock::time_point now);
-  // Ретрансляція телеметрії з UART у MAVLink + обслуговування команди скиду.
   void publishMavlink(Clock::time_point now);
 
   std::shared_ptr<comms::SerialLink> serial;

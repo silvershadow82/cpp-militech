@@ -38,11 +38,18 @@ void MavLink::on_message(const mavlink_message_t *m)
     case MAVLINK_MSG_ID_COMMAND_ACK: {
       mavlink_command_ack_t ack{};
       mavlink_msg_command_ack_decode(m, &ack);
+      // Звіряємо саме нашу команду і саме ACCEPTED: чужий ACK або відмова
+      // не мають вважатись підтвердженням скиду.
       if (ack.command == DROP_COMMAND) {
         std::lock_guard<std::mutex> lock(this->mtx);
-        if (this->pendingDrop.has_value()) {
-          this->pendingDrop->acked = true;
-          LOG("MAVLink drop ACK after " << this->pendingDrop->attempts << " attempt(s), result=" << static_cast<int>(ack.result));
+        if (this->pendingDrop.has_value() && !this->pendingDrop->acked) {
+          if (ack.result == MAV_RESULT_ACCEPTED) {
+            this->pendingDrop->acked = true;
+            LOG("MAVLink drop ACCEPTED after " << this->pendingDrop->attempts << " attempt(s)");
+          }
+          else {
+            LOG("MAVLink drop ACK with result=" << static_cast<int>(ack.result) << " (not ACCEPTED) -- продовжую спроби");
+          }
         }
       }
       break;
@@ -80,7 +87,7 @@ int MavLink::rx_poll()
   for (int datagram = 0; datagram < MAX_DATAGRAMS_PER_POLL; ++datagram) {
     int n = this->link->receive(in, sizeof(in));
     if (n <= 0) {
-      break;  // EAGAIN/EWOULDBLOCK - черга порожня
+      break;
     }
     for (int i = 0; i < n; ++i) {
       bool complete = false;
@@ -120,7 +127,7 @@ void MavLink::send_attitude(const Attitude &a)
   mavlink_message_t msg;
   {
     std::lock_guard<std::mutex> lock(this->libMtx);
-    mavlink_msg_attitude_pack(SYS_ID, SRC_COMP_ID, &msg, this->bootMs(), a.roll, a.pitch, a.yaw, 0.0F, 0.0F, 0.0F);
+    mavlink_msg_attitude_pack(SYS_ID, SRC_COMP_ID, &msg, this->monotonicBootMs(a.timeBootMs), a.roll, a.pitch, a.yaw, 0.0F, 0.0F, 0.0F);
   }
   this->send_msg(&msg);
 }
@@ -136,15 +143,19 @@ void MavLink::send_global_position(const GlobalPosition &gp)
   const uint16_t hdg = static_cast<uint16_t>(gp.headingDeg() * 100.0F);
   {
     std::lock_guard<std::mutex> lock(this->libMtx);
-    mavlink_msg_global_position_int_pack(SYS_ID, SRC_COMP_ID, &msg, this->bootMs(), lat, lon, alt, alt, vx, vy, 0, hdg);
+    mavlink_msg_global_position_int_pack(
+      SYS_ID, SRC_COMP_ID, &msg, this->monotonicBootMs(gp.timeBootMs), lat, lon, alt, alt, vx, vy, 0, hdg);
   }
   this->send_msg(&msg);
 }
 
-uint32_t MavLink::bootMs() const
+uint32_t MavLink::monotonicBootMs(uint32_t simTimeMs) const
 {
-  const auto elapsed = std::chrono::steady_clock::now() - this->bootTime;
-  return static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+  if (simTimeMs < this->lastTimeBootMs) {
+    return this->lastTimeBootMs;
+  }
+  this->lastTimeBootMs = simTimeMs;
+  return simTimeMs;
 }
 
 void MavLink::requestDrop(float lat, float lon, float alt)
@@ -172,6 +183,14 @@ void MavLink::serviceDrop()
     std::lock_guard<std::mutex> lock(this->mtx);
     if (!this->pendingDrop.has_value() || this->pendingDrop->acked) {
       return;  // після ACK чекер вимагає повної тиші
+    }
+
+    if (this->pendingDrop->attempts >= DROP_MAX_ATTEMPTS) {
+      if (!this->pendingDrop->gaveUpLogged) {
+        this->pendingDrop->gaveUpLogged = true;
+        LOG("MAVLink drop: ACK не отримано за " << DROP_MAX_ATTEMPTS << " спроб -- припиняю повтори (телеметрія триває)");
+      }
+      return;
     }
 
     const auto now = std::chrono::steady_clock::now();
@@ -218,6 +237,12 @@ int MavLink::dropAttempts() const
 {
   std::lock_guard<std::mutex> lock(this->mtx);
   return this->pendingDrop.has_value() ? this->pendingDrop->attempts : 0;
+}
+
+bool MavLink::dropGaveUp() const
+{
+  std::lock_guard<std::mutex> lock(this->mtx);
+  return this->pendingDrop.has_value() && !this->pendingDrop->acked && this->pendingDrop->attempts >= DROP_MAX_ATTEMPTS;
 }
 
 uint64_t MavLink::receivedMessages() const

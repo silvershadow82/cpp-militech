@@ -29,6 +29,9 @@ constexpr const char *DEFAULT_GPIO_CHIP = "gpiochip0";
 constexpr int START_LINE = 24;
 constexpr int DROP_LINE = 23;
 constexpr int DEFAULT_MAVLINK_PORT = 14055;
+// ТЗ: адреса призначення за замовчуванням - те, що слухає QGroundControl.
+constexpr const char *DEFAULT_MAVLINK_REMOTE_HOST = "127.0.0.1";
+constexpr int DEFAULT_MAVLINK_REMOTE_PORT = 14550;
 
 constexpr std::chrono::milliseconds configInitTimeout{5000};
 constexpr std::chrono::milliseconds sleepTime{5};
@@ -53,8 +56,8 @@ int main(int argc, char **argv)
   const char *uartDevice = DEFAULT_UART_DEVICE;
   const char *gpioChip = DEFAULT_GPIO_CHIP;
   int mavlinkPort = DEFAULT_MAVLINK_PORT;
-  std::string mavlinkRemoteHost;
-  int mavlinkRemotePort = 0;
+  std::string mavlinkRemoteHost = DEFAULT_MAVLINK_REMOTE_HOST;
+  int mavlinkRemotePort = DEFAULT_MAVLINK_REMOTE_PORT;
 
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];

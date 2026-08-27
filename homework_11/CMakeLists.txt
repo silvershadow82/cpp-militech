@@ -51,7 +51,11 @@ add_library(
     src/MissionProcessor.cpp
     src/UartMissionProcessor.cpp
     src/util.cpp
-    src/comms/SerialLink.cpp)
+    src/comms/SerialLink.cpp
+    src/comms/SocketLink.cpp
+    src/comms/MavLink.cpp)
+
+target_include_directories(simulation11_lib SYSTEM PUBLIC c_library_v2)
 target_include_directories(simulation11_lib PUBLIC include)
 target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 

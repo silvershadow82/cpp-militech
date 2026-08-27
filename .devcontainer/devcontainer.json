@@ -33,8 +33,8 @@
   // прибрати завислий daemon, стартувати daemon заново і перевірити,
   // що CLI graph-команди відповідають.
   "postStartCommand": [
-    "bash",
-    ".devcontainer/scripts/post-start"
+    // "bash"
+    // ".devcontainer/scripts/post-start"
   ],
   // host network спрощує SSH/debug сценарії для занять з target-пристроями.
   // SYS_PTRACE і seccomp=unconfined потрібні для стабільної роботи GDB

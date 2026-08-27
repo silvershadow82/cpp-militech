@@ -17,21 +17,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 enable_testing()
 
 # Домашні роботи. По мірі появи додаємо кожну окремим add_subdirectory.
-add_subdirectory(homework_04)
-add_subdirectory(homework_05)
-add_subdirectory(homework_06)
-add_subdirectory(homework_07)
-add_subdirectory(homework_08)
-add_subdirectory(homework_09)
-add_subdirectory(homework_10)
+# add_subdirectory(homework_04) add_subdirectory(homework_05) add_subdirectory(homework_06)
+# add_subdirectory(homework_07) add_subdirectory(homework_08) add_subdirectory(homework_09)
+# add_subdirectory(homework_10)
 add_subdirectory(homework_11)
 
 # Demo-код для заняття 2.4: локальне і віддалене відлагодження через GDB.
-add_subdirectory(demos/lesson_2_4/debug_probe)
+# add_subdirectory(demos/lesson_2_4/debug_probe)
 
 # Demo-код для заняття 5.1: Docker runtime для C++ сервісів.
-add_subdirectory(demos/lesson_5_1/01_multi_stage)
-add_subdirectory(demos/lesson_5_1/02_docker_build)
-add_subdirectory(demos/lesson_5_1/03_docker_run)
-add_subdirectory(demos/lesson_5_1/04_volume_layout)
-add_subdirectory(demos/lesson_5_1/05_healthcheck)
+# add_subdirectory(demos/lesson_5_1/01_multi_stage)
+# add_subdirectory(demos/lesson_5_1/02_docker_build)
+# add_subdirectory(demos/lesson_5_1/03_docker_run)
+# add_subdirectory(demos/lesson_5_1/04_volume_layout)
+# add_subdirectory(demos/lesson_5_1/05_healthcheck)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "comms/Frame.h"
+#include "comms/MavLink.h"
 #include "comms/SerialLink.h"
 #include "config/UartConfigLoader.h"
 #include "control/FlightController.h"
@@ -19,6 +20,8 @@ struct UartMissionProcessorParams {
   TimeUnit controlPeriod{20};
   TimeUnit dropPulseDuration{300};
   TimeUnit telemetryWatchdog{500};
+  // Чекер вимагає ATTITUDE і GLOBAL_POSITION_INT не рідше 2 Гц; 10 Гц дає запас.
+  TimeUnit mavlinkTelemetryPeriod{100};
 };
 
 class UartMissionProcessor {
@@ -31,6 +34,7 @@ public:
                        std::unique_ptr<UartTargetProvider> targetProvider,
                        std::unique_ptr<FireGeometry> fireGeometry,
                        std::unique_ptr<FlightController> flightController,
+                       std::shared_ptr<comms::MavLink> mavLink = nullptr,
                        UartMissionProcessorParams params = {});
 
   void step(Clock::time_point now);
@@ -42,6 +46,8 @@ public:
 private:
   void processFrame(const comms::Frame &frame, Clock::time_point now);
   void updateGuidance(Clock::time_point now);
+  // Ретрансляція телеметрії з UART у MAVLink + обслуговування команди скиду.
+  void publishMavlink(Clock::time_point now);
 
   std::shared_ptr<comms::SerialLink> serial;
   std::shared_ptr<gpio::IGpioController> gpio;
@@ -49,6 +55,7 @@ private:
   std::unique_ptr<UartTargetProvider> targetProvider;
   std::unique_ptr<FireGeometry> fireGeometry;
   std::unique_ptr<FlightController> flightController;
+  std::shared_ptr<comms::MavLink> mavLink;
 
   UartMissionProcessorParams params;
 
@@ -65,4 +72,7 @@ private:
   Clock::time_point dropOffAt{};
 
   bool resultReceived{false};
+
+  bool mavTxPrimed{false};
+  Clock::time_point lastMavTxTime{};
 };

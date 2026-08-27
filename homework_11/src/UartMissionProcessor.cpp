@@ -5,6 +5,7 @@
 #include "models/Coord.h"
 #include "models/Target.h"
 #include <chrono>
+#include <cmath>
 #include <thread>
 
 using TimeUnit = std::chrono::milliseconds;
@@ -15,6 +16,7 @@ UartMissionProcessor::UartMissionProcessor(std::shared_ptr<comms::SerialLink> se
                                            std::unique_ptr<UartTargetProvider> targetProvider,
                                            std::unique_ptr<FireGeometry> fireGeometry,
                                            std::unique_ptr<FlightController> flightController,
+                                           std::shared_ptr<comms::MavLink> mavLink,
                                            UartMissionProcessorParams params)
   : serial(serial)
   , gpio(gpio)
@@ -22,6 +24,7 @@ UartMissionProcessor::UartMissionProcessor(std::shared_ptr<comms::SerialLink> se
   , targetProvider(std::move(targetProvider))
   , fireGeometry(std::move(fireGeometry))
   , flightController(std::move(flightController))
+  , mavLink(std::move(mavLink))
   , params(params)
 {
 }
@@ -128,7 +131,48 @@ void UartMissionProcessor::updateGuidance(Clock::time_point now)
     this->dropActive = true;
     this->dropOffAt = now + this->params.dropPulseDuration;
     this->dropped = true;
+
+    if (this->mavLink) {
+      // Координати скиду - позиція дрона в момент відпускання вантажу.
+      comms::GlobalPosition dropPos{};
+      dropPos.x = this->telem.pos.x;
+      dropPos.y = this->telem.pos.y;
+      dropPos.z = this->telem.altitude;
+      this->mavLink->requestDrop(dropPos.lat(), dropPos.lon(), this->telem.altitude);
+    }
   }
+}
+
+void UartMissionProcessor::publishMavlink(Clock::time_point now)
+{
+  if (!this->mavLink) {
+    return;
+  }
+
+  // Повтор команди скиду перевіряється щокроку: після ACK вона замовкає сама.
+  this->mavLink->serviceDrop();
+
+  if (!this->telemetrySeen) {
+    return;
+  }
+
+  if (this->mavTxPrimed && (now - this->lastMavTxTime) < this->params.mavlinkTelemetryPeriod) {
+    return;
+  }
+  this->lastMavTxTime = now;
+  this->mavTxPrimed = true;
+
+  comms::GlobalPosition position{};
+  position.x = this->telem.pos.x;
+  position.y = this->telem.pos.y;
+  position.z = this->telem.altitude;
+  position.speed = this->telem.speed;
+  position.dir = this->telem.angle;
+  this->mavLink->send_global_position(position);
+
+  comms::Attitude attitude{};
+  attitude.yaw = static_cast<float>(M_PI / 2.0) - this->telem.angle;  // курс від півночі, за годинниковою
+  this->mavLink->send_attitude(attitude);
 }
 
 void UartMissionProcessor::step(Clock::time_point now)
@@ -153,6 +197,8 @@ void UartMissionProcessor::step(Clock::time_point now)
       this->updateGuidance(now);
     }
   }
+
+  this->publishMavlink(now);
 
   if (!this->txPrimed || (now - this->lastTxTime) >= this->params.controlPeriod) {
     this->serial->sendControl(this->lastControl.accel, this->lastControl.turnRate);

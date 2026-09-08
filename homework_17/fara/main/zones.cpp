@@ -24,13 +24,16 @@ fara_zone_t fara_zone(uint32_t cm, fara_zone_t prev)
     for (int i = 0; i < FARA_MAX_BOUNDS; i++) {
         uint32_t bound = k_bounds[i];
 
+        /* Hysteresis makes a zone sticky to LEAVE, never slow to enter. A
+         * boundary of 15 cm must alarm at 15, not at 12: widening it in both
+         * directions delayed the warning, which is the wrong direction for a
+         * proximity alarm. Entering uses the bound as set; only a zone
+         * already held is widened, so it takes 3 cm of retreat to give up. */
         if (prev <= (fara_zone_t)i) {
             bound += FARA_JITTER_CM;
-        } else {
-            bound -= FARA_JITTER_CM;
         }
 
-        if (cm < bound) {
+        if (cm <= bound) {
             return (fara_zone_t)i;
         }
     }

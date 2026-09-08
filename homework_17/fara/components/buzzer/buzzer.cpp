@@ -7,7 +7,19 @@
 #define BUZZER_CHANNEL    LEDC_CHANNEL_0
 #define BUZZER_RESOLUTION LEDC_TIMER_10_BIT
 
-#define BUZZER_DUTY_ON  921
+/*
+ * Volume knob, for an ACTIVE buzzer whose loudness follows the average
+ * voltage its own oscillator is fed. Of a 10-bit range:
+ *
+ *   512 (50%, ~1.65 V) - silent: below the oscillator's start voltage
+ *   700 (68%, ~2.25 V) - audible but subdued
+ *   921 (90%, ~2.97 V) - full volume
+ *
+ * The floor is a hard edge rather than a fade, so if a lower value goes
+ * silent it is under the start voltage, not merely quiet. Duty cannot reach
+ * 1024: a constant level has no edges, and Wokwi's passive piezo needs them.
+ */
+#define BUZZER_DUTY_ON  700
 #define BUZZER_DUTY_OFF 0
 
 esp_err_t buzzer_init(int gpio_num, uint32_t freq_hz)

@@ -35,7 +35,7 @@
             "top": 160,
             "left": -109.6,
             "attrs": {
-                "pins": "i2c"
+                "pins": "i2c", "i2cAddress": "0x3f"
             }
         }
     ],

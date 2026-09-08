@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdarg.h>
 
 #include <freertos/FreeRTOS.h>   /* portMUX_TYPE, portENTER_CRITICAL */
 #include <esp_log.h>
@@ -20,8 +21,7 @@
 
 static const char *TAG = "fara";
 
-/* Used only if the scan turns up no backpack at all. Wokwi models 0x27. */
-static constexpr uint8_t    LCD_ADDR_FALLBACK = 0x27;
+static constexpr uint8_t    LCD_ADDR          = 0x3f;
 static constexpr i2c_port_t I2C_PORT          = I2C_NUM_0;
 static constexpr gpio_num_t I2C_SDA_GPIO      = GPIO_NUM_21;
 static constexpr gpio_num_t I2C_SCL_GPIO      = GPIO_NUM_22;
@@ -161,7 +161,7 @@ static void ping_start()
 
 static constexpr size_t   SENSOR_WINDOW      = 5;
 static constexpr uint32_t SENSOR_ERROR_LIMIT = 5;
-static constexpr uint32_t SENSOR_MISS_LIMIT = 3;   /* 300 ms at 10 Hz */
+static constexpr uint32_t SENSOR_MISS_LIMIT = 3;   // 300 ms at 10 Hz
 
 typedef struct {
     uint32_t    distance_cm;
@@ -359,41 +359,6 @@ static hd44780_t s_lcd = {
     .backlight = false,
 };
 
-static bool is_backpack_addr(uint8_t addr)
-{
-    return (addr >= 0x20 && addr <= 0x27) || (addr >= 0x38 && addr <= 0x3f);
-}
-
-/* Logs every device on the bus; returns the first that could be an LCD
- * backpack, or 0 if there is none. */
-static uint8_t i2c_scan()
-{
-    i2c_dev_t probe = {};
-    probe.port = I2C_PORT;
-    probe.cfg.sda_io_num = I2C_SDA_GPIO;
-    probe.cfg.scl_io_num = I2C_SCL_GPIO;
-    probe.cfg.master.clk_speed = 100000;
-
-    uint8_t found = 0;
-
-    ESP_LOGI(TAG, "scanning I2C...");
-    for (uint8_t addr = 3; addr < 0x78; addr++) {
-        probe.addr = addr;
-        if (i2c_dev_probe(&probe, I2C_DEV_WRITE) != ESP_OK) {
-            continue;
-        }
-
-        bool candidate = is_backpack_addr(addr) && found == 0;
-        ESP_LOGI(TAG, "  found device at 0x%02x%s", addr,
-                 candidate ? " (using as LCD)" : "");
-        if (candidate) {
-            found = addr;
-        }
-    }
-
-    return found;
-}
-
 static void render_line(char *dst, const char *text)
 {
     size_t i = 0;
@@ -450,15 +415,8 @@ static void lcd_start()
 {
     ESP_ERROR_CHECK(i2cdev_init());
 
-    uint8_t addr = i2c_scan();
-    if (addr == 0) {
-        ESP_LOGW(TAG, "no LCD backpack on the bus, trying 0x%02x anyway",
-                 LCD_ADDR_FALLBACK);
-        addr = LCD_ADDR_FALLBACK;
-    }
-
     memset(&s_pcf8574, 0, sizeof(s_pcf8574));
-    esp_err_t err = pcf8574_init_desc(&s_pcf8574, addr, I2C_PORT,
+    esp_err_t err = pcf8574_init_desc(&s_pcf8574, LCD_ADDR, I2C_PORT,
                                       I2C_SDA_GPIO, I2C_SCL_GPIO);
     if (err == ESP_OK) {
         err = hd44780_init(&s_lcd);
@@ -468,23 +426,49 @@ static void lcd_start()
         hd44780_switch_backlight(&s_lcd, true);
         s_lcd_ready = true;
     } else {
-        ESP_LOGE(TAG, "LCD init failed (%s)",
+        ESP_LOGE(TAG, "LCD init failed at 0x%02x (%s)", LCD_ADDR,
                  esp_err_to_name(err));
     }
 }
 
-static constexpr uart_port_t CONSOLE_UART     = UART_NUM_0;
+static constexpr uart_port_t CONSOLE_UART     = UART_NUM_2;
+static constexpr gpio_num_t  CONSOLE_RX_GPIO  = GPIO_NUM_25;
+static constexpr gpio_num_t  CONSOLE_TX_GPIO  = GPIO_NUM_26;
+static constexpr int         CONSOLE_BAUD     = 115200;
 static constexpr int         CONSOLE_RX_BUF   = 256;
+static constexpr int         CONSOLE_TX_BUF   = 256;
 static constexpr size_t      CONSOLE_LINE_MAX = 32;
 
 static bool   s_console_ready;
 static char   s_line[CONSOLE_LINE_MAX];
 static size_t s_line_len;
 
+static void console_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+static void console_printf(const char *fmt, ...)
+{
+    if (!s_console_ready) {
+        return;
+    }
+
+    char    out[96];
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(out, sizeof(out), fmt, ap);
+    va_end(ap);
+
+    if (n <= 0) {
+        return;
+    }
+
+    size_t len = (size_t)n < sizeof(out) ? (size_t)n : sizeof(out) - 1;
+    uart_write_bytes(CONSOLE_UART, out, len);
+}
+
 static void console_usage()
 {
-    ESP_LOGI(TAG, "badaboom = %" PRIu32 " cm; send a number %d-%d to change it",
-             fara_badaboom_cm(), FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
+    console_printf("badaboom = %" PRIu32 " cm; send a number %d-%d to change it\r\n",
+                   fara_badaboom_cm(), FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
 }
 
 static void console_line(const char *line)
@@ -505,17 +489,36 @@ static void console_line(const char *line)
     }
 
     if (!fara_set_badaboom_cm(cm)) {
-        ESP_LOGW(TAG, "rejected %" PRIu32 " cm: allowed range is %d-%d",
-                 cm, FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
+        console_printf("rejected %" PRIu32 " cm: allowed range is %d-%d\r\n",
+                       cm, FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
         return;
     }
 
-    ESP_LOGI(TAG, "badaboom distance set to %" PRIu32 " cm", cm);
+    console_printf("badaboom distance set to %" PRIu32 " cm\r\n", cm);
+    
+    ESP_LOGI(TAG, "badaboom distance set to %" PRIu32 " cm over the console", cm);
 }
 
 static void console_init()
 {
-    esp_err_t err = uart_driver_install(CONSOLE_UART, CONSOLE_RX_BUF, 0, 0, NULL, 0);
+    uart_config_t cfg = {};
+    cfg.baud_rate  = CONSOLE_BAUD;
+    cfg.data_bits  = UART_DATA_8_BITS;
+    cfg.parity     = UART_PARITY_DISABLE;
+    cfg.stop_bits  = UART_STOP_BITS_1;
+    cfg.flow_ctrl  = UART_HW_FLOWCTRL_DISABLE;
+    cfg.source_clk = UART_SCLK_DEFAULT;
+
+    esp_err_t err = uart_param_config(CONSOLE_UART, &cfg);
+    if (err == ESP_OK) {
+        err = uart_set_pin(CONSOLE_UART, CONSOLE_TX_GPIO, CONSOLE_RX_GPIO,
+                           UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    }
+    if (err == ESP_OK) {
+        err = uart_driver_install(CONSOLE_UART, CONSOLE_RX_BUF, CONSOLE_TX_BUF,
+                                  0, NULL, 0);
+    }
+
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "console unavailable (%s) - distance stays fixed",
                  esp_err_to_name(err));
@@ -523,6 +526,10 @@ static void console_init()
     }
 
     s_console_ready = true;
+    ESP_LOGI(TAG, "console on UART%d, rx=%d tx=%d @ %d baud",
+             (int)CONSOLE_UART, (int)CONSOLE_RX_GPIO, (int)CONSOLE_TX_GPIO,
+             CONSOLE_BAUD);
+    console_printf("\r\nfara console\r\n");
     console_usage();
 }
 
@@ -594,7 +601,6 @@ extern "C" void app_main()
 
         uint32_t now_ms = ticks * TICK_MS;
 
-        /* Input first, so a new threshold applies to this tick's reading. */
         console_step();
 
         if ((int32_t)(now_ms - next_ping_ms) >= 0) {
@@ -612,12 +618,13 @@ extern "C" void app_main()
 
         if ((int32_t)(now_ms - next_log_ms) >= 0) {
             next_log_ms = now_ms + SENSOR_PERIOD_MS;
+
             if (s_state.in_range) {
-                ESP_LOGI(TAG, "distance = %" PRIu32 " cm, zone = %s, overruns = %" PRIu32,
-                         s_state.distance_cm, fara_zone_label(s_state.zone), overruns);
+                printf("t=%" PRIu32 " ms distance = %" PRIu32 " cm, zone = %s, overruns = %" PRIu32 "\n",
+                       now_ms, s_state.distance_cm, fara_zone_label(s_state.zone), overruns);
             } else {
-                ESP_LOGI(TAG, "distance = ---, zone = %s, overruns = %" PRIu32,
-                         fara_zone_label(s_state.zone), overruns);
+                printf("t=%" PRIu32 " ms distance = ---, zone = %s, overruns = %" PRIu32 "\n",
+                       now_ms, fara_zone_label(s_state.zone), overruns);
             }
         }
 

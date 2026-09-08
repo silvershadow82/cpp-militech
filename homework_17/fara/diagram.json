@@ -1,0 +1,139 @@
+{
+    "version": 1,
+    "author": "Russel Clifford",
+    "editor": "wokwi",
+    "parts": [
+        {
+            "type": "board-esp32-devkit-c-v4",
+            "id": "esp",
+            "top": -86.4,
+            "left": 14.44,
+            "attrs": {}
+        },
+        {
+            "type": "wokwi-buzzer",
+            "id": "buzzer",
+            "top": -98.7,
+            "left": 206.1,
+            "rotate": 90,
+            "attrs": {
+                "volume": "0.2"
+            }
+        },
+        {
+            "type": "wokwi-hc-sr04",
+            "id": "ultrasonic",
+            "top": -104.1,
+            "left": -215.3,
+            "attrs": {
+                "distance": "250"
+            }
+        },
+        {
+            "type": "wokwi-lcd1602",
+            "id": "lcd",
+            "top": 160,
+            "left": -109.6,
+            "attrs": {
+                "pins": "i2c"
+            }
+        }
+    ],
+    "connections": [
+        [
+            "esp:TX",
+            "$serialMonitor:RX",
+            "",
+            []
+        ],
+        [
+            "esp:RX",
+            "$serialMonitor:TX",
+            "",
+            []
+        ],
+        [
+            "esp:GND.2",
+            "buzzer:1",
+            "black",
+            [
+                "v0"
+            ]
+        ],
+        [
+            "esp:4",
+            "buzzer:2",
+            "red",
+            [
+                "h67.2",
+                "v-95.6"
+            ]
+        ],
+        [
+            "esp:32",
+            "ultrasonic:TRIG",
+            "blue",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "esp:33",
+            "ultrasonic:ECHO",
+            "white",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "esp:GND.1",
+            "ultrasonic:GND",
+            "black",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "lcd:GND",
+            "esp:GND.3",
+            "black",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "esp:5V",
+            "ultrasonic:VCC",
+            "red",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "esp:5V",
+            "lcd:VCC",
+            "red",
+            [
+                "h-163.05",
+                "v86.3"
+            ]
+        ],
+        [
+            "lcd:SDA",
+            "esp:21",
+            "magenta",
+            [
+                "h0"
+            ]
+        ],
+        [
+            "lcd:SCL",
+            "esp:22",
+            "gold",
+            [
+                "h0"
+            ]
+        ]
+    ],
+    "dependencies": {}
+}

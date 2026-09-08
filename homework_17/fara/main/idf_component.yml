@@ -1,0 +1,5 @@
+dependencies:
+  esp-idf-lib/hd44780:
+    version: "^1.3.0"
+  esp-idf-lib/pcf8574:
+    version: "*"

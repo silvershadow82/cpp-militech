@@ -95,6 +95,8 @@ public:
   int dropAttempts() const;
   // true, якщо спроби вичерпано, а ACK так і не прийшов.
   bool dropGaveUp() const;
+  // true, якщо скид завершено: отримано ACK або вичерпано всі спроби.
+  bool isDropResolved() const { return dropAcked() || dropGaveUp(); }
 
   bool isOpen() const { return this->link && this->link->isOpen(); }
   bool hasPeer() const { return this->link && this->link->hasPeer(); }

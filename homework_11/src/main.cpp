@@ -209,6 +209,15 @@ int main(int argc, char **argv)
   gpio->setStart(false);
   gpio->setDrop(false);
 
+  // Перш ніж завершити, дочекаємось, поки скид буде ACK-ований або спроби вичерпуються.
+  // За умовою канал 'губить' перший кадр, тому без цієї очікування перший COMMAND_LONG
+  // не отримає ACK, і програма завершиться раніше, ніж MavLink встигне повторити.
+  const auto dropWaitDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(DROP_MAX_ATTEMPTS * 2500);
+  while (!stopRequested.load() && !mavLink->isDropResolved() && std::chrono::steady_clock::now() < dropWaitDeadline) {
+    mavLink->serviceDrop();
+    interruptibleSleep(std::chrono::milliseconds(100));
+  }
+
   LOG("Shutting down");
 
   stopRequested.store(true);

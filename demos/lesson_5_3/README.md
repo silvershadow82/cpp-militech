@@ -30,9 +30,9 @@ CycloneDDS config використовує host network interface autodetect, mu
 loopback і локальний peer `127.0.0.1`. Якщо значення `unset` або інші,
 перебудувати devcontainer і відкрити новий термінал.
 
-Devcontainer також синхронізує ROS 2 CLI daemon під час `postStartCommand`.
-Тому `ros2 node list` і `ros2 topic list` нижче виконуються у звичайному
-daemon-mode без додаткових прапорів.
+Devcontainer не запускає ROS 2 CLI daemon автоматично. Якщо `ros2 node list`
+або `ros2 topic list` зависають на XML-RPC connect, перезапустити daemon
+вручну: `ros2 daemon stop && ros2 daemon start`.
 
 ## Запуск
 

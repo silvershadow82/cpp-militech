@@ -1,7 +1,10 @@
 #include "debug.h"
 #include "Types.h"
 #include "config/ComponentFactory.h"
+#include <memory>
 #include "comms/SerialLink.h"
+#include "comms/SocketLink.h"
+#include "comms/MavLink.h"
 #include "config/FileConfigLoader.h"
 #include "config/UartConfigLoader.h"
 #include "control/FlightController.h"
@@ -16,6 +19,8 @@
 
 #if defined(USE_GPIOD)
 #include "gpio/LibGpiodController.h"
+#else
+#include "gpio/NullGpioController.h"
 #endif
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType solverType)
@@ -95,7 +100,8 @@ std::shared_ptr<gpio::IGpioController> ComponentFactory::createGpioController()
   LOG("Using libgpiod controller");
   return std::make_shared<gpio::LibGpiodController>();
 #else
-  return nullptr;
+  LOG("libgpiod is disabled (USE_GPIOD=OFF) -- using NullGpioController stub");
+  return std::make_shared<gpio::NullGpioController>();
 #endif
 }
 
@@ -107,4 +113,10 @@ std::unique_ptr<FlightController> ComponentFactory::createFlightController(const
 std::unique_ptr<FireGeometry> ComponentFactory::createFireGeometry(const DroneConfig &config, std::unique_ptr<IBallisticSolver> solver)
 {
   return std::make_unique<FireGeometry>(config, std::move(solver));
+}
+
+std::shared_ptr<comms::MavLink> ComponentFactory::createMavLink(int port, const std::string &remoteHost, int remotePort)
+{
+  auto socketLink = std::make_unique<comms::SocketLink>(port, remoteHost, remotePort);
+  return std::make_shared<comms::MavLink>(std::move(socketLink));
 }

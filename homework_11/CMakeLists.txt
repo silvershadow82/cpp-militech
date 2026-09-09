@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 # Окремий CMake-проєкт для домашньої роботи 11. Його можна збирати як через root CMakeLists.txt, так
 # і напряму з цієї директорії.
-project(simulation LANGUAGES CXX)
+if(NOT CMAKE_PROJECT_NAME)
+  project(simulation LANGUAGES CXX)
+endif()
 
 # Код домашньої роботи збирається з тим самим стандартом, що й лекційні приклади.
 set(CMAKE_CXX_STANDARD 20)
@@ -51,7 +53,11 @@ add_library(
     src/MissionProcessor.cpp
     src/UartMissionProcessor.cpp
     src/util.cpp
-    src/comms/SerialLink.cpp)
+    src/comms/SerialLink.cpp
+    src/comms/SocketLink.cpp
+    src/comms/MavLink.cpp)
+
+target_include_directories(simulation11_lib SYSTEM PUBLIC c_library_v2)
 target_include_directories(simulation11_lib PUBLIC include)
 target_link_libraries(simulation11_lib PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 

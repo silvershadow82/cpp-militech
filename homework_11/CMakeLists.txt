@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 # Окремий CMake-проєкт для домашньої роботи 11. Його можна збирати як через root CMakeLists.txt, так
 # і напряму з цієї директорії.
-project(simulation LANGUAGES CXX)
+if(NOT CMAKE_PROJECT_NAME)
+  project(simulation LANGUAGES CXX)
+endif()
 
 # Код домашньої роботи збирається з тим самим стандартом, що й лекційні приклади.
 set(CMAKE_CXX_STANDARD 20)

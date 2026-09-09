@@ -25,8 +25,13 @@ jobs:
 
     steps:
       # Стандартний checkout коду. v4 - поточна стабільна major.
+      # submodules: true обовʼязково: homework_11/c_library_v2 (MAVLink C
+      # library) підключений як submodule, і без нього збірка падає на
+      # "fatal error: common/mavlink.h: No such file or directory".
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       # devcontainers/ci - офіційний action від Microsoft, який запускає
       # build всередині devcontainer-а. Послідовність:

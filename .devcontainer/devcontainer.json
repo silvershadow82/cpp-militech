@@ -33,7 +33,7 @@
   // прибрати завислий daemon, стартувати daemon заново і перевірити,
   // що CLI graph-команди відповідають.
   "postStartCommand": [
-    "bash"
+    // "bash"
     // ".devcontainer/scripts/post-start"
   ],
   // host network спрощує SSH/debug сценарії для занять з target-пристроями.

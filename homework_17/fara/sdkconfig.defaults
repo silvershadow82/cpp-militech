@@ -1,0 +1,8 @@
+CONFIG_IDF_TARGET="esp32"
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# The superloop never blocks, so the idle task on the core running app_main
+# never gets to run and the task watchdog would fire on it. The loop
+# subscribes itself to the same watchdog instead (see app_main).
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=n
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1=n

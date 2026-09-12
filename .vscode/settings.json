@@ -1,4 +1,5 @@
 {
     "editor.formatOnSave": true,
-    "editor.formatOnPaste": false
+    "editor.formatOnPaste": false,
+    "idf.currentSetup": "/Volumes/MCEX3/Dev/esp32/.espressif/v6.1/esp-idf"
 }

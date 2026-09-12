@@ -469,6 +469,9 @@ static void console_usage()
 {
     console_printf("badaboom = %" PRIu32 " cm; send a number %d-%d to change it\r\n",
                    fara_badaboom_cm(), FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
+
+    ESP_LOGI(TAG, "badaboom = %" PRIu32 " cm; send a number %d-%d to change it",
+             fara_badaboom_cm(), FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
 }
 
 static void console_line(const char *line)
@@ -491,6 +494,8 @@ static void console_line(const char *line)
     if (!fara_set_badaboom_cm(cm)) {
         console_printf("rejected %" PRIu32 " cm: allowed range is %d-%d\r\n",
                        cm, FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
+        ESP_LOGW(TAG, "rejected %" PRIu32 " cm: allowed range is %d-%d",
+                 cm, FARA_BADABOOM_MIN_CM, FARA_BADABOOM_MAX_CM);
         return;
     }
 

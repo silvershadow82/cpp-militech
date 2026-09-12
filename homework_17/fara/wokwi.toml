@@ -2,3 +2,4 @@
 version = 1
 firmware = 'build/flasher_args.json'
 elf = 'build/fara.elf'
+rfc2217ServerPort = 4000

@@ -17,7 +17,8 @@ add_library(
   follow_core STATIC
   src/core/Frames.cpp
   src/core/CameraModel.cpp
-  src/core/AttitudeHistory.cpp)
+  src/core/AttitudeHistory.cpp
+  src/core/TargetEstimator.cpp)
 target_include_directories(follow_core PUBLIC include)
 target_compile_options(follow_core PRIVATE -Wall -Wextra)
 
@@ -34,7 +35,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     follow_tests
     tests/angles_frames_tests.cpp
     tests/camera_model_tests.cpp
-    tests/attitude_history_tests.cpp)
+    tests/attitude_history_tests.cpp
+    tests/target_estimator_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_core GTest::gtest_main)
   gtest_discover_tests(follow_tests DISCOVERY_MODE PRE_TEST)

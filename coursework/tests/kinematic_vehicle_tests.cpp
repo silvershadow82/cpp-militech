@@ -71,3 +71,34 @@ TEST(KinematicVehicle, NoCommandSlowsToStop)
 
   EXPECT_LT(vehicle.forwardSpeed(), 0.01);
 }
+
+TEST(KinematicVehicle, ZeroTimeStepLeavesStateUnchanged)
+{
+  // Setup
+  KinematicVehicle vehicle(Pose{}, {});
+  run(vehicle, core::VelocityCmd{.vx = 1.0}, 1.0);
+  Pose before = vehicle.pose();
+  double speedBefore = vehicle.forwardSpeed();
+
+  // Run
+  vehicle.step(core::VelocityCmd{.vx = 1.0}, 0.0);
+
+  // Assert
+  EXPECT_DOUBLE_EQ(vehicle.forwardSpeed(), speedBefore);
+  EXPECT_DOUBLE_EQ(vehicle.pose().positionNed.x, before.positionNed.x);
+  EXPECT_DOUBLE_EQ(vehicle.pose().pitch, before.pitch);
+  EXPECT_FALSE(std::isnan(vehicle.pose().pitch));
+}
+
+TEST(KinematicVehicle, StepLongerThanTimeConstantDoesNotOvershoot)
+{
+  // Setup: 0.3 s time constant stepped with a single 1 s step
+  KinematicVehicle vehicle(Pose{}, {.tauS = 0.3});
+
+  // Run
+  vehicle.step(core::VelocityCmd{.vx = 1.0, .yawRate = 0.5}, 1.0);
+
+  // Assert
+  EXPECT_DOUBLE_EQ(vehicle.forwardSpeed(), 1.0);
+  EXPECT_DOUBLE_EQ(vehicle.yawRate(), 0.5);
+}

@@ -29,7 +29,8 @@ target_compile_options(follow_core PRIVATE -Wall -Wextra)
 add_library(
   follow_sim STATIC
   src/sim/SimTarget.cpp
-  src/sim/SyntheticCamera.cpp)
+  src/sim/SyntheticCamera.cpp
+  src/sim/KinematicVehicle.cpp)
 target_link_libraries(follow_sim PUBLIC follow_core)
 target_compile_options(follow_sim PRIVATE -Wall -Wextra)
 
@@ -52,7 +53,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/supervisor_tests.cpp
     tests/core_tests.cpp
     tests/sim_target_tests.cpp
-    tests/synthetic_camera_tests.cpp)
+    tests/synthetic_camera_tests.cpp
+    tests/kinematic_vehicle_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_sim GTest::gtest_main)
   gtest_discover_tests(follow_tests DISCOVERY_MODE PRE_TEST)

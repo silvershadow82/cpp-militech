@@ -143,3 +143,27 @@ TEST(FollowController, ResetRestartsSlewFromZero)
 
   EXPECT_NEAR(controller.update(relative(2.0), kDt).vx, 1.5 * kDt, 1e-12);
 }
+
+TEST(FollowController, RelativeModeTooCloseAllowsOnlyBackingAway)
+{
+  // Setup: ratio 0.4 means d_nominal * ratio = 1.2 m, inside d_min (1.5 m)
+  FollowController controller(ControlConfig{});
+
+  // Run
+  VelocityCmd cmd = controller.update(relative(0.4), kDt);
+
+  // Assert: only backing away (or standing still) is allowed
+  EXPECT_LE(cmd.vx, 0.0);
+}
+
+TEST(FollowController, HeadingGateAt25DegreesStopsForwardSpeed)
+{
+  // Setup: no slew limit, ratio 2.0 would otherwise command forward speed
+  ControlConfig config{};
+  config.vxSlew = 1000.0;
+  FollowController controller(config);
+
+  // Run + Assert: at the gate boundary and beyond it, forward speed is fully gated
+  EXPECT_DOUBLE_EQ(controller.update(relative(2.0, 25.0), kDt).vx, 0.0);
+  EXPECT_DOUBLE_EQ(controller.update(relative(2.0, 40.0), kDt).vx, 0.0);
+}

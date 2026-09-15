@@ -18,7 +18,11 @@ struct ScenarioOptions {
   double engageAtS{1.0};  // mode switches LOITER -> GUIDED; the target clock starts here
   double vehicleAltitudeM{2.0};
   double physicsDtS{0.01};
-  int controlEvery{5};  // control, attitude and camera run every N physics steps (20 Hz)
+  // Control, attitude and camera run every N physics steps (20 Hz). The synthetic camera is
+  // only stepped on these control ticks, so a configured camera fps above the control rate is
+  // capped at it, and delivered latency rounds up to the nearest control period (e.g. 80 ms
+  // configured -> 100 ms effective at 20 Hz control).
+  int controlEvery{5};
   SyntheticCameraConfig camera{};
   KinematicVehicleConfig vehicle{};
 };

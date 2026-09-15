@@ -59,8 +59,9 @@ std::vector<double> distancesBetween(const ScenarioResult& result, double fromS,
 void expectSafeCommands(const ScenarioResult& result, const core::ControlConfig& control)
 {
   for (const StepRecord& step : result.steps) {
+    bool idleOrNoFc = step.state == S::Idle || step.state == S::NoFc;
+    EXPECT_EQ(!step.setpoint, idleOrNoFc) << "t=" << step.tS;
     if (!step.setpoint) {
-      EXPECT_TRUE(step.state == S::Idle || step.state == S::NoFc) << "t=" << step.tS;
       continue;
     }
     EXPECT_LE(std::abs(step.setpoint->vx), control.vxMax + 1e-9) << "t=" << step.tS;
@@ -76,9 +77,9 @@ class ScenarioTest : public ::testing::Test {
 protected:
   ScenarioResult run(const SimTarget& target, double durationS)
   {
-    options.durationS = durationS;
-    ScenarioResult result = runScenario(config, camera, mount, target, options);
-    expectSafeCommands(result, config.control);
+    this->options.durationS = durationS;
+    ScenarioResult result = runScenario(this->config, this->camera, this->mount, target, this->options);
+    expectSafeCommands(result, this->config.control);
     return result;
   }
 
@@ -188,14 +189,22 @@ TEST_F(ScenarioTest, LongOcclusionEndsInHold)
 
 TEST_F(ScenarioTest, TargetRunningPastLeavesViewAndEndsInHold)
 {
-  // Run: from 3 m ahead and 1.5 m right, the target runs past the vehicle at 5 m/s.
-  // Its bearing swings far faster than the 45 deg/s yaw limit, so it leaves the image.
-  ScenarioResult result = run(SimTarget({3.0, 1.5, 0.0}, {TargetHold{2.0}, TargetLine{.durationS = 3.0, .velNorth = -5.0}}), 12.0);
+  // Setup: the target starts 8 m ahead and 1 m right, inside the lock box, is followed,
+  // then runs past the vehicle at 5 m/s. Its bearing swings far faster than the 45 deg/s
+  // yaw limit, so it eventually leaves the image.
+  SimTarget target({8.0, 1.0, 0.0}, {TargetHold{2.0}, TargetLine{.durationS = 3.0, .velNorth = -5.0}});
 
-  // Assert
-  ASSERT_GE(result.states.size(), 3U);
+  // Run
+  ScenarioResult result = run(target, 12.0);
+
+  // Assert: Following is reached before the target is lost, and the run ends in Hold.
+  // Lost/Following may flicker in between as the target crosses the edge of the view.
+  auto firstFollowing = std::find(result.states.begin(), result.states.end(), S::Following);
+  auto firstLost = std::find(result.states.begin(), result.states.end(), S::Lost);
+  ASSERT_NE(firstFollowing, result.states.end());
+  ASSERT_NE(firstLost, result.states.end());
+  EXPECT_LT(firstFollowing, firstLost);
   EXPECT_EQ(result.states.back(), S::Hold);
-  EXPECT_NE(std::find(result.states.begin(), result.states.end(), S::Lost), result.states.end());
 }
 
 TEST_F(ScenarioTest, FastSidewaysDashIsStillFollowed)
@@ -225,6 +234,10 @@ TEST_F(ScenarioTest, YawOnlyStageNeverCommandsForwardSpeed)
     run(SimTarget({3.0, 0.0, 0.0}, {TargetHold{2.0}, TargetCircle{.durationS = 60.0, .centerNed = {9.0, 0.0, 0.0}, .speed = 1.0}}), 15.0);
 
   // Assert
+  EXPECT_EQ(result.states, (std::vector<S>{S::Idle, S::Locking, S::Following}));
+  std::optional<double> start = followingStart(result);
+  ASSERT_TRUE(start);
+  EXPECT_LT(maxBearingWhileFollowingAfter(result, *start + 3.0), 15.0);
   for (const StepRecord& step : result.steps) {
     if (step.setpoint) {
       EXPECT_EQ(step.setpoint->vx, 0.0) << "t=" << step.tS;

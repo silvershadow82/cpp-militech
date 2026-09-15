@@ -4,6 +4,7 @@
 
 #include "TestTime.h"
 #include "follow/core/Angles.h"
+#include "follow/core/Frames.h"
 #include "follow/core/TargetEstimator.h"
 
 using namespace follow::core;
@@ -45,7 +46,7 @@ protected:
   // The estimator's size measure: angular height of the box.
   double angularSize(const BBox& box) const
   {
-    return angleBetween(camera.pixelToRay({box.centerU(), box.y}), camera.pixelToRay({box.centerU(), box.y + box.h}));
+    return angleBetween(this->camera.pixelToRay({box.centerU(), box.y}), this->camera.pixelToRay({box.centerU(), box.y + box.h}));
   }
 
   FisheyeKbModel camera{nominalFisheye(640, 480, 160.0)};
@@ -295,4 +296,50 @@ TEST_F(TargetEstimatorTest, ResetForgetsLastGoodBox)
   estimator.reset();
 
   EXPECT_FALSE(estimator.lastGoodBox());
+}
+
+TEST_F(TargetEstimatorTest, RangeTakesPriorityOverKnownSize)
+{
+  // Setup: both a known target height and an in-sync, centered range are available
+  config.targetHeightM = 1.7;
+  TargetEstimator estimator(config, camera, {});
+  RangeMeasurement range{.t = at(0.97), .rangeM = 4.2, .valid = true};
+
+  // Run
+  TargetState state = estimator.update(at(1.0), level, observation(0.95, kCentered), range);
+
+  // Assert: the range measurement wins over the known-size estimate
+  ASSERT_TRUE(state.valid);
+  ASSERT_TRUE(state.distanceM);
+  EXPECT_EQ(state.source, DistanceSource::Range);
+  EXPECT_DOUBLE_EQ(*state.distanceM, range.rangeM);
+}
+
+TEST_F(TargetEstimatorTest, RollAndPitchTogetherGiveBearingInLevelFrame)
+{
+  // Setup: roll and pitch mixed into the attitude history, box right of and below center
+  // (both a horizontal and a vertical offset, so roll and pitch each act directly on the
+  // bearing instead of only through a small second-order coupling)
+  double roll = degToRad(20.0);
+  double pitch = degToRad(15.0);
+  AttitudeHistory tilted = attitudeRamp(roll, pitch, 0.0);
+  TargetEstimator estimator(config, camera, {});
+  TargetEstimator estimatorLevel(config, camera, {});
+  BBox right{.x = 460.0, .y = 280.0, .w = 40.0, .h = 80.0};
+  Pixel center{right.centerU(), right.centerV()};
+
+  // Run
+  TargetState state = estimator.update(at(1.0), tilted, observation(0.95, right), std::nullopt);
+  TargetState zeroAttitudeState = estimatorLevel.update(at(1.0), level, observation(0.95, right), std::nullopt);
+
+  // Assert: bearing matches the level-frame bearing computed independently from roll and pitch
+  Vec3 leveled = bodyToLevel(cameraToBody(camera.pixelToRay(center), CameraMount{}), roll, pitch);
+  double expectedBearing = std::atan2(leveled.y, leveled.x);
+
+  ASSERT_TRUE(state.valid);
+  EXPECT_NEAR(state.bearingRad, expectedBearing, 1e-9);
+
+  // Assert: it differs meaningfully from the zero-attitude bearing
+  ASSERT_TRUE(zeroAttitudeState.valid);
+  EXPECT_GT(std::abs(state.bearingRad - zeroAttitudeState.bearingRad), 1e-3);
 }

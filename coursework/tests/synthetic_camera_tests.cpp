@@ -15,7 +15,7 @@ namespace {
 
 class SyntheticCameraTest : public ::testing::Test {
 protected:
-  SyntheticCameraTest() { config.pixelNoiseSigma = 0.0; }
+  SyntheticCameraTest() { this->config.pixelNoiseSigma = 0.0; }
 
   core::FisheyeKbModel camera{core::nominalFisheye(640, 480, 160.0)};
   SyntheticCameraConfig config{};

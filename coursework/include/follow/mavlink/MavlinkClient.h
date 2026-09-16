@@ -1,0 +1,65 @@
+#pragma once
+
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+
+#include "follow/core/Core.h"
+#include "follow/core/Types.h"
+#include "follow/mavlink/ByteLink.h"
+
+namespace follow::mavlink {
+
+struct MavlinkIds {
+  uint8_t sysid{1};     // ours: same system as the FC
+  uint8_t compid{191};  // ours: MAV_COMP_ID_ONBOARD_COMPUTER
+  uint8_t fcSysid{1};   // the autopilot we listen to and command
+  uint8_t fcCompid{1};  // MAV_COMP_ID_AUTOPILOT1
+};
+
+// MAVLink 2 over a ByteLink: decodes the FC's telemetry into a VehicleState and encodes our
+// heartbeat, stream requests and velocity setpoints. Not thread-safe: one I/O thread owns it.
+class MavlinkClient {
+public:
+  using StatusTextHandler = std::function<void(const std::string&)>;
+
+  MavlinkClient(ByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText = {});
+  ~MavlinkClient();
+  MavlinkClient(const MavlinkClient&) = delete;
+  MavlinkClient& operator=(const MavlinkClient&) = delete;
+
+  // Reads and parses everything the link has. Messages from the FC are stamped with `now`.
+  // Returns the number of FC messages accepted.
+  int poll(core::TimePoint now);
+
+  // Periodic duties: HEARTBEAT at 1 Hz, and while ATTITUDE is missing (never received or older than
+  // 1 s) after the FC has been heard, a stream request every 2 s.
+  void service(core::TimePoint now);
+
+  void sendHeartbeat();
+  // SET_MESSAGE_INTERVAL for ATTITUDE at 20 Hz and LOCAL_POSITION_NED at 10 Hz.
+  void requestStreams();
+  // SET_POSITION_TARGET_LOCAL_NED in MAV_FRAME_BODY_OFFSET_NED using only vx and yaw_rate.
+  void sendSetpoint(const core::VelocityCmd& command, core::TimePoint now);
+
+  const core::VehicleState& vehicle() const { return this->state; }
+
+private:
+  struct Codec;  // MAVLink parser and sequence state, kept out of this header
+
+  void handle(core::TimePoint now);
+  void sendMessage();
+
+  ByteLink& link;
+  MavlinkIds ids;
+  StatusTextHandler onStatusText;
+  std::unique_ptr<Codec> codec;
+  core::VehicleState state{};
+  std::optional<core::TimePoint> start{};
+  std::optional<core::TimePoint> lastHeartbeatSent{};
+  std::optional<core::TimePoint> lastStreamRequest{};
+};
+
+}  // namespace follow::mavlink

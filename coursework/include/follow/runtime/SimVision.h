@@ -45,6 +45,7 @@ private:
   Channels& channels;
   std::optional<sim::SimTarget> target{};
   core::TimePoint engagedAt{};
+  bool lockPending{false};  // a LockCenter arrived before a pose was available; place on the first pose after
   std::atomic<bool> done{false};
 };
 

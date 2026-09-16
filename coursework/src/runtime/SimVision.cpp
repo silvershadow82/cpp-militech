@@ -52,11 +52,16 @@ void SimVision::iterate(core::TimePoint now)
   }
 
   for (const core::TrackerRequest& request : this->channels.trackerRequests.drain()) {
-    if (request.kind == core::TrackerRequestKind::LockCenter && !this->target && pose) {
-      this->target = this->script.place(*pose);
-      this->engagedAt = now;
+    if (request.kind == core::TrackerRequestKind::LockCenter && !this->target) {
+      this->lockPending = true;
     }
     this->camera.handle(request, now);
+  }
+  // Engage on the first iterate where a pose is available, even if that is later than the LockCenter itself.
+  if (this->lockPending && !this->target && pose) {
+    this->target = this->script.place(*pose);
+    this->engagedAt = now;
+    this->lockPending = false;
   }
   if (!this->target || !pose) {
     return;

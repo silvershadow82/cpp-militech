@@ -71,21 +71,45 @@ TEST_F(SimVisionTest, LockCenterPlacesTheTargetAheadOfTheVehicle)
   EXPECT_NEAR(truth->value.distanceM, std::hypot(3.0, 2.0 - 0.85), 1e-6);
 }
 
-TEST_F(SimVisionTest, LockCenterWithoutPositionPlacesNothing)
+TEST_F(SimVisionTest, LockCenterBeforePositionIsLatchedAndPlacedWhenPoseArrives)
 {
   // Setup: the first LockCenter arrives before any LOCAL_POSITION_NED
   publishVehicle(0.0, {}, 0.0, false);
   lockCenter();
   vision.iterate(at(0.0));
 
-  // Run: position arrives later
+  // Assert: nothing placed yet, no pose to place against
+  EXPECT_FALSE(channels.observation.read());
+
+  // Run: position arrives later; the latched LockCenter should engage on the first pose
   publishVehicle(0.1, {0.0, 0.0, -2.0}, 0.0);
   for (double t = 0.1; t <= 0.5; t += 0.05) {
     vision.iterate(at(t));
   }
 
-  // Assert
+  // Assert: the target was placed once a pose became available
+  EXPECT_TRUE(channels.observation.read());
+}
+
+TEST_F(SimVisionTest, LockCenterWithoutPositionThenLaterPoseProducesObservations)
+{
+  // Setup: no vehicle state at all yet, so vehiclePose() returns nullopt
+  lockCenter();
+  vision.iterate(at(0.0));
+
+  // Assert: nothing published, nothing engaged
   EXPECT_FALSE(channels.observation.read());
+  EXPECT_FALSE(channels.truth.read());
+
+  // Run: pose arrives well after the LockCenter request
+  publishVehicle(0.2, {0.0, 0.0, -2.0}, 0.0);
+  for (double t = 0.2; t <= 0.4; t += 0.01) {
+    vision.iterate(at(t));
+  }
+
+  // Assert: the latched request engaged once the pose showed up
+  EXPECT_TRUE(channels.observation.read());
+  EXPECT_TRUE(channels.truth.read());
 }
 
 TEST_F(SimVisionTest, FinishesScenarioDurationAfterEngage)

@@ -143,6 +143,21 @@ TEST(ConfigTest, OutOfRangeValuesAreRejected)
   EXPECT_EQ(errorOf(R"({"mavlink": {"compid": 300}})"), "mavlink.compid: must be 1..255");
 }
 
+TEST(ConfigTest, NegativeControlValuesThatWouldDefeatClampsAreRejected)
+{
+  // A negative yaw_rate_max_dps would make std::clamp's lo > hi (undefined behaviour).
+  EXPECT_EQ(errorOf(R"({"control": {"yaw_rate_max_dps": -45.0}})"), "control.yaw_rate_max_dps: must be positive");
+  // A negative vx_slew would make the slew window's lo > hi (undefined behaviour).
+  EXPECT_EQ(errorOf(R"({"control": {"vx_slew": -1.5}})"), "control.vx_slew: must be positive");
+  // A negative heading_gate_deg would make the (1 - bearing/gate) factor exceed 1, defeating the vx_max clamp.
+  EXPECT_EQ(errorOf(R"({"control": {"heading_gate_deg": -25.0}})"), "control.heading_gate_deg: must be positive");
+}
+
+TEST(ConfigTest, EstimatorOutOfRangeValuesAreRejected)
+{
+  EXPECT_EQ(errorOf(R"({"estimator": {"ema_alpha": 0}})"), "estimator.ema_alpha: must be in (0, 1]");
+}
+
 TEST(ConfigTest, CameraIntrinsicsAreScaledToTrackingResolution)
 {
   // Setup: a calibration done at the full 1640x1232 capture resolution

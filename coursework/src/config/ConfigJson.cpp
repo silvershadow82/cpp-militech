@@ -74,8 +74,22 @@ AppConfig parseAppConfig(const json& doc)
   control.read("heading_gate_deg", core.control.headingGateDeg);
   control.read("enable_vx", core.control.enableVx);
   require(core.rateHz > 0.0, "control.rate_hz: must be positive");
+  require(core.control.kYaw >= 0.0, "control.k_yaw: must not be negative");
+  require(core.control.yawRateMaxDps > 0.0, "control.yaw_rate_max_dps: must be positive");
+  require(core.control.yawDeadbandDeg >= 0.0, "control.yaw_deadband_deg: must not be negative");
+  require(core.control.kD >= 0.0, "control.k_d: must not be negative");
   require(core.control.vxMax >= 0.0, "control.vx_max: must not be negative");
+  require(core.control.vxSlew > 0.0, "control.vx_slew: must be positive");
+  require(core.control.dSet > 0.0, "control.d_set: must be positive");
+  require(core.control.dNominal > 0.0, "control.d_nominal: must be positive");
+  require(core.control.dMin >= 0.0, "control.d_min: must not be negative");
   require(core.control.dMin < core.control.dSet, "control.d_min: must be less than control.d_set");
+  require(core.control.distDeadbandM >= 0.0, "control.dist_deadband_m: must not be negative");
+  require(core.control.headingGateDeg > 0.0, "control.heading_gate_deg: must be positive");
+  require(core.estimator.emaAlpha > 0.0 && core.estimator.emaAlpha <= 1.0, "estimator.ema_alpha: must be in (0, 1]");
+  require(core.estimator.maxAreaJump > 1.0, "estimator.max_area_jump: must be greater than 1");
+  require(core.estimator.minConfidence >= 0.0 && core.estimator.minConfidence <= 1.0, "vision.min_confidence: must be in [0, 1]");
+  require(core.estimator.borderMarginPx >= 0.0, "estimator.border_margin_px: must not be negative");
 
   return config;
 }

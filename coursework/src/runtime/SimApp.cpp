@@ -45,9 +45,30 @@ void runSimApp(const SimAppOptions& options, const std::atomic<bool>& stop, std:
 
   print("follow_app --sim: scenario " + scenario.name + ", link " + options.link + ", log " + options.logPath.string());
   std::atomic<bool> threadsStop{false};
-  std::thread ioThread([&] { io.run(threadsStop); });
-  std::thread visionThread([&] { vision.run(threadsStop, options.visionRateHz); });
-  std::thread controlThread([&] { control.run(threadsStop); });
+  std::thread ioThread;
+  std::thread visionThread;
+  std::thread controlThread;
+  try {
+    ioThread = std::thread([&] { io.run(threadsStop); });
+    visionThread = std::thread([&] { vision.run(threadsStop, options.visionRateHz); });
+    controlThread = std::thread([&] { control.run(threadsStop); });
+  }
+  catch (...) {
+    // std::thread's constructor can throw (e.g. resource exhaustion). If it throws after one or two of
+    // these have already started, join them here before rethrowing: a std::thread destructs while still
+    // joinable calls std::terminate(), which would abort the whole process instead of failing gracefully.
+    threadsStop = true;
+    if (ioThread.joinable()) {
+      ioThread.join();
+    }
+    if (visionThread.joinable()) {
+      visionThread.join();
+    }
+    if (controlThread.joinable()) {
+      controlThread.join();
+    }
+    throw;
+  }
 
   while (!stop && !vision.finished()) {
     std::this_thread::sleep_for(std::chrono::milliseconds{50});

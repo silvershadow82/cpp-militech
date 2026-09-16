@@ -1,0 +1,11 @@
+{
+  "name": "stationary",
+  "description": "Target stands still 3 m ahead.",
+  "duration_s": 14,
+  "target": { "start": [3.0, 0.0], "motions": [{ "hold": { "duration_s": 30 } }] },
+  "expect": {
+    "states": ["Locking", "Following"],
+    "lock_distance_tolerance": 0.15,
+    "bearing_max_deg": 5
+  }
+}

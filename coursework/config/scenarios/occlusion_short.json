@@ -1,0 +1,7 @@
+{
+  "name": "occlusion_short",
+  "description": "Target is hidden for 1 s and found again.",
+  "duration_s": 11,
+  "target": { "start": [3.0, 0.0], "motions": [{ "hold": { "duration_s": 30 } }], "occlusions": [[5.0, 6.0]] },
+  "expect": { "states": ["Locking", "Following", "Lost", "Following"] }
+}

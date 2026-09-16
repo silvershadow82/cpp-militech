@@ -32,7 +32,8 @@ add_library(
   src/sim/SimTarget.cpp
   src/sim/SyntheticCamera.cpp
   src/sim/KinematicVehicle.cpp
-  src/sim/ScenarioRunner.cpp)
+  src/sim/ScenarioRunner.cpp
+  src/sim/ScenarioCheck.cpp)
 target_link_libraries(follow_sim PUBLIC follow_core)
 target_compile_options(follow_sim PRIVATE -Wall -Wextra)
 
@@ -42,7 +43,7 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
                               DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(json)
 
-add_library(follow_config STATIC src/config/ConfigJson.cpp)
+add_library(follow_config STATIC src/config/ConfigJson.cpp src/config/ScenarioJson.cpp)
 target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_json)
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
@@ -69,7 +70,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/kinematic_vehicle_tests.cpp
     tests/scenario_tests.cpp
     tests/runtime_slots_tests.cpp
-    tests/config_tests.cpp)
+    tests/config_tests.cpp
+    tests/scenario_json_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_config GTest::gtest_main Threads::Threads)
   target_compile_options(follow_tests PRIVATE -Wall -Wextra)

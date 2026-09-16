@@ -36,6 +36,16 @@ add_library(
 target_link_libraries(follow_sim PUBLIC follow_core)
 target_compile_options(follow_sim PRIVATE -Wall -Wextra)
 
+# --- Config: follow.json, camera and scenario files (nlohmann/json). ----------
+# Same name and URL as homework_07..11, so the root build fetches the library once.
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+                              DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(json)
+
+add_library(follow_config STATIC src/config/ConfigJson.cpp)
+target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_json)
+target_compile_options(follow_config PRIVATE -Wall -Wextra)
+
 # --- Tests (GoogleTest, host only) --------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
   enable_testing()
@@ -58,9 +68,11 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/synthetic_camera_tests.cpp
     tests/kinematic_vehicle_tests.cpp
     tests/scenario_tests.cpp
-    tests/runtime_slots_tests.cpp)
+    tests/runtime_slots_tests.cpp
+    tests/config_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
-  target_link_libraries(follow_tests PRIVATE follow_sim GTest::gtest_main Threads::Threads)
+  target_link_libraries(follow_tests PRIVATE follow_config GTest::gtest_main Threads::Threads)
   target_compile_options(follow_tests PRIVATE -Wall -Wextra)
+  target_compile_definitions(follow_tests PRIVATE FOLLOW_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/config")
   gtest_discover_tests(follow_tests DISCOVERY_MODE PRE_TEST)
 endif()

@@ -22,7 +22,7 @@ public:
 
   int send(std::span<const uint8_t> bytes) override;
   int receive(std::span<uint8_t> buffer) override;
-  bool waitReadable(std::chrono::milliseconds timeout) override;
+  WaitStatus waitReadable(std::chrono::milliseconds timeout) override;
 
 private:
   int fd{-1};
@@ -40,7 +40,7 @@ public:
 
   int send(std::span<const uint8_t> bytes) override;
   int receive(std::span<uint8_t> buffer) override;
-  bool waitReadable(std::chrono::milliseconds timeout) override;
+  WaitStatus waitReadable(std::chrono::milliseconds timeout) override;
 
 private:
   static speed_t speedFor(int baud);

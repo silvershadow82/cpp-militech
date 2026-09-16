@@ -51,10 +51,17 @@ int parseNumber(const std::string& text, int minimum, int maximum, const std::st
   return static_cast<int>(value);
 }
 
-bool pollReadable(int fd, std::chrono::milliseconds timeout)
+ByteLink::WaitStatus pollReadable(int fd, std::chrono::milliseconds timeout)
 {
   pollfd entry{.fd = fd, .events = POLLIN, .revents = 0};
-  return ::poll(&entry, 1, static_cast<int>(timeout.count())) > 0 && (entry.revents & POLLIN) != 0;
+  int rc = ::poll(&entry, 1, static_cast<int>(timeout.count()));
+  if (rc < 0) {
+    return ByteLink::WaitStatus::Error;
+  }
+  if (rc > 0 && (entry.revents & POLLIN) != 0) {
+    return ByteLink::WaitStatus::Readable;
+  }
+  return ByteLink::WaitStatus::Timeout;
 }
 
 std::string systemError(const std::string& what)
@@ -172,7 +179,7 @@ int UdpLink::receive(std::span<uint8_t> buffer)
   return static_cast<int>(received);
 }
 
-bool UdpLink::waitReadable(std::chrono::milliseconds timeout)
+ByteLink::WaitStatus UdpLink::waitReadable(std::chrono::milliseconds timeout)
 {
   return pollReadable(this->fd, timeout);
 }
@@ -258,7 +265,7 @@ int UartLink::receive(std::span<uint8_t> buffer)
   return static_cast<int>(received);
 }
 
-bool UartLink::waitReadable(std::chrono::milliseconds timeout)
+ByteLink::WaitStatus UartLink::waitReadable(std::chrono::milliseconds timeout)
 {
   return pollReadable(this->fd, timeout);
 }

@@ -18,6 +18,9 @@ class FakeLink : public mavlink::ByteLink {
 public:
   int send(std::span<const uint8_t> bytes) override
   {
+    if (this->failSend) {
+      return -1;
+    }
     this->sent.emplace_back(bytes.begin(), bytes.end());
     return static_cast<int>(bytes.size());
   }
@@ -30,13 +33,21 @@ public:
     return static_cast<int>(n);
   }
 
-  bool waitReadable(std::chrono::milliseconds) override { return !this->inbound.empty(); }
+  WaitStatus waitReadable(std::chrono::milliseconds) override
+  {
+    if (this->failWaitReadable) {
+      return WaitStatus::Error;
+    }
+    return this->inbound.empty() ? WaitStatus::Timeout : WaitStatus::Readable;
+  }
 
   void feed(const std::vector<uint8_t>& bytes) { this->inbound.insert(this->inbound.end(), bytes.begin(), bytes.end()); }
 
   std::vector<uint8_t> inbound;
   std::vector<std::vector<uint8_t>> sent;
   size_t maxChunk{std::numeric_limits<size_t>::max()};
+  bool failWaitReadable{false};  // makes waitReadable() report WaitStatus::Error, as a broken fd would
+  bool failSend{false};          // makes send() return -1, as a dead link would
 };
 
 // Encodes messages the way a MAVLink peer with the given ids would.

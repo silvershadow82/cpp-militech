@@ -30,7 +30,7 @@ std::span<const uint8_t> bytesOf(const std::string& text)
 std::string receiveText(ByteLink& link)
 {
   std::array<uint8_t, 256> buffer{};
-  if (!link.waitReadable(1000ms)) {
+  if (link.waitReadable(1000ms) != ByteLink::WaitStatus::Readable) {
     return "<timeout>";
   }
   int n = link.receive(buffer);
@@ -86,7 +86,7 @@ TEST(UdpLinkTest, WaitReadableTimesOutWithoutData)
   UdpLink link(0);
   auto start = std::chrono::steady_clock::now();
 
-  EXPECT_FALSE(link.waitReadable(30ms));
+  EXPECT_EQ(link.waitReadable(30ms), ByteLink::WaitStatus::Timeout);
   EXPECT_GE(std::chrono::steady_clock::now() - start, 25ms);
   std::array<uint8_t, 16> buffer{};
   EXPECT_EQ(link.receive(buffer), 0);

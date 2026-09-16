@@ -11,14 +11,19 @@ namespace follow::mavlink {
 // Byte transport under MAVLink. Implementations are not thread-safe: one thread owns a link.
 class ByteLink {
 public:
+  // Outcome of waitReadable: whether the wait itself failed is distinguished from an idle timeout so
+  // callers can back off and report a link failure instead of busy-spinning on a broken descriptor.
+  enum class WaitStatus { Readable, Timeout, Error };
+
   virtual ~ByteLink() = default;
 
   // Bytes written; 0 if the link has nowhere to send yet (UDP before the peer is known) or the send buffer is full; -1 on error.
   virtual int send(std::span<const uint8_t> bytes) = 0;
   // Non-blocking read of what is available: bytes read, 0 if nothing, -1 on error.
   virtual int receive(std::span<uint8_t> buffer) = 0;
-  // Waits up to timeout for incoming bytes; true if receive() has something to read.
-  virtual bool waitReadable(std::chrono::milliseconds timeout) = 0;
+  // Waits up to timeout for incoming bytes: Readable if receive() has something to read, Timeout if
+  // nothing arrived in time, Error if the wait itself failed (e.g. poll() returned -1).
+  virtual WaitStatus waitReadable(std::chrono::milliseconds timeout) = 0;
 };
 
 struct LinkSpec {

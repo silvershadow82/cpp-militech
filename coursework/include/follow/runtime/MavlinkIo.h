@@ -23,14 +23,18 @@ public:
   // heartbeat and stream-request duties, and send the setpoint if a new one was written.
   void iterate(core::TimePoint now);
 
-  // iterate() whenever bytes arrive and at least every 5 ms, until `stop` is set.
+  // iterate() whenever bytes arrive and at least every 5 ms, until `stop` is set. If waitReadable
+  // itself fails (a broken file descriptor), backs off with a short sleep instead of busy-spinning,
+  // and reports the failure once through onStatusText.
   void run(const std::atomic<bool>& stop);
 
 private:
   mavlink::ByteLink& link;
   mavlink::MavlinkClient client;
   Channels& channels;
+  mavlink::MavlinkClient::StatusTextHandler onStatusText;
   uint64_t sentSetpoint{0};  // sequence number of the last setpoint sent
+  bool waitFailing{false};   // reports through onStatusText once, on the transition into failure
 };
 
 }  // namespace follow::runtime

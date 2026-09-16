@@ -42,6 +42,13 @@ struct ScenarioResult {
   std::optional<double> lockDistanceM{};  // true distance when Following was first entered
 };
 
+struct GroundTruth {
+  double bearingDeg{0.0};  // target center relative to the vehicle heading, positive right
+  double distanceM{0.0};   // vehicle to target center
+};
+
+GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double targetTimeS);
+
 // Runs Core against SyntheticCamera + KinematicVehicle, starting in LOITER with the vehicle
 // at the origin facing north.
 ScenarioResult runScenario(const core::Config& config,

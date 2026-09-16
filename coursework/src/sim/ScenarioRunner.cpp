@@ -9,6 +9,13 @@
 
 namespace follow::sim {
 
+GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double targetTimeS)
+{
+  core::Vec3 ground = target.positionAt(targetTimeS);
+  core::Vec3 toCenter{ground.x - vehicle.positionNed.x, ground.y - vehicle.positionNed.y, -target.height() / 2.0 - vehicle.positionNed.z};
+  return {.bearingDeg = core::radToDeg(core::wrapPi(std::atan2(toCenter.y, toCenter.x) - vehicle.yaw)), .distanceM = core::norm(toCenter)};
+}
+
 ScenarioResult runScenario(const core::Config& config,
                            const core::CameraModel& camera,
                            const core::CameraMount& mount,
@@ -40,15 +47,14 @@ ScenarioResult runScenario(const core::Config& config,
       syntheticCamera.handle(out.tracker, now);
       setpoint = out.setpoint;
 
-      core::Vec3 ground = target.positionAt(targetTime);
-      core::Vec3 toCenter{ground.x - pose.positionNed.x, ground.y - pose.positionNed.y, -target.height() / 2.0 - pose.positionNed.z};
+      GroundTruth truth = groundTruth(pose, target, targetTime);
       StepRecord record{
         .tS = t,
         .state = out.state,
         .setpoint = out.setpoint,
         .targetValid = out.target.valid,
-        .trueBearingDeg = core::radToDeg(core::wrapPi(std::atan2(toCenter.y, toCenter.x) - pose.yaw)),
-        .trueDistanceM = core::norm(toCenter),
+        .trueBearingDeg = truth.bearingDeg,
+        .trueDistanceM = truth.distanceM,
       };
       if (result.states.empty() || result.states.back() != out.state) {
         result.states.push_back(out.state);

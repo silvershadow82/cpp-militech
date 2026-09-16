@@ -61,7 +61,8 @@ add_library(
   follow_runtime STATIC
   src/runtime/RunLog.cpp
   src/runtime/ControlLoop.cpp
-  src/runtime/MavlinkIo.cpp)
+  src/runtime/MavlinkIo.cpp
+  src/runtime/SimVision.cpp)
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
 target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
 
@@ -94,7 +95,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/mavlink_client_tests.cpp
     tests/run_log_tests.cpp
     tests/control_loop_tests.cpp
-    tests/mavlink_io_tests.cpp)
+    tests/mavlink_io_tests.cpp
+    tests/sim_vision_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

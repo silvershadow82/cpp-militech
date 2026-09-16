@@ -12,11 +12,22 @@ namespace {
 
 constexpr auto kHeartbeatPeriod = std::chrono::seconds{1};
 constexpr auto kStreamRequestPeriod = std::chrono::seconds{2};
-constexpr auto kAttitudeMissingAfter = std::chrono::seconds{1};
-constexpr float kAttitudeIntervalUs = 50000.0F;        // 20 Hz
-constexpr float kLocalPositionIntervalUs = 100000.0F;  // 10 Hz
+constexpr auto kStreamMissingAfter = std::chrono::seconds{1};  // used for both ATTITUDE and LOCAL_POSITION_NED
+constexpr float kAttitudeIntervalUs = 50000.0F;                // 20 Hz
+constexpr float kLocalPositionIntervalUs = 100000.0F;          // 10 Hz
 // Ignore position (bits 0-2), acceleration (6-8) and yaw (10): use velocity and yaw_rate.
 constexpr uint16_t kVelocityYawRateMask = 0x05C7;
+
+// strnlen is POSIX, not ISO C++; <cstring> is not guaranteed to declare it (notably on libstdc++), so
+// the bounded length is computed by hand instead of relying on it.
+size_t boundedLength(const char* text, size_t maxLength)
+{
+  size_t length = 0;
+  while (length < maxLength && text[length] != '\0') {
+    ++length;
+  }
+  return length;
+}
 
 }  // namespace
 
@@ -107,7 +118,7 @@ void MavlinkClient::handle(core::TimePoint now)
       mavlink_statustext_t status{};
       mavlink_msg_statustext_decode(&message, &status);
       if (this->onStatusText) {
-        this->onStatusText(std::string(status.text, strnlen(status.text, sizeof(status.text))));
+        this->onStatusText(std::string(status.text, boundedLength(status.text, sizeof(status.text))));
       }
       break;
     }
@@ -126,9 +137,10 @@ void MavlinkClient::service(core::TimePoint now)
     this->lastHeartbeatSent = now;
   }
   std::optional<core::AttitudeSample> latest = this->state.attitude.latest();
-  bool attitudeMissing = !latest || now - latest->t > kAttitudeMissingAfter;
+  bool attitudeMissing = !latest || now - latest->t > kStreamMissingAfter;
+  bool positionMissing = !this->state.position || now - this->state.position->t > kStreamMissingAfter;
   bool requestDue = !this->lastStreamRequest || now - *this->lastStreamRequest >= kStreamRequestPeriod;
-  if (this->state.lastHeartbeat && attitudeMissing && requestDue) {
+  if (this->state.lastHeartbeat && (attitudeMissing || positionMissing) && requestDue) {
     this->requestStreams();
     this->lastStreamRequest = now;
   }
@@ -207,7 +219,19 @@ void MavlinkClient::sendMessage()
 {
   std::array<uint8_t, MAVLINK_MAX_PACKET_LEN> bytes{};
   uint16_t length = mavlink_msg_to_send_buffer(bytes.data(), &this->codec->outgoing);
-  this->link.send(std::span<const uint8_t>(bytes.data(), length));
+  int sent = this->link.send(std::span<const uint8_t>(bytes.data(), length));
+  if (sent < 0) {
+    // Report only on the transition into the failing state, so a dead link does not spam the log.
+    if (!this->sendFailing) {
+      this->sendFailing = true;
+      if (this->onStatusText) {
+        this->onStatusText("mavlink link send failed");
+      }
+    }
+  }
+  else {
+    this->sendFailing = false;
+  }
 }
 
 }  // namespace follow::mavlink

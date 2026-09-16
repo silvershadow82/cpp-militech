@@ -34,8 +34,8 @@ public:
   // Returns the number of FC messages accepted.
   int poll(core::TimePoint now);
 
-  // Periodic duties: HEARTBEAT at 1 Hz, and while ATTITUDE is missing (never received or older than
-  // 1 s) after the FC has been heard, a stream request every 2 s.
+  // Periodic duties: HEARTBEAT at 1 Hz, and while ATTITUDE or LOCAL_POSITION_NED is missing (never
+  // received, or older than 1 s) after the FC has been heard, a stream request every 2 s.
   void service(core::TimePoint now);
 
   void sendHeartbeat();
@@ -60,6 +60,7 @@ private:
   std::optional<core::TimePoint> start{};
   std::optional<core::TimePoint> lastHeartbeatSent{};
   std::optional<core::TimePoint> lastStreamRequest{};
+  bool sendFailing{false};  // reports through onStatusText once, on the transition into failure
 };
 
 }  // namespace follow::mavlink

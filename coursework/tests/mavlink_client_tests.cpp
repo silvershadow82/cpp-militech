@@ -204,11 +204,69 @@ TEST_F(MavlinkClientTest, StreamsAreRequestedUntilAttitudeArrives)
   client.service(at(2.5));
   EXPECT_EQ(streamRequests(), 2);
 
-  // Attitude flowing: no more requests
+  // Both streams flowing: no more requests
   link.feed(fc.attitude(0.0F, 0.0F, 0.0F));
+  link.feed(fc.localPosition(0.0F, 0.0F, -2.0F, 0.0F, 0.0F, 0.0F));
   client.poll(at(4.4));
   client.service(at(4.5));
   EXPECT_EQ(streamRequests(), 0);
+}
+
+TEST_F(MavlinkClientTest, StreamsAreRequestedUntilPositionArrives)
+{
+  // Setup: count SET_MESSAGE_INTERVAL commands sent since the last count
+  auto streamRequests = [this] {
+    int count = 0;
+    for (const mavlink_message_t& message : decodeFrames(this->link.sent)) {
+      if (message.msgid == MAVLINK_MSG_ID_COMMAND_LONG && mavlink_msg_command_long_get_command(&message) == MAV_CMD_SET_MESSAGE_INTERVAL) {
+        ++count;
+      }
+    }
+    this->link.sent.clear();
+    return count;
+  };
+
+  // FC heard, and attitude flows from the start, but LOCAL_POSITION_NED never arrives.
+  link.feed(fc.heartbeat(core::kModeLoiter, false));
+  link.feed(fc.attitude(0.0F, 0.0F, 0.0F));
+  client.poll(at(0.5));
+  client.service(at(0.5));
+  EXPECT_EQ(streamRequests(), 2);
+
+  // Attitude kept fresh, position still missing: requests must keep coming every 2 s.
+  link.feed(fc.attitude(0.0F, 0.0F, 0.0F));
+  client.poll(at(1.4));
+  client.service(at(1.5));
+  EXPECT_EQ(streamRequests(), 0);  // not yet due
+
+  link.feed(fc.attitude(0.0F, 0.0F, 0.0F));
+  client.poll(at(2.4));
+  client.service(at(2.5));
+  EXPECT_EQ(streamRequests(), 2);
+}
+
+TEST_F(MavlinkClientTest, SendFailureIsReportedExactlyOnceUntilItRecovers)
+{
+  // Setup
+  std::vector<std::string> texts;
+  MavlinkClient withLog(link, MavlinkIds{}, [&texts](const std::string& text) { texts.push_back(text); });
+  link.failSend = true;
+
+  // Run: two sends while the link is down
+  withLog.sendHeartbeat();
+  withLog.sendHeartbeat();
+
+  // Assert: exactly one report, not one per failed send
+  EXPECT_EQ(texts, (std::vector<std::string>{"mavlink link send failed"}));
+
+  // Run: the link recovers, then fails again
+  link.failSend = false;
+  withLog.sendHeartbeat();
+  link.failSend = true;
+  withLog.sendHeartbeat();
+
+  // Assert: a second report, once, for the new failure
+  EXPECT_EQ(texts, (std::vector<std::string>{"mavlink link send failed", "mavlink link send failed"}));
 }
 
 TEST_F(MavlinkClientTest, StreamRequestAsksForTwentyAndTenHertz)

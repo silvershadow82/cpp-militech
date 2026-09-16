@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # Coursework: visual target follow over MAVLink. Builds standalone or through the root CMakeLists.txt.
-if(NOT CMAKE_PROJECT_NAME)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(follow LANGUAGES CXX)
 endif()
 
@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
+find_package(Threads REQUIRED)
 
 # --- Core: estimator, controller, supervisor. No I/O, threads or OpenCV. ------
 add_library(
@@ -56,9 +57,10 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/sim_target_tests.cpp
     tests/synthetic_camera_tests.cpp
     tests/kinematic_vehicle_tests.cpp
-    tests/scenario_tests.cpp)
+    tests/scenario_tests.cpp
+    tests/runtime_slots_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
-  target_link_libraries(follow_tests PRIVATE follow_sim GTest::gtest_main)
+  target_link_libraries(follow_tests PRIVATE follow_sim GTest::gtest_main Threads::Threads)
   target_compile_options(follow_tests PRIVATE -Wall -Wextra)
   gtest_discover_tests(follow_tests DISCOVERY_MODE PRE_TEST)
 endif()

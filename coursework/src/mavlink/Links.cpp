@@ -151,7 +151,10 @@ int UdpLink::send(std::span<const uint8_t> bytes)
     return 0;
   }
   ssize_t sent = ::sendto(this->fd, bytes.data(), bytes.size(), 0, reinterpret_cast<const sockaddr*>(&this->peer), sizeof(this->peer));
-  return sent < 0 ? -1 : static_cast<int>(sent);
+  if (sent < 0) {
+    return errno == EAGAIN || errno == EWOULDBLOCK ? 0 : -1;
+  }
+  return static_cast<int>(sent);
 }
 
 int UdpLink::receive(std::span<uint8_t> buffer)

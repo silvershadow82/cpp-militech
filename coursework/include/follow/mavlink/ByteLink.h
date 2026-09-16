@@ -13,7 +13,7 @@ class ByteLink {
 public:
   virtual ~ByteLink() = default;
 
-  // Bytes written; 0 if the link has nowhere to send yet (UDP before the peer is known); -1 on error.
+  // Bytes written; 0 if the link has nowhere to send yet (UDP before the peer is known) or the send buffer is full; -1 on error.
   virtual int send(std::span<const uint8_t> bytes) = 0;
   // Non-blocking read of what is available: bytes read, 0 if nothing, -1 on error.
   virtual int receive(std::span<uint8_t> buffer) = 0;

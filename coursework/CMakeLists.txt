@@ -62,9 +62,19 @@ add_library(
   src/runtime/RunLog.cpp
   src/runtime/ControlLoop.cpp
   src/runtime/MavlinkIo.cpp
-  src/runtime/SimVision.cpp)
+  src/runtime/SimVision.cpp
+  src/runtime/SimApp.cpp)
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
 target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
+
+# --- Executables ----------------------------------------------------------------
+add_executable(follow_app src/app/main.cpp)
+target_link_libraries(follow_app PRIVATE follow_runtime)
+target_compile_options(follow_app PRIVATE -Wall -Wextra)
+
+add_executable(follow_check_run src/app/check_run_main.cpp)
+target_link_libraries(follow_check_run PRIVATE follow_runtime)
+target_compile_options(follow_check_run PRIVATE -Wall -Wextra)
 
 # --- Tests (GoogleTest, host only) --------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
@@ -96,7 +106,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/run_log_tests.cpp
     tests/control_loop_tests.cpp
     tests/mavlink_io_tests.cpp
-    tests/sim_vision_tests.cpp)
+    tests/sim_vision_tests.cpp
+    tests/sim_app_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

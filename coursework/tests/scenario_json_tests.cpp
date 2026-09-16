@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <numbers>
 #include <string>
@@ -207,7 +208,9 @@ TEST(ScenarioJsonTest, EveryCommittedScenarioPassesInTheKinematicLoop)
   for (const std::filesystem::path& file : files) {
     // Run: engage at 1 s with the vehicle 2 m up at the origin facing north
     Scenario scenario = loadScenario(file);
-    AppConfig config = parseAppConfig(scenario.configOverrides);
+    // The committed follow.json plus the scenario's overrides: the same config follow_app --sim loads,
+    // so retuning follow.json cannot silently validate against the wrong envelope.
+    AppConfig config = loadAppConfig(FOLLOW_CONFIG_DIR "/follow.json", scenario.configOverrides);
     sim::ScenarioOptions options{};
     options.durationS = options.engageAtS + scenario.durationS;
     sim::Pose atEngage{.positionNed = {0.0, 0.0, -options.vehicleAltitudeM}};

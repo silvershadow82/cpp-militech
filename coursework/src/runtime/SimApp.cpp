@@ -1,6 +1,7 @@
 #include "follow/runtime/SimApp.h"
 
 #include <chrono>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <mutex>

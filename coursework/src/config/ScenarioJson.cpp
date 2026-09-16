@@ -1,6 +1,7 @@
 #include "follow/config/ScenarioJson.h"
 
 #include <cmath>
+#include <cstddef>
 #include <utility>
 #include <variant>
 

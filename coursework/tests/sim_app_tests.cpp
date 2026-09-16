@@ -70,7 +70,8 @@ TEST(SimAppTest, StationaryScenarioPassesAgainstFakeAutopilot)
   std::ifstream log(options.logPath);
   std::vector<sim::StepRecord> steps = runtime::readRunLog(log);
   config::Scenario scenario = config::loadScenario(options.scenarioPath);
-  std::vector<std::string> failures = sim::checkRun(steps, scenario.expect, core::ControlConfig{}, 1.5);
+  config::AppConfig app = config::loadAppConfig(options.configPath, scenario.configOverrides);
+  std::vector<std::string> failures = sim::checkRun(steps, scenario.expect, app.core.control, 1.5);
   EXPECT_TRUE(failures.empty()) << joined(failures);
   std::filesystem::remove_all(dir);
 }

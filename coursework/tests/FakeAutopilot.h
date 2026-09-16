@@ -8,6 +8,7 @@
 #include <optional>
 #include <span>
 #include <thread>
+#include <vector>
 
 #include "MavlinkTestSupport.h"
 #include "follow/core/Types.h"

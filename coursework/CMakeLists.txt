@@ -56,6 +56,13 @@ target_include_directories(follow_mavlink SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
 target_link_libraries(follow_mavlink PUBLIC follow_core Threads::Threads)
 target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
 
+# --- Runtime: threads, shared slots, run log. ---------------------------------
+add_library(
+  follow_runtime STATIC
+  src/runtime/RunLog.cpp)
+target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
+target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
+
 # --- Tests (GoogleTest, host only) --------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
   enable_testing()
@@ -82,9 +89,10 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/config_tests.cpp
     tests/scenario_json_tests.cpp
     tests/links_tests.cpp
-    tests/mavlink_client_tests.cpp)
+    tests/mavlink_client_tests.cpp
+    tests/run_log_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
-  target_link_libraries(follow_tests PRIVATE follow_config follow_mavlink GTest::gtest_main Threads::Threads)
+  target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(follow_tests PRIVATE util) # openpty
   endif()

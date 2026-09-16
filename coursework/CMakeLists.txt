@@ -59,7 +59,8 @@ target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
 # --- Runtime: threads, shared slots, run log. ---------------------------------
 add_library(
   follow_runtime STATIC
-  src/runtime/RunLog.cpp)
+  src/runtime/RunLog.cpp
+  src/runtime/ControlLoop.cpp)
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
 target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
 
@@ -90,7 +91,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/scenario_json_tests.cpp
     tests/links_tests.cpp
     tests/mavlink_client_tests.cpp
-    tests/run_log_tests.cpp)
+    tests/run_log_tests.cpp
+    tests/control_loop_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

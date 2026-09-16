@@ -182,11 +182,42 @@ TEST_F(TargetEstimatorTest, StaleObservationIsInvalid)
   EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.6, kCentered), std::nullopt).valid);
 }
 
-TEST_F(TargetEstimatorTest, BoxTouchingBorderIsInvalid)
+TEST_F(TargetEstimatorTest, BoxWithinBorderMarginIsInvalid)
+{
+  // Setup: the default margin is 2 px; each box comes 1.5 px close to one edge
+  TargetEstimator estimator(config, camera, {});
+  BBox nearLeft{.x = 1.5, .y = 200.0, .w = 40.0, .h = 80.0};
+  BBox nearTop{.x = 300.0, .y = 1.5, .w = 40.0, .h = 80.0};
+  BBox nearRight{.x = 598.5, .y = 200.0, .w = 40.0, .h = 80.0};
+  BBox nearBottom{.x = 300.0, .y = 398.5, .w = 40.0, .h = 80.0};
+
+  // Run + Assert
+  EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.95, nearLeft), std::nullopt).valid);
+  EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.95, nearTop), std::nullopt).valid);
+  EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.95, nearRight), std::nullopt).valid);
+  EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.95, nearBottom), std::nullopt).valid);
+}
+
+TEST_F(TargetEstimatorTest, BoxJustOutsideBorderMarginIsValid)
 {
   TargetEstimator estimator(config, camera, {});
-  BBox atEdge{.x = 0.0, .y = 200.0, .w = 40.0, .h = 80.0};
-  EXPECT_FALSE(estimator.update(at(1.0), level, observation(0.95, atEdge), std::nullopt).valid);
+  BBox nearLeft{.x = 2.5, .y = 200.0, .w = 40.0, .h = 80.0};
+  EXPECT_TRUE(estimator.update(at(1.0), level, observation(0.95, nearLeft), std::nullopt).valid);
+}
+
+TEST_F(TargetEstimatorTest, StaleAttitudeIsInvalid)
+{
+  // Setup: the attitude history ends at 1.5 s
+  TargetEstimator fresh(config, camera, {});
+  TargetEstimator stale(config, camera, {});
+
+  // Run: newest attitude 150 ms old, then 250 ms old (limit 200 ms)
+  TargetState within = fresh.update(at(1.65), level, observation(1.6, kCentered), std::nullopt);
+  TargetState beyond = stale.update(at(1.75), level, observation(1.7, kCentered), std::nullopt);
+
+  // Assert
+  EXPECT_TRUE(within.valid);
+  EXPECT_FALSE(beyond.valid);
 }
 
 TEST_F(TargetEstimatorTest, FrameCapturedBeforeLockIsIgnored)

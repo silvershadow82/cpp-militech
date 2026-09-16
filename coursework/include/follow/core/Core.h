@@ -19,7 +19,9 @@ namespace follow::core
   {
     std::optional<TimePoint> lastHeartbeat{};
     uint32_t customMode{0};
+    bool armed{false};
     AttitudeHistory attitude{};
+    std::optional<LocalPositionNed> position{}; // not used by Core; the simulated camera needs it
   };
 
   struct Inputs

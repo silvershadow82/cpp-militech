@@ -8,6 +8,8 @@ namespace follow::core {
 struct EstimatorConfig {
   double emaAlpha{0.3};
   std::chrono::milliseconds stale{300};
+  std::chrono::milliseconds attitudeStale{200};  // newest attitude sample older than this invalidates the target
+  double borderMarginPx{2.0};                    // a box closer than this to the image edge may be clipped
   double maxAreaJump{2.0};
   double minConfidence{0.3};
   std::optional<double> targetHeightM{};  // enables the KnownSize distance source

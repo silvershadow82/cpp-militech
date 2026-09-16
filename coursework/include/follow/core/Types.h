@@ -39,6 +39,13 @@ struct AttitudeSample {
   double yaw{0.0};    // rad, clockwise from north
 };
 
+// Vehicle position relative to the EKF origin, as in MAVLink LOCAL_POSITION_NED.
+struct LocalPositionNed {
+  TimePoint t{};
+  Vec3 position{};  // m
+  Vec3 velocity{};  // m/s
+};
+
 struct TargetObservation {
   TimePoint tFrame{};  // capture time of the frame, not the time tracking finished
   BBox box{};

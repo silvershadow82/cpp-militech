@@ -49,7 +49,7 @@ TargetState TargetEstimator::update(TimePoint now,
   }
   std::optional<AttitudeSample> atFrame = attitude.at(obs.tFrame);
   std::optional<AttitudeSample> atNow = attitude.latest();
-  if (!atFrame || !atNow) {
+  if (!atFrame || !atNow || now - atNow->t > this->config.attitudeStale) {
     return invalid;
   }
 
@@ -111,7 +111,8 @@ TargetState TargetEstimator::update(TimePoint now,
 bool TargetEstimator::touchesBorder(const BBox& box) const
 {
   const Intrinsics& k = this->camera.intrinsics();
-  return box.x <= 0.0 || box.y <= 0.0 || box.x + box.w >= k.width || box.y + box.h >= k.height;
+  double margin = this->config.borderMarginPx;
+  return box.x < margin || box.y < margin || box.x + box.w > k.width - margin || box.y + box.h > k.height - margin;
 }
 
 double TargetEstimator::smooth(const std::optional<double>& previous, double sample) const

@@ -13,6 +13,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 find_package(Threads REQUIRED)
 
+# MAVLink C headers: the homework_11/c_library_v2 git submodule.
+set(FOLLOW_MAVLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../homework_11/c_library_v2" CACHE PATH "MAVLink c_library_v2 checkout")
+
 # --- Core: estimator, controller, supervisor. No I/O, threads or OpenCV. ------
 add_library(
   follow_core STATIC
@@ -47,6 +50,12 @@ add_library(follow_config STATIC src/config/ConfigJson.cpp src/config/ScenarioJs
 target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_json)
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
+# --- MAVLink: byte links (UDP, UART) and the MAVLink client. ------------------
+add_library(follow_mavlink STATIC src/mavlink/Links.cpp)
+target_include_directories(follow_mavlink SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
+target_link_libraries(follow_mavlink PUBLIC follow_core Threads::Threads)
+target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
+
 # --- Tests (GoogleTest, host only) --------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
   enable_testing()
@@ -71,9 +80,13 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/scenario_tests.cpp
     tests/runtime_slots_tests.cpp
     tests/config_tests.cpp
-    tests/scenario_json_tests.cpp)
+    tests/scenario_json_tests.cpp
+    tests/links_tests.cpp)
   target_include_directories(follow_tests PRIVATE tests)
-  target_link_libraries(follow_tests PRIVATE follow_config GTest::gtest_main Threads::Threads)
+  target_link_libraries(follow_tests PRIVATE follow_config follow_mavlink GTest::gtest_main Threads::Threads)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(follow_tests PRIVATE util) # openpty
+  endif()
   target_compile_options(follow_tests PRIVATE -Wall -Wextra)
   target_compile_definitions(follow_tests PRIVATE FOLLOW_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/config")
   gtest_discover_tests(follow_tests DISCOVERY_MODE PRE_TEST)

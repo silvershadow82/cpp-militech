@@ -37,7 +37,12 @@ struct VisionSettings {
   int captureHeight{1232};
   int trackWidth{640};
   int trackHeight{480};
-  std::string tracker{"kcf"};
+  std::string tracker{"kcf"};           // "kcf" or "csrt"
+  int fps{20};                          // camera frame rate requested from libcamerasrc
+  std::string framebuffer{"/dev/fb0"};  // overlay output; empty disables the overlay
+  int overlayFps{15};
+  int reacquirePeriodMs{500};
+  double reacquireExpand{1.5};
 };
 
 struct AppConfig {

@@ -208,3 +208,35 @@ TEST(ConfigTest, MissingCameraFieldIsRejected)
     EXPECT_STREQ(e.what(), "camera.cy: required");
   }
 }
+
+TEST(ConfigJson, VisionHardwareDefaults)
+{
+  AppConfig config = parseAppConfig(json::parse("{}"));
+  EXPECT_EQ(config.vision.tracker, "kcf");
+  EXPECT_EQ(config.vision.fps, 20);
+  EXPECT_EQ(config.vision.framebuffer, "/dev/fb0");
+  EXPECT_EQ(config.vision.overlayFps, 15);
+  EXPECT_EQ(config.vision.reacquirePeriodMs, 500);
+  EXPECT_DOUBLE_EQ(config.vision.reacquireExpand, 1.5);
+}
+
+TEST(ConfigJson, VisionHardwareKeysAreRead)
+{
+  AppConfig config = parseAppConfig(json::parse(
+    R"({"vision": {"tracker": "csrt", "fps": 30, "framebuffer": "", "overlay_fps": 10, "reacquire_period_ms": 250, "reacquire_expand": 2.0}})"));
+  EXPECT_EQ(config.vision.tracker, "csrt");
+  EXPECT_EQ(config.vision.fps, 30);
+  EXPECT_EQ(config.vision.framebuffer, "");
+  EXPECT_EQ(config.vision.overlayFps, 10);
+  EXPECT_EQ(config.vision.reacquirePeriodMs, 250);
+  EXPECT_DOUBLE_EQ(config.vision.reacquireExpand, 2.0);
+}
+
+TEST(ConfigJson, VisionHardwareValuesAreValidated)
+{
+  EXPECT_EQ(errorOf(R"({"vision": {"tracker": "mosse"}})"), "vision.tracker: expected \"kcf\" or \"csrt\"");
+  EXPECT_EQ(errorOf(R"({"vision": {"fps": 0}})"), "vision.fps: must be positive");
+  EXPECT_EQ(errorOf(R"({"vision": {"overlay_fps": 0}})"), "vision.overlay_fps: must be positive");
+  EXPECT_EQ(errorOf(R"({"vision": {"reacquire_period_ms": -1}})"), "vision.reacquire_period_ms: must not be negative");
+  EXPECT_EQ(errorOf(R"({"vision": {"reacquire_expand": 0.9}})"), "vision.reacquire_expand: must be at least 1");
+}

@@ -25,12 +25,32 @@ AppConfig parseAppConfig(const json& doc)
   require(config.mavlink.sysid >= 1 && config.mavlink.sysid <= 255, "mavlink.sysid: must be 1..255");
   require(config.mavlink.compid >= 1 && config.mavlink.compid <= 255, "mavlink.compid: must be 1..255");
 
-  ObjectReader vision = root.child("vision", {"capture", "track", "tracker", "lock_box_frac", "min_confidence"});
+  ObjectReader vision = root.child("vision",
+                                   {"capture",
+                                    "track",
+                                    "tracker",
+                                    "lock_box_frac",
+                                    "min_confidence",
+                                    "fps",
+                                    "framebuffer",
+                                    "overlay_fps",
+                                    "reacquire_period_ms",
+                                    "reacquire_expand"});
   vision.readSize("capture", config.vision.captureWidth, config.vision.captureHeight);
   vision.readSize("track", config.vision.trackWidth, config.vision.trackHeight);
   vision.read("tracker", config.vision.tracker);
   vision.read("lock_box_frac", core.lockBoxFrac);
   vision.read("min_confidence", core.estimator.minConfidence);
+  vision.read("fps", config.vision.fps);
+  vision.read("framebuffer", config.vision.framebuffer);
+  vision.read("overlay_fps", config.vision.overlayFps);
+  vision.read("reacquire_period_ms", config.vision.reacquirePeriodMs);
+  vision.read("reacquire_expand", config.vision.reacquireExpand);
+  require(config.vision.tracker == "kcf" || config.vision.tracker == "csrt", "vision.tracker: expected \"kcf\" or \"csrt\"");
+  require(config.vision.fps > 0, "vision.fps: must be positive");
+  require(config.vision.overlayFps > 0, "vision.overlay_fps: must be positive");
+  require(config.vision.reacquirePeriodMs >= 0, "vision.reacquire_period_ms: must not be negative");
+  require(config.vision.reacquireExpand >= 1.0, "vision.reacquire_expand: must be at least 1");
   require(core.lockBoxFrac > 0.0 && core.lockBoxFrac <= 1.0, "vision.lock_box_frac: must be in (0, 1]");
 
   root.child("target", {"height_m"}).readOptional("height_m", core.estimator.targetHeightM);

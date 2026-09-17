@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <sstream>
+#include <stdexcept>
 
 #include <opencv2/imgproc.hpp>
 
@@ -33,6 +34,17 @@ std::size_t framebufferWriteOffset(const FramebufferGeometry& geometry)
       static_cast<std::size_t>(geometry.lineLength)) {
     throw std::runtime_error("line_length " + std::to_string(geometry.lineLength) + " is too short for a " +
                              std::to_string(geometry.width) + "px line at " + std::to_string(geometry.bytesPerPixel) + " bytes/pixel");
+  }
+  // The width check above is necessary but not sufficient: it passes at xoffset 0 and still lets a
+  // horizontal pan spill `xoffset * bytesPerPixel` bytes from every scanline into the next -- a
+  // diagonally sheared overlay with no error, not a crash (the write stays inside the mapping's
+  // overall bounds, so the height/mappingLength check below does not catch it either).
+  std::size_t pannedLineBytes = (static_cast<std::size_t>(geometry.xoffset) + static_cast<std::size_t>(geometry.width)) *
+                                static_cast<std::size_t>(geometry.bytesPerPixel);
+  if (pannedLineBytes > static_cast<std::size_t>(geometry.lineLength)) {
+    throw std::runtime_error("xoffset " + std::to_string(geometry.xoffset) + " plus a " + std::to_string(geometry.width) + "px line at " +
+                             std::to_string(geometry.bytesPerPixel) + " bytes/pixel needs " + std::to_string(pannedLineBytes) +
+                             " bytes but line_length is only " + std::to_string(geometry.lineLength));
   }
   std::size_t base =
     static_cast<std::size_t>(geometry.yoffset) * geometry.lineLength + static_cast<std::size_t>(geometry.xoffset) * geometry.bytesPerPixel;
@@ -150,8 +162,8 @@ FramebufferWriter::FramebufferWriter(const std::string& device)
     throw std::runtime_error("cannot map framebuffer " + device);
   }
   this->pixels = static_cast<unsigned char*>(mapped);
-  // Cleared once: write() always letterboxes into the same rect for a fixed-size source, so the
-  // margins stay black without needing to be re-cleared every frame.
+  // write() reclears this only when the letterbox rect changes (a source resolution change), not
+  // every frame -- see write().
   this->canvas = cv::Mat::zeros(this->height, this->width, CV_8UC3);
 }
 
@@ -168,9 +180,16 @@ FramebufferWriter::~FramebufferWriter()
 void FramebufferWriter::write(const cv::Mat& bgr)
 {
   // Letterbox rather than stretch: a 4:3 frame on a 16:9 (or any non-4:3) panel keeps its aspect
-  // ratio, so a square lock box still renders square. The rect is deterministic for a fixed-size
-  // source, so the canvas's margins -- cleared once in the constructor -- stay cleared.
+  // ratio, so a square lock box still renders square.
   cv::Rect rect = detail::letterboxRect(bgr.size(), this->width, this->height);
+  if (rect != this->lastRect) {
+    // The source resolution changed (this codebase models mid-run caps renegotiation as real
+    // libcamerasrc behaviour), so the letterbox rect moved: the canvas was only guaranteed clear for
+    // the previous rect, and the old margins may now fall inside the new rect (or vice versa).
+    // Reclear rather than assume black; this only runs on a rect change, not every frame.
+    this->canvas.setTo(cv::Scalar(0, 0, 0));
+    this->lastRect = rect;
+  }
   cv::Mat scaled;
   cv::resize(bgr, scaled, rect.size(), 0.0, 0.0, cv::INTER_LINEAR);
   scaled.copyTo(this->canvas(rect));

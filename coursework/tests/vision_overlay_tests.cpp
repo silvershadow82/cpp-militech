@@ -80,9 +80,10 @@ TEST(FramebufferWriteOffset, ThrowsWhenTheMappingIsTooSmallForTheHeight)
 
 TEST(FramebufferWriteOffset, HonoursThePanOffset)
 {
+  // lineLength 1320 leaves room for the pan: (xoffset 10 + width 640) * 2 bytes/pixel = 1300 <= 1320.
   FramebufferGeometry g{
-    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 10, .yoffset = 5, .mappingLength = 1280u * 486u};
-  EXPECT_EQ(follow::vision::detail::framebufferWriteOffset(g), 5u * 1280u + 10u * 2u);
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1320, .xoffset = 10, .yoffset = 5, .mappingLength = 1320u * 486u};
+  EXPECT_EQ(follow::vision::detail::framebufferWriteOffset(g), 5u * 1320u + 10u * 2u);
 }
 
 TEST(FramebufferWriteOffset, ThrowsWhenThePanPushesPastTheMapping)
@@ -92,6 +93,35 @@ TEST(FramebufferWriteOffset, ThrowsWhenThePanPushesPastTheMapping)
   FramebufferGeometry g{
     .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 0, .yoffset = 5, .mappingLength = 1280u * 480u};
   EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(FramebufferWriteOffset, ThrowsWhenTheHorizontalPanOverrunsTheLine)
+{
+  // width * bytesPerPixel (1280) fits lineLength (1280) at xoffset 0, but a horizontal pan of 10px
+  // pushes the panned line to 1300 bytes -- a check on the unpanned width alone would miss this and
+  // let every scanline spill into the next (a diagonally sheared overlay, not a crash: the
+  // mapping-bounds check does not catch it either, since the total bytes written stay the same).
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 10, .yoffset = 0, .mappingLength = 1280u * 480u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(FramebufferWriteOffset, ThrowsForAnUnsupportedBytesPerPixel)
+{
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 3, .lineLength = 1920, .xoffset = 0, .yoffset = 0, .mappingLength = 1920u * 480u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(FramebufferWriteOffset, ThrowsForANegativePanOffset)
+{
+  FramebufferGeometry xNeg{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = -1, .yoffset = 0, .mappingLength = 1280u * 480u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(xNeg), std::runtime_error);
+
+  FramebufferGeometry yNeg{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 0, .yoffset = -1, .mappingLength = 1280u * 480u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(yNeg), std::runtime_error);
 }
 
 TEST(LetterboxRect, KeepsAspectRatioOnAWidePanel)

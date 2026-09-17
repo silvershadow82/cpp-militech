@@ -34,10 +34,14 @@ struct FramebufferGeometry {
 };
 
 // The byte offset of pixel (xoffset, yoffset) within a mapping of `mappingLength` bytes. Throws
-// std::runtime_error, naming the mismatch, when the line is not wide enough for the panel
-// (`width * bytesPerPixel > lineLength`) or writing `height` panned lines would run past
-// `mappingLength` -- i.e. whenever it would be unsafe to write through the mapping at all. Checking
-// this once, here, replaces finding out via SIGSEGV/SIGBUS through the MAP_SHARED mapping later.
+// std::runtime_error, naming the mismatch, when the unpanned line is not wide enough for the panel
+// (`width * bytesPerPixel > lineLength`), the *panned* line overruns it
+// (`(xoffset + width) * bytesPerPixel > lineLength` -- a panned console can fit the width at xoffset
+// 0 and still spill into the next scanline once panned), or writing `height` panned lines would run
+// past `mappingLength` -- i.e. whenever it would be unsafe to write through the mapping at all.
+// Checking this once, here, replaces finding out via SIGSEGV/SIGBUS through the MAP_SHARED mapping
+// later (an unchecked horizontal overrun stays inside the mapping's *bounds*, so it corrupts the
+// next scanline rather than segfaulting -- a diagonally sheared overlay with no error, not a crash).
 std::size_t framebufferWriteOffset(const FramebufferGeometry& geometry);
 
 // The destination rectangle for a `srcSize` image, scaled to fit inside a `panelWidth`x`panelHeight`
@@ -81,8 +85,11 @@ private:
   int height{0};
   int bitsPerPixel{0};
   int lineLength{0};
-  std::size_t writeOffset{0};  // byte offset of (xoffset, yoffset) in the mapping; see detail::framebufferWriteOffset
-  cv::Mat canvas{};            // panel-sized BGR buffer; letterboxed so margins stay cleared across writes
+  // Byte offset of (xoffset, yoffset) in the mapping; see detail::framebufferWriteOffset. Computed
+  // once in the constructor -- a console that pans or changes mode afterwards is not re-read.
+  std::size_t writeOffset{0};
+  cv::Mat canvas{};     // panel-sized BGR buffer; recleared by write() whenever the letterbox rect changes
+  cv::Rect lastRect{};  // the letterbox rect canvas was last cleared for; see write()
 };
 
 }  // namespace follow::vision

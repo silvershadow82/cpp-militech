@@ -47,6 +47,12 @@ namespace {
 // least every 5 ms, so this is a bound for a link that has already failed, not a normal delay.
 constexpr auto kFailsafeSendTimeout = std::chrono::milliseconds{200};
 
+// Minimum gap between two camera-missing/recovered lines. Edge-triggered alone still prints twice
+// per drop (missing, then recovered) for every single dropped frame in an alternating drop/good
+// pattern -- a marginal link, not just a multi-frame burst -- taking outMutex and flushing at up to
+// the frame rate. This bounds total output to at most one line per second regardless of the pattern.
+constexpr auto kMissReportInterval = std::chrono::seconds{1};
+
 }  // namespace
 
 void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
@@ -102,26 +108,37 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
     core::TimePoint nextFrame = core::Clock::now();
     uint64_t reportedMisses = 0;
     bool missing = false;
+    core::TimePoint lastMissReport{};  // epoch: the first edge always reports
     while (!threadsStop) {
       if (!source.iterate()) {
         framesEnded = true;
         return;
       }
+      core::TimePoint now = core::Clock::now();
       // One line per dropped frame would take outMutex and flush against the 50 ms frame budget on
-      // every miss, and is unbounded over a long flight with intermittent drops. Report the edges
-      // instead, the way MavlinkIo::run reports a failing wait.
+      // every miss, and is unbounded over a long flight with intermittent drops. Report the edges,
+      // not every frame, the way MavlinkIo::run reports a failing wait -- and rate-limit both edges
+      // to at most one line per second (kMissReportInterval), so an alternating drop/good pattern
+      // does not still print on every edge forever; only bursts of three or more frames used to be
+      // bounded by the edge-triggering alone.
       if (source.missedFrames() != reportedMisses) {
         reportedMisses = source.missedFrames();
         if (!missing) {
           missing = true;
-          print("follow_app: camera missing frames");
+          if (now - lastMissReport >= kMissReportInterval) {
+            lastMissReport = now;
+            print("follow_app: camera missing frames");
+          }
         }
       }
       else if (missing) {
         missing = false;
-        print("follow_app: camera recovered (" + std::to_string(reportedMisses) + " frames missed so far)");
+        if (now - lastMissReport >= kMissReportInterval) {
+          lastMissReport = now;
+          print("follow_app: camera recovered (" + std::to_string(reportedMisses) + (reportedMisses == 1 ? " frame" : " frames") +
+                " missed so far)");
+        }
       }
-      core::TimePoint now = core::Clock::now();
       if (framebuffer && source.lastFrame() && detail::shouldDrawOverlay(now, nextOverlay, overlayPeriod)) {
         cv::Mat image = source.lastFrame()->image.clone();
         if (auto overlay = channels.overlay.read()) {
@@ -187,9 +204,17 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
   // capture object here either -- cv::VideoCapture::release() runs in the caller, after runHwApp
   // returns, and an end-of-stream can hang on this build.
   auto sendFailsafe = [&] {
-    // Nothing to wait for if the I/O thread never started or has already gone -- when it is the
-    // thread that threw, waiting on it would just burn the whole timeout against a dead thread.
-    if (!ioThread.joinable() || !ioRunning) {
+    // Nothing to do if the I/O thread never started at all -- there is no run loop for the zero
+    // setpoint to reach either way.
+    if (!ioThread.joinable()) {
+      return;
+    }
+    if (!ioRunning) {
+      // The thread has already gone (it threw, most likely) before this ran: waiting on it would
+      // just burn the whole timeout against a dead thread, and channels.setpoint would be written
+      // with nothing left to send it. The zero setpoint is unconditionally unconfirmed in this case
+      // -- the same warning the timeout below prints, not silence.
+      print("follow_app: WARNING the zero setpoint was not confirmed sent; the vehicle may hold its last command");
       return;
     }
     // The control loop is the only other writer of channels.setpoint (Channels.h), and it has been

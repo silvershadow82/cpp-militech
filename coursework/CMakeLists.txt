@@ -24,6 +24,9 @@ check_cxx_source_compiles(
    int main() {
      std::atomic<std::uint64_t> v{0};
      v.store(1);
+     v.fetch_add(1);
+     std::uint64_t expected = 2;
+     v.compare_exchange_strong(expected, 3);
      return static_cast<int>(v.load());
    }"
   FOLLOW_HAVE_BUILTIN_ATOMIC64)

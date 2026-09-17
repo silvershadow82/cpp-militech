@@ -49,6 +49,7 @@ private:
   core::TimePoint next;
   int index{0};
   cv::Rect truth{};
+  cv::Mat background{};  // rendered once: on a Pi 4B, redrawing it per frame costs real budget
 };
 
 // A recorded clip, resized to the tracking size. Frames are stamped from `fps`, so a clip plays

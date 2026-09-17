@@ -68,7 +68,13 @@ private:
       Clock::time_point now = Clock::now();
       if (this->receiveSetpoint(setpoint)) {
         setpointTime = now;
-        connected = connected.value_or(now);
+        if (!connected) {
+          connected = now;
+          // A real FC broadcasts HEARTBEAT continuously; over UDP this one cannot until the app has
+          // spoken first. Answer at once instead of waiting up to a second for the next scheduled
+          // one, so a test is not held in NoFc for a second of its run.
+          this->send(this->fc.heartbeat(core::kModeLoiter, true));
+        }
       }
       bool guided = connected && now - *connected >= std::chrono::duration<double>(this->engageAfterS);
       // GUID_TIMEOUT: stop when setpoints stop for 3 s.

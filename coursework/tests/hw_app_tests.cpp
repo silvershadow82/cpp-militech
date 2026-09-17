@@ -4,8 +4,10 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -19,6 +21,9 @@
 
 #include "FakeAutopilot.h"
 #include "follow/config/ConfigJson.h"
+#include "follow/core/Angles.h"
+#include "follow/core/CameraModel.h"
+#include "follow/core/Frames.h"
 #include "follow/core/Types.h"
 #include "follow/runtime/RunLog.h"
 #include "follow/vision/FrameSource.h"
@@ -78,6 +83,37 @@ private:
   std::thread thread;
 };
 
+// SyntheticFrameSource advances a virtual clock by exactly 50 ms per read() however long the
+// iteration really took, and the vision loop gives up its schedule when it overruns
+// (nextFrame = max(nextFrame + framePeriod, now)). The 50 ms the virtual clock did not advance is
+// then lost for good, so `now - tFrame` is a ratchet that only grows. Past estimator.stale (300 ms)
+// every observation is rejected, the run can never leave Locking, and the test fails on a machine
+// slow or busy enough to overrun a handful of frames -- which is what the Pi 4B does. Re-stamp with
+// the clock the estimator actually compares against. Nothing in production has this problem:
+// PiCameraSource already stamps with core::Clock::now(). Keeping it out of SyntheticFrameSource
+// preserves the fixed-cadence determinism that vision_frame_source_tests pins.
+class RealTimeFrames final : public follow::vision::IFrameSource {
+public:
+  explicit RealTimeFrames(follow::vision::IFrameSource& inner)
+    : inner(inner)
+  {
+  }
+
+  std::optional<follow::vision::Frame> read() override
+  {
+    std::optional<follow::vision::Frame> frame = this->inner.read();
+    if (frame) {
+      frame->t = follow::core::Clock::now();
+    }
+    return frame;
+  }
+
+  bool ended() const override { return this->inner.ended(); }
+
+private:
+  follow::vision::IFrameSource& inner;
+};
+
 // A camera that dies mid-run the way OpenCV does: cv::Exception derives from std::exception and is
 // thrown for, among other things, a frame whose size or type no longer matches what the tracker was
 // initialized with -- exactly what a mid-run caps renegotiation on libcamerasrc produces.
@@ -103,6 +139,37 @@ private:
   int reads{0};
 };
 
+// Bearing of a box center through the camera the app was configured with, in the level frame the
+// estimator reports. The fake vehicle hovers wings-level, so roll and pitch are zero.
+double bearingOfDeg(const follow::core::CameraModel& camera, const follow::core::CameraMount& mount, const cv::Rect& box)
+{
+  follow::core::Pixel center{box.x + box.width / 2.0, box.y + box.height / 2.0};
+  follow::core::Vec3 level = follow::core::bodyToLevel(follow::core::cameraToBody(camera.pixelToRay(center), mount), 0.0, 0.0);
+  return follow::core::radToDeg(std::atan2(level.y, level.x));
+}
+
+// Every bearing the estimator reported while the target was valid, in order. Read straight out of
+// the CSV: readRunLog keeps only the columns sim::checkRun needs, and bearing_deg is not one.
+std::vector<double> validBearingsDeg(const std::filesystem::path& logPath)
+{
+  std::ifstream in(logPath);
+  std::string line;
+  std::getline(in, line);  // header
+  std::vector<double> bearings;
+  while (std::getline(in, line)) {
+    std::vector<std::string> fields;
+    std::string field;
+    std::istringstream row(line);
+    while (std::getline(row, field, ',')) {
+      fields.push_back(field);
+    }
+    if (fields.size() >= 5 && fields[3] == "1" && !fields[4].empty()) {
+      bearings.push_back(std::stod(fields[4]));
+    }
+  }
+  return bearings;
+}
+
 // follow.json with the test's overrides, written into `dir`.
 std::filesystem::path writeTestConfig(const std::filesystem::path& dir)
 {
@@ -126,16 +193,20 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   TempDirGuard guard(dir);
   std::filesystem::path configPath = writeTestConfig(dir);
 
-  follow::test::FakeAutopilot fc(1.0);
+  // The pilot engages shortly after the app connects. It has to be soon: the synthetic target crosses
+  // the frame at 3 px per frame, so a second of dead time before LockCenter would seed the tracker on
+  // the background the target has already left -- which is what this test used to do.
+  follow::test::FakeAutopilot fc(0.3);
   fc.start();
   follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
+  RealTimeFrames realTime(frames);
   follow::vision::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{5});
   std::ostringstream out;
 
-  follow::vision::runHwApp(options, frames, stop, out);
+  follow::vision::runHwApp(options, realTime, stop, out);
 
   // The fail-safe: ArduPilot holds the last velocity target until its guided timeout (3 s, the rule
   // FakeAutopilot encodes), so an app that just stops leaves the vehicle coasting at its following
@@ -160,6 +231,24 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   EXPECT_TRUE(hasState(follow::core::State::Locking)) << out.str();
   EXPECT_TRUE(hasState(follow::core::State::Following)) << out.str();
   EXPECT_NE(out.str().find("follow_app --hw: tracker kcf"), std::string::npos) << out.str();
+
+  // ... and that it really follows, which reaching Following does not by itself prove: Following is
+  // entered as soon as the tracker returns any box the estimator accepts, and a box seeded on the
+  // static background is accepted just as readily -- it is stable, so nothing downstream objects.
+  // The target crosses the frame at 3 px per frame, so a tracker that is on it sweeps the bearing by
+  // tens of degrees while one on the background holds a constant bearing.
+  follow::config::AppConfig app = follow::config::loadAppConfig(configPath);
+  std::unique_ptr<follow::core::CameraModel> camera = follow::config::makeCameraModel(app.camera);
+  std::vector<double> bearings = validBearingsDeg(options.logPath);
+  double truth = bearingOfDeg(*camera, app.camera.mount, frames.groundTruth());
+  ASSERT_FALSE(bearings.empty()) << out.str();
+  EXPECT_GT(bearings.back() - bearings.front(), 30.0) << out.str();
+  // The estimator reports the bearing relative to the *current* heading and the vehicle is yawing at
+  // its 45 deg/s limit to chase, so the reported bearing trails the bearing of the frame it came
+  // from by the yaw accumulated since capture -- measured at ~14 deg here. The tolerance covers that
+  // and a slower machine's larger lag; what it does not cover is a tracker that is not on the target
+  // at all, which read a constant -18 deg against a ground truth of +60 deg.
+  EXPECT_NEAR(bearings.back(), truth, 30.0) << out.str();
 }
 
 // A bad config must produce one red test, not an aborted binary: everything runHwApp throws unwinds

@@ -67,6 +67,20 @@ add_library(
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
 target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
 
+# --- Vision: camera, tracker and overlay (OpenCV). ----------------------------
+# Off by default: the devcontainer has no OpenCV and the aarch64 toolchain has no sysroot, so both
+# CI builds must keep working without it. Turn on for a native build where OpenCV is installed.
+option(FOLLOW_WITH_OPENCV "Build the OpenCV vision adapter and tools" OFF)
+
+if(FOLLOW_WITH_OPENCV)
+  find_package(OpenCV CONFIG REQUIRED)
+  message(STATUS "follow: OpenCV ${OpenCV_VERSION} from ${OpenCV_INSTALL_PATH}")
+
+  add_library(follow_vision STATIC src/vision/Tracker.cpp)
+  target_link_libraries(follow_vision PUBLIC follow_core ${OpenCV_LIBS})
+  target_compile_options(follow_vision PRIVATE -Wall -Wextra)
+endif()
+
 # --- Executables ----------------------------------------------------------------
 add_executable(follow_app src/app/main.cpp)
 target_link_libraries(follow_app PRIVATE follow_runtime)
@@ -108,6 +122,10 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/mavlink_io_tests.cpp
     tests/sim_vision_tests.cpp
     tests/sim_app_tests.cpp)
+  if(FOLLOW_WITH_OPENCV)
+    target_sources(follow_tests PRIVATE tests/vision_tracker_tests.cpp)
+    target_link_libraries(follow_tests PRIVATE follow_vision)
+  endif()
   target_include_directories(follow_tests PRIVATE tests)
   target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

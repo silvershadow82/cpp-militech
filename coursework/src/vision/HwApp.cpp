@@ -83,14 +83,25 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
     core::TimePoint nextOverlay = core::Clock::now();
     core::TimePoint nextFrame = core::Clock::now();
     uint64_t reportedMisses = 0;
+    bool missing = false;
     while (!threadsStop) {
       if (!source.iterate()) {
         framesEnded = true;
         return;
       }
+      // One line per dropped frame would take outMutex and flush against the 50 ms frame budget on
+      // every miss, and is unbounded over a long flight with intermittent drops. Report the edges
+      // instead, the way MavlinkIo::run reports a failing wait.
       if (source.missedFrames() != reportedMisses) {
         reportedMisses = source.missedFrames();
-        print("follow_app: camera missed a frame (" + std::to_string(reportedMisses) + " so far)");
+        if (!missing) {
+          missing = true;
+          print("follow_app: camera missing frames");
+        }
+      }
+      else if (missing) {
+        missing = false;
+        print("follow_app: camera recovered (" + std::to_string(reportedMisses) + " frames missed so far)");
       }
       core::TimePoint now = core::Clock::now();
       if (framebuffer && now >= nextOverlay && source.lastFrame()) {
@@ -129,12 +140,24 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
         }
         threadsStop = true;
       }
+      catch (...) {
+        // Not everything thrown derives from std::exception, and anything that escapes here reaches
+        // std::terminate() -- the one remaining path to a process death with no fail-safe.
+        {
+          std::lock_guard<std::mutex> lock(failureMutex);
+          if (!failure) {
+            failure = std::string(name) + " thread failed with an unknown exception";
+          }
+        }
+        threadsStop = true;
+      }
     };
   };
 
   std::thread ioThread;
   std::thread visionThread;
   std::thread controlThread;
+  std::atomic<bool> ioRunning{true};  // cleared however the I/O thread leaves, so the fail-safe never waits on a dead one
 
   // ArduPilot holds the last velocity target until its guided timeout (3 s), so an app that simply
   // stops leaves the vehicle flying at whatever it was last commanded. Command zero and wait for the
@@ -147,7 +170,9 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
   // capture object here either -- cv::VideoCapture::release() runs in the caller, after runHwApp
   // returns, and an end-of-stream can hang on this build.
   auto sendFailsafe = [&] {
-    if (!ioThread.joinable()) {
+    // Nothing to wait for if the I/O thread never started or has already gone -- when it is the
+    // thread that threw, waiting on it would just burn the whole timeout against a dead thread.
+    if (!ioThread.joinable() || !ioRunning) {
       return;
     }
     // The control loop is the only other writer of channels.setpoint (Channels.h), and it has been
@@ -155,8 +180,13 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
     channels.setpoint.write(core::VelocityCmd{}, core::Clock::now());
     std::optional<runtime::Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
     core::TimePoint deadline = core::Clock::now() + kFailsafeSendTimeout;
-    while (zero && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
+    while (zero && ioRunning && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
       std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+    if (zero && io.sentSetpointSequence() < zero->sequence) {
+      // Silence here would mean the operator and the run log have no record that the vehicle was
+      // never told to stop -- the one thing they most need to know after an unexpected exit.
+      print("follow_app: WARNING the zero setpoint was not confirmed sent; the vehicle may hold its last command");
     }
   };
 
@@ -177,7 +207,14 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
   };
 
   try {
-    ioThread = std::thread(guarded("mavlink", [&] { io.run(ioStop); }));
+    ioThread = std::thread(guarded("mavlink", [&] {
+      // Runs on the way out whether run() returns or throws, and before guarded's catch.
+      struct ClearOnExit {
+        std::atomic<bool>& flag;
+        ~ClearOnExit() { this->flag = false; }
+      } clearOnExit{ioRunning};
+      io.run(ioStop);
+    }));
     visionThread = std::thread(guarded("vision", visionLoop));
     controlThread = std::thread(guarded("control", [&] { control.run(threadsStop); }));
   }

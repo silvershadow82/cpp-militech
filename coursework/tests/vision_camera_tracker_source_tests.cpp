@@ -245,6 +245,13 @@ TEST(CameraTrackerSource, ReacquireIsRetriedEveryPeriodWhileTheTrackerKeepsFaili
   // Core::step emits a TrackerRequest only on a state edge, so exactly one Reacquire is produced per
   // entry into Lost. The retry is therefore the adapter's job: without it reacquisition is a single
   // attempt at the instant the tracker first failed and reacquire_period_ms is dead config.
+  //
+  // Read what this pins precisely: the cadence for a tracker that keeps failing after re-init, which
+  // is what CountingTracker does. KCF and CSRT do not -- they return a box for almost any in-image
+  // init, including one seeded on background -- so the latch clears on the re-seed's own update and
+  // production performs a single re-seed per Lost entry. Retrying on the same hint would only
+  // re-seed the same patch, so that is the intended behaviour, not a gap; distinguishing a good
+  // re-seed from a background latch needs a confidence signal neither tracker exposes.
   CountingFixture f;
   f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
   f.source.iterate();

@@ -47,8 +47,11 @@ bool CameraTrackerSource::iterate()
     // A dropped frame is not the end of the stream, and ending the app on one would leave the FC
     // holding the last velocity target for its whole guided timeout. Keep the previous frame for
     // the overlay, publish nothing, and let the staleness rule in TargetEstimator do the rest.
+    if (this->frames.ended()) {
+      return false;  // The terminal read is an ending, not a miss: it must not inflate missedFrames().
+    }
     ++this->missed;
-    return !this->frames.ended();
+    return true;
   }
   this->frame = std::move(next);
   for (const core::TrackerRequest& request : this->channels.trackerRequests.drain()) {

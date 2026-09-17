@@ -296,7 +296,14 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   std::vector<double> bearings = validBearingsDeg(options.logPath);
   double truth = bearingOfDeg(*camera, app.camera.mount, frames.groundTruth());
   ASSERT_FALSE(bearings.empty()) << out.str();
-  EXPECT_GT(bearings.back() - bearings.front(), 30.0) << out.str();
+  // The threshold is set by what separates the two hypotheses, not by what a fast machine reaches.
+  // The run is bounded by wall clock, so a loaded machine completes fewer frames and the target --
+  // which advances 3 px per frame, not per millisecond -- sweeps proportionally less: measured near
+  // 60 deg on an idle Mac but as little as 18.8 deg on a Pi 4B under four-way CPU load. A tracker
+  // latched onto the static background reads 0.46 deg. 10 deg sits far outside the noise of the
+  // first and nowhere near the second, so it discriminates on every machine instead of encoding
+  // this host's speed.
+  EXPECT_GT(bearings.back() - bearings.front(), 10.0) << out.str();
   // The estimator reports the bearing relative to the *current* heading and the vehicle is yawing at
   // its 45 deg/s limit to chase, so the reported bearing trails the bearing of the frame it came
   // from by the yaw accumulated since capture -- measured at ~14 deg here. The tolerance covers that

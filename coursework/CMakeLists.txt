@@ -76,8 +76,9 @@ if(FOLLOW_WITH_OPENCV)
   find_package(OpenCV CONFIG REQUIRED)
   message(STATUS "follow: OpenCV ${OpenCV_VERSION} from ${OpenCV_INSTALL_PATH}")
 
-  add_library(follow_vision STATIC src/vision/Tracker.cpp src/vision/FrameSource.cpp src/vision/PiCameraSource.cpp)
-  target_link_libraries(follow_vision PUBLIC follow_core ${OpenCV_LIBS})
+  add_library(follow_vision STATIC src/vision/Tracker.cpp src/vision/FrameSource.cpp src/vision/PiCameraSource.cpp
+                                    src/vision/CameraTrackerSource.cpp)
+  target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)
 endif()
 
@@ -124,7 +125,7 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/sim_app_tests.cpp)
   if(FOLLOW_WITH_OPENCV)
     target_sources(follow_tests PRIVATE tests/vision_tracker_tests.cpp tests/vision_frame_source_tests.cpp
-                                        tests/vision_pi_camera_tests.cpp)
+                                        tests/vision_pi_camera_tests.cpp tests/vision_camera_tracker_source_tests.cpp)
     target_link_libraries(follow_tests PRIVATE follow_vision)
   endif()
   target_include_directories(follow_tests PRIVATE tests)

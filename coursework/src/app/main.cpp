@@ -113,7 +113,9 @@ int main(int argc, char** argv)
                                                                            .captureHeight = app.vision.captureHeight,
                                                                            .trackWidth = app.vision.trackWidth,
                                                                            .trackHeight = app.vision.trackHeight,
-                                                                           .fps = app.vision.fps});
+                                                                           .fps = app.vision.fps,
+                                                                           .hflip = app.vision.hflip,
+                                                                           .vflip = app.vision.vflip});
       follow::runtime::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
       follow::runtime::runHwApp(options, camera, stopRequested, std::cout);
     }

@@ -218,18 +218,32 @@ TEST(ConfigJson, VisionHardwareDefaults)
   EXPECT_EQ(config.vision.overlayFps, 15);
   EXPECT_EQ(config.vision.reacquirePeriodMs, 500);
   EXPECT_DOUBLE_EQ(config.vision.reacquireExpand, 1.5);
+  EXPECT_FALSE(config.vision.hflip);
+  EXPECT_FALSE(config.vision.vflip);
 }
 
 TEST(ConfigJson, VisionHardwareKeysAreRead)
 {
   AppConfig config = parseAppConfig(json::parse(
-    R"({"vision": {"tracker": "csrt", "fps": 30, "framebuffer": "", "overlay_fps": 10, "reacquire_period_ms": 250, "reacquire_expand": 2.0}})"));
+    R"({"vision": {"tracker": "csrt", "fps": 30, "framebuffer": "", "overlay_fps": 10, "reacquire_period_ms": 250,
+                    "reacquire_expand": 2.0, "hflip": true, "vflip": true}})"));
   EXPECT_EQ(config.vision.tracker, "csrt");
   EXPECT_EQ(config.vision.fps, 30);
   EXPECT_EQ(config.vision.framebuffer, "");
   EXPECT_EQ(config.vision.overlayFps, 10);
   EXPECT_EQ(config.vision.reacquirePeriodMs, 250);
   EXPECT_DOUBLE_EQ(config.vision.reacquireExpand, 2.0);
+  EXPECT_TRUE(config.vision.hflip);
+  EXPECT_TRUE(config.vision.vflip);
+}
+
+TEST(ConfigJson, CommittedFollowJsonSetsBothFlipsForTheInvertedMount)
+{
+  // This airframe's camera is physically mounted upside-down; follow.json commits both flips so
+  // the capture adapter delivers upright frames without follow_core knowing about the mount.
+  AppConfig config = loadAppConfig(FOLLOW_CONFIG_DIR "/follow.json");
+  EXPECT_TRUE(config.vision.hflip);
+  EXPECT_TRUE(config.vision.vflip);
 }
 
 TEST(ConfigJson, VisionHardwareValuesAreValidated)

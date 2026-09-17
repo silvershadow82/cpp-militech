@@ -87,3 +87,71 @@ TEST(PiCameraPipeline, RoundsAnArbitraryNonAlignedWidthUpTo32Bytes)
   EXPECT_NE(pipeline.find("plane-strides=\"<128,128>\""), std::string::npos);
   EXPECT_NE(pipeline.find("plane-offsets=\"<0,6400>\""), std::string::npos);  // 128 * 50
 }
+
+TEST(PiCameraPipeline, OmitsVideoflipWhenNeitherFlipIsSet)
+{
+  // Do not pay for an identity element: no videoflip at all when the mount is upright.
+  follow::vision::PiCameraConfig config{};
+  config.hflip = false;
+  config.vflip = false;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_EQ(pipeline.find("videoflip"), std::string::npos);
+}
+
+TEST(PiCameraPipeline, HflipOnlyUsesHorizontalFlipMethod)
+{
+  follow::vision::PiCameraConfig config{};
+  config.hflip = true;
+  config.vflip = false;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("videoflip method=horizontal-flip"), std::string::npos);
+}
+
+TEST(PiCameraPipeline, VflipOnlyUsesVerticalFlipMethod)
+{
+  follow::vision::PiCameraConfig config{};
+  config.hflip = false;
+  config.vflip = true;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("videoflip method=vertical-flip"), std::string::npos);
+}
+
+TEST(PiCameraPipeline, BothFlipsUseRotate180Method)
+{
+  // This airframe's camera is mounted upside-down: hflip + vflip together is a 180-degree
+  // rotation, so one videoflip element with method=rotate-180 does the job rather than two.
+  follow::vision::PiCameraConfig config{};
+  config.hflip = true;
+  config.vflip = true;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("videoflip method=rotate-180"), std::string::npos);
+}
+
+TEST(PiCameraPipeline, VideoflipIsPlacedAfterTheBgrCapsAndBeforeAppsink)
+{
+  // The flip must sit after videoconvert/videoscale/the format=BGR caps -- once the pipeline has
+  // already produced a standard, tightly-packed frame at the tracking resolution -- so it never
+  // touches the raw NV21 buffer the rawvideoparse stride workaround corrects.
+  follow::vision::PiCameraConfig config{};
+  config.hflip = true;
+  config.vflip = true;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  size_t bgrCapsPos = pipeline.find("format=BGR");
+  size_t flipPos = pipeline.find("videoflip");
+  size_t appsinkPos = pipeline.find("appsink");
+  ASSERT_NE(bgrCapsPos, std::string::npos);
+  ASSERT_NE(flipPos, std::string::npos);
+  ASSERT_NE(appsinkPos, std::string::npos);
+  EXPECT_LT(bgrCapsPos, flipPos);
+  EXPECT_LT(flipPos, appsinkPos);
+}

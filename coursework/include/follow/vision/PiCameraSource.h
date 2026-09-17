@@ -16,6 +16,8 @@ struct PiCameraConfig {
   int trackWidth{640};
   int trackHeight{480};
   int fps{20};
+  bool hflip{false};  // set when the airframe mounts the camera mirrored left/right
+  bool vflip{false};  // set when the airframe mounts the camera upside-down
 };
 
 // The GStreamer pipeline cv::VideoCapture opens. Pure: testable without a camera or GStreamer.

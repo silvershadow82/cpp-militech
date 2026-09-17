@@ -35,7 +35,9 @@ AppConfig parseAppConfig(const json& doc)
                                     "framebuffer",
                                     "overlay_fps",
                                     "reacquire_period_ms",
-                                    "reacquire_expand"});
+                                    "reacquire_expand",
+                                    "hflip",
+                                    "vflip"});
   vision.readSize("capture", config.vision.captureWidth, config.vision.captureHeight);
   vision.readSize("track", config.vision.trackWidth, config.vision.trackHeight);
   vision.read("tracker", config.vision.tracker);
@@ -46,6 +48,8 @@ AppConfig parseAppConfig(const json& doc)
   vision.read("overlay_fps", config.vision.overlayFps);
   vision.read("reacquire_period_ms", config.vision.reacquirePeriodMs);
   vision.read("reacquire_expand", config.vision.reacquireExpand);
+  vision.read("hflip", config.vision.hflip);
+  vision.read("vflip", config.vision.vflip);
   require(config.vision.tracker == "kcf" || config.vision.tracker == "csrt", "vision.tracker: expected \"kcf\" or \"csrt\"");
   require(config.vision.fps > 0, "vision.fps: must be positive");
   require(config.vision.overlayFps > 0, "vision.overlay_fps: must be positive");

@@ -48,13 +48,36 @@ std::string piCameraPipeline(const PiCameraConfig& config)
   // with a runtime check we have no second libcamera build to validate against.
   const int strideBytes = ((config.captureWidth + 31) / 32) * 32;
   const int uvOffset = strideBytes * config.captureHeight;
-  return "libcamerasrc ! video/x-raw,width=" + std::to_string(config.captureWidth) + ",height=" + std::to_string(config.captureHeight) +
-         ",framerate=" + std::to_string(config.fps) +
-         "/1,format=NV21 ! rawvideoparse use-sink-caps=false format=nv21 width=" + std::to_string(config.captureWidth) +
-         " height=" + std::to_string(config.captureHeight) + " framerate=" + std::to_string(config.fps) + "/1 plane-strides=\"<" +
-         std::to_string(strideBytes) + "," + std::to_string(strideBytes) + ">\" plane-offsets=\"<0," + std::to_string(uvOffset) +
-         ">\" ! videoconvert ! videoscale ! video/x-raw,width=" + std::to_string(config.trackWidth) +
-         ",height=" + std::to_string(config.trackHeight) + ",format=BGR ! appsink drop=true max-buffers=1";
+  std::string pipeline = "libcamerasrc ! video/x-raw,width=" + std::to_string(config.captureWidth) +
+                         ",height=" + std::to_string(config.captureHeight) + ",framerate=" + std::to_string(config.fps) +
+                         "/1,format=NV21 ! rawvideoparse use-sink-caps=false format=nv21 width=" + std::to_string(config.captureWidth) +
+                         " height=" + std::to_string(config.captureHeight) + " framerate=" + std::to_string(config.fps) +
+                         "/1 plane-strides=\"<" + std::to_string(strideBytes) + "," + std::to_string(strideBytes) +
+                         ">\" plane-offsets=\"<0," + std::to_string(uvOffset) +
+                         ">\" ! videoconvert ! videoscale ! video/x-raw,width=" + std::to_string(config.trackWidth) +
+                         ",height=" + std::to_string(config.trackHeight) + ",format=BGR";
+
+  // The camera mount, not the capture format, decides the flip: this airframe's camera is bolted
+  // in upside-down, so the frame must be turned upright before it leaves the capture adapter --
+  // follow_core, the estimator and the overlay all assume an upright image. Placed after the
+  // format=BGR caps above, once videoconvert/videoscale/rawvideoparse have already turned the
+  // padded raw NV21 buffer into a standard, tightly-packed BGR frame at the tracking resolution:
+  // this element therefore never touches the buffer the rawvideoparse stride workaround corrects,
+  // and it only ever flips the (small) track-resolution frame rather than the (large) capture-
+  // resolution one. No element is added when neither flip is requested -- an identity videoflip
+  // would still cost a frame copy for nothing.
+  if (config.hflip && config.vflip) {
+    pipeline += " ! videoflip method=rotate-180";
+  }
+  else if (config.hflip) {
+    pipeline += " ! videoflip method=horizontal-flip";
+  }
+  else if (config.vflip) {
+    pipeline += " ! videoflip method=vertical-flip";
+  }
+
+  pipeline += " ! appsink drop=true max-buffers=1";
+  return pipeline;
 }
 
 PiCameraSource::PiCameraSource(const PiCameraConfig& config)

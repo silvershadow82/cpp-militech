@@ -43,6 +43,8 @@ struct VisionSettings {
   int overlayFps{15};
   int reacquirePeriodMs{500};
   double reacquireExpand{1.5};
+  bool hflip{false};  // camera mounted mirrored left/right; flipped at capture, not in core
+  bool vflip{false};  // camera mounted upside-down; flipped at capture, not in core
 };
 
 struct AppConfig {

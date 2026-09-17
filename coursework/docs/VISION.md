@@ -64,6 +64,10 @@ The vision configuration is in `follow.json` (or overridden via `--config FILE`)
 | `vision.overlay_fps` | 15 | Overlay redraw rate (Hz). |
 | `vision.reacquire_period_ms` | 500 | Time between reacquisition attempts when lost (milliseconds). |
 | `vision.reacquire_expand` | 1.5 | Expansion factor (> 1.0) of the lock box during reacquisition. |
+| `vision.hflip` | false | Flip the captured frame horizontally at the capture source. |
+| `vision.vflip` | false | Flip the captured frame vertically at the capture source. |
+
+Both flips are applied by `PiCameraSource::piCameraPipeline`, never by `follow_core`, the estimator or the overlay: those assume an upright image, so the mount is corrected once, at capture, instead of being threaded through the rest of the pipeline. This airframe's camera is bolted in upside-down, so the committed `follow.json` sets both `vision.hflip` and `vision.vflip` to `true` (equivalent to a 180-degree rotation) to deliver upright frames to the tracker.
 
 ### Overlay behavior
 

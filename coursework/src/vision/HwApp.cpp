@@ -282,7 +282,16 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
   if (failure) {
     throw std::runtime_error(*failure);
   }
-  print(framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped");
+  // The miss total goes here because the rate limit can suppress every "recovered" line: a flight of
+  // isolated drops each recovering inside kMissReportInterval prints one "missing frames" line and no
+  // count at all, and the run log has no miss column either (RunLog.cpp), so this is the only place
+  // the operator ever learns how bad the camera was.
+  std::string ending = framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped";
+  uint64_t missed = source.missedFrames();
+  if (missed > 0) {
+    ending += " (" + std::to_string(missed) + (missed == 1 ? " frame" : " frames") + " missed)";
+  }
+  print(ending);
 }
 
 }  // namespace follow::vision

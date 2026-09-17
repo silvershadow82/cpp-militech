@@ -107,6 +107,31 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
     }
   };
 
+  // An exception escaping a thread function calls std::terminate(): the process dies instantly, no
+  // destructor runs, no zero setpoint is sent and the run log is truncated at the last flush. The
+  // vision thread makes that reachable because it calls into OpenCV on every frame -- tracker
+  // update, overlay drawing, the framebuffer's resize and colour conversion -- and OpenCV reports
+  // every error by throwing. Record the first failure, stop the others, and let runHwApp rethrow it
+  // below, after the fail-safe setpoint has gone out.
+  std::mutex failureMutex;
+  std::optional<std::string> failure;
+  auto guarded = [&failureMutex, &failure, &threadsStop](const char* name, auto body) {
+    return [&failureMutex, &failure, &threadsStop, name, body] {
+      try {
+        body();
+      }
+      catch (const std::exception& e) {
+        {
+          std::lock_guard<std::mutex> lock(failureMutex);
+          if (!failure) {
+            failure = std::string(name) + " thread failed: " + e.what();
+          }
+        }
+        threadsStop = true;
+      }
+    };
+  };
+
   std::thread ioThread;
   std::thread visionThread;
   std::thread controlThread;
@@ -139,9 +164,9 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
   };
 
   try {
-    ioThread = std::thread([&] { io.run(ioStop); });
-    visionThread = std::thread(visionLoop);
-    controlThread = std::thread([&] { control.run(threadsStop); });
+    ioThread = std::thread(guarded("mavlink", [&] { io.run(ioStop); }));
+    visionThread = std::thread(guarded("vision", visionLoop));
+    controlThread = std::thread(guarded("control", [&] { control.run(threadsStop); }));
   }
   catch (...) {
     // Same reason as runSimApp: a joinable std::thread destructing calls std::terminate().
@@ -149,10 +174,14 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
     throw;
   }
 
-  while (!stop && !framesEnded) {
+  // threadsStop is also how a failing worker asks the others to stop, so watch it here too.
+  while (!stop && !framesEnded && !threadsStop) {
     std::this_thread::sleep_for(std::chrono::milliseconds{50});
   }
   shutdown();
+  if (failure) {
+    throw std::runtime_error(*failure);
+  }
   print(framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped");
 }
 

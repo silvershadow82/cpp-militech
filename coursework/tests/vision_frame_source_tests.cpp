@@ -64,3 +64,34 @@ TEST(VideoFileSource, MissingFileThrows)
   EXPECT_THROW(follow::vision::VideoFileSource("/nonexistent/clip.avi", cv::Size(640, 480), 20.0, follow::core::Clock::now()),
                std::runtime_error);
 }
+
+TEST(SyntheticFrameSource, NeverEnds)
+{
+  // The synthetic source is the app's stand-in for a live camera: it has no EOF, so a caller may
+  // keep reading for as long as it likes.
+  follow::vision::SyntheticFrameSource source(640, 480, follow::core::Clock::now());
+  source.read();
+  EXPECT_FALSE(source.ended());
+}
+
+TEST(VideoFileSource, ReportsExhaustionOnlyAfterTheLastFrame)
+{
+  std::filesystem::path clip = std::filesystem::temp_directory_path() / "follow_frame_source_end_test.avi";
+  {
+    cv::VideoWriter writer(clip.string(), cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 20.0, cv::Size(640, 480));
+    ASSERT_TRUE(writer.isOpened());
+    for (int i = 0; i < 3; ++i) {
+      writer.write(cv::Mat(480, 640, CV_8UC3, cv::Scalar(30, 30, 30)));
+    }
+  }
+
+  follow::vision::VideoFileSource source(clip, cv::Size(640, 480), 20.0, follow::core::Clock::now());
+  EXPECT_FALSE(source.ended());
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_TRUE(source.read().has_value());
+    EXPECT_FALSE(source.ended());
+  }
+  EXPECT_FALSE(source.read().has_value());
+  EXPECT_TRUE(source.ended());  // a clip that ran out really is exhausted, unlike a dropped buffer
+  std::filesystem::remove(clip);
+}

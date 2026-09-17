@@ -5,6 +5,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
@@ -68,7 +69,20 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
 
   follow::runtime::runHwApp(options, frames, stop, out);
   stopper.join();
+
+  // The fail-safe: ArduPilot holds the last velocity target until its guided timeout (3 s, the rule
+  // FakeAutopilot encodes), so an app that just stops leaves the vehicle coasting at its following
+  // speed. runHwApp must command zero before it returns. The datagram may still be in the socket
+  // when runHwApp returns, so wait for the FC's receive loop to pick it up.
+  std::optional<follow::core::VelocityCmd> last;
+  for (int i = 0; i < 100 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    last = fc.lastSetpoint();
+  }
   fc.stop();
+  ASSERT_TRUE(last.has_value()) << out.str();
+  EXPECT_DOUBLE_EQ(last->vx, 0.0) << out.str();
+  EXPECT_DOUBLE_EQ(last->yawRate, 0.0) << out.str();
 
   std::ifstream log(options.logPath);
   std::vector<follow::sim::StepRecord> steps = follow::runtime::readRunLog(log);

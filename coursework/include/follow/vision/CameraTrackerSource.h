@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -35,12 +36,18 @@ public:
                       runtime::Channels& channels);
 
   // Reads one frame, applies pending requests to it, and publishes an observation if locked.
-  // Returns false when the frame source is exhausted or failed to deliver a frame.
+  // Returns false only when the frame source reports it is exhausted. A frame that failed to
+  // arrive is a transient miss: nothing is published and this returns true, so the estimator's
+  // staleness rule takes the target to Lost and the core commands zero instead of the app exiting
+  // and leaving the FC holding the last setpoint.
   bool iterate();
 
-  // The most recent frame, for the overlay. Frames are kept even while unlocked.
+  // The most recent frame, for the overlay. Frames are kept even while unlocked, and a missed
+  // frame leaves the previous one in place rather than blanking the pilot's overlay.
   const std::optional<Frame>& lastFrame() const { return this->frame; }
   bool locked() const { return this->isLocked; }
+  // Frames the source failed to deliver since construction, for the caller to report.
+  uint64_t missedFrames() const { return this->missed; }
 
 private:
   void handle(const core::TrackerRequest& request, const Frame& frame);
@@ -51,6 +58,7 @@ private:
   runtime::Channels& channels;
   std::optional<Frame> frame{};
   bool isLocked{false};
+  uint64_t missed{0};
   std::optional<core::TimePoint> lastReacquire{};
 };
 

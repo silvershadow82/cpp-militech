@@ -46,6 +46,7 @@ std::optional<Frame> VideoFileSource::read()
 {
   cv::Mat raw;
   if (!this->capture.read(raw) || raw.empty()) {
+    this->atEnd = true;
     return std::nullopt;
   }
   Frame frame{.image = {}, .t = this->next};

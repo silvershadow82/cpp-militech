@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <common/mavlink.h>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <thread>
@@ -44,6 +45,13 @@ public:
     if (this->thread.joinable()) {
       this->thread.join();
     }
+  }
+
+  // The most recent setpoint received, for tests asserting what the FC was left holding.
+  std::optional<core::VelocityCmd> lastSetpoint() const
+  {
+    std::lock_guard<std::mutex> lock(this->setpointMutex);
+    return this->lastReceived;
   }
 
 private:
@@ -104,6 +112,8 @@ private:
           mavlink_set_position_target_local_ned_t target{};
           mavlink_msg_set_position_target_local_ned_decode(&message, &target);
           setpoint = core::VelocityCmd{.vx = target.vx, .yawRate = target.yaw_rate};
+          std::lock_guard<std::mutex> lock(this->setpointMutex);
+          this->lastReceived = setpoint;
         }
       }
     }
@@ -119,6 +129,8 @@ private:
   mavlink_message_t rxBuffer{};
   mavlink_status_t rxStatus{};
   std::atomic<bool> stopRequested{false};
+  mutable std::mutex setpointMutex;
+  std::optional<core::VelocityCmd> lastReceived{};
   std::thread thread;
 };
 

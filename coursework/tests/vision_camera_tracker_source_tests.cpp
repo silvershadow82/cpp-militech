@@ -21,6 +21,36 @@ struct Fixture {
   follow::vision::CameraTrackerSource source{frames, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
 };
 
+// A source the test drives: `miss` makes one read() fail the way a live camera drops a buffer,
+// `exhausted` reports the end of the stream the way a clip does at EOF.
+class ScriptedFrames final : public follow::vision::IFrameSource {
+public:
+  explicit ScriptedFrames(follow::vision::IFrameSource& inner)
+    : inner(inner)
+  {
+  }
+
+  std::optional<follow::vision::Frame> read() override
+  {
+    if (this->miss) {
+      this->miss = false;
+      return std::nullopt;
+    }
+    if (this->exhausted) {
+      return std::nullopt;
+    }
+    return this->inner.read();
+  }
+
+  bool ended() const override { return this->exhausted; }
+
+  bool miss{false};
+  bool exhausted{false};
+
+private:
+  follow::vision::IFrameSource& inner;
+};
+
 }  // namespace
 
 TEST(CameraTrackerSource, PublishesNothingBeforeLockCenter)
@@ -100,4 +130,41 @@ TEST(BoxConversion, RoundTripsIntegerBoxes)
 {
   cv::Rect r(12, 34, 56, 78);
   EXPECT_EQ(follow::vision::toRect(follow::vision::toBBox(r)), r);
+}
+
+TEST(CameraTrackerSource, AMissedFrameKeepsIteratingAndPublishesNothing)
+{
+  // A dropped buffer on a live camera is transient, not the end of the stream. Ending the app on
+  // one would leave the FC holding the last velocity setpoint for its guided timeout; publishing
+  // nothing instead lets the estimator's staleness rule run, so the core goes Lost and commands
+  // zero all by itself.
+  follow::runtime::Channels channels;
+  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  ScriptedFrames scripted{frames};
+  follow::vision::CameraTrackerSource source{scripted, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
+  channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  source.iterate();
+  uint64_t before = channels.observation.read()->sequence;
+
+  scripted.miss = true;
+  EXPECT_TRUE(source.iterate());
+  EXPECT_EQ(channels.observation.read()->sequence, before);  // nothing published for the missing frame
+  EXPECT_EQ(source.missedFrames(), 1u);
+  EXPECT_TRUE(source.lastFrame().has_value());  // the overlay keeps the last good frame
+
+  EXPECT_TRUE(source.iterate());  // and the next real frame carries on as before
+  EXPECT_GT(channels.observation.read()->sequence, before);
+  EXPECT_EQ(source.missedFrames(), 1u);
+}
+
+TEST(CameraTrackerSource, StopsOnlyWhenTheSourceReportsItIsExhausted)
+{
+  follow::runtime::Channels channels;
+  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  ScriptedFrames scripted{frames};
+  follow::vision::CameraTrackerSource source{scripted, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
+  EXPECT_TRUE(source.iterate());
+
+  scripted.exhausted = true;
+  EXPECT_FALSE(source.iterate());
 }

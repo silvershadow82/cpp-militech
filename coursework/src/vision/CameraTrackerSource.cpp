@@ -42,10 +42,15 @@ CameraTrackerSource::CameraTrackerSource(IFrameSource& frames,
 
 bool CameraTrackerSource::iterate()
 {
-  this->frame = this->frames.read();
-  if (!this->frame) {
-    return false;
+  std::optional<Frame> next = this->frames.read();
+  if (!next) {
+    // A dropped frame is not the end of the stream, and ending the app on one would leave the FC
+    // holding the last velocity target for its whole guided timeout. Keep the previous frame for
+    // the overlay, publish nothing, and let the staleness rule in TargetEstimator do the rest.
+    ++this->missed;
+    return !this->frames.ended();
   }
+  this->frame = std::move(next);
   for (const core::TrackerRequest& request : this->channels.trackerRequests.drain()) {
     this->handle(request, *this->frame);
   }

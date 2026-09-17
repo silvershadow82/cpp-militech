@@ -155,3 +155,20 @@ TEST(PiCameraPipeline, VideoflipIsPlacedAfterTheBgrCapsAndBeforeAppsink)
   EXPECT_LT(bgrCapsPos, flipPos);
   EXPECT_LT(flipPos, appsinkPos);
 }
+
+TEST(PiCameraFailureBudget, TolerancesOneAndAHalfSecondsOfConsecutiveMisses)
+{
+  // 1.5 s of frames: long enough that the core has already run its staleness rule, gone Lost and
+  // been commanding zero for a while before the app declares the camera dead. Rounded up, so a
+  // fractional frame never shortens the budget.
+  EXPECT_EQ(follow::vision::piCameraFailureBudget(20), 30);
+  EXPECT_EQ(follow::vision::piCameraFailureBudget(30), 45);
+  EXPECT_EQ(follow::vision::piCameraFailureBudget(15), 23);  // ceil(22.5)
+}
+
+TEST(PiCameraFailureBudget, IsAtLeastOneFrameForANonsenseRate)
+{
+  // A zero or negative rate must still end the source rather than retry for ever.
+  EXPECT_EQ(follow::vision::piCameraFailureBudget(0), 1);
+  EXPECT_EQ(follow::vision::piCameraFailureBudget(-5), 1);
+}

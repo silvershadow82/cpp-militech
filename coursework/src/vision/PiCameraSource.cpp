@@ -1,5 +1,7 @@
 #include "follow/vision/PiCameraSource.h"
 
+#include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -80,8 +82,14 @@ std::string piCameraPipeline(const PiCameraConfig& config)
   return pipeline;
 }
 
+int piCameraFailureBudget(int fps)
+{
+  return std::max(1, static_cast<int>(std::ceil(1.5 * fps)));
+}
+
 PiCameraSource::PiCameraSource(const PiCameraConfig& config)
   : capture(piCameraPipeline(config), cv::CAP_GSTREAMER)
+  , failureBudget(piCameraFailureBudget(config.fps))
 {
   if (!this->capture.isOpened()) {
     throw std::runtime_error("cannot open the Pi camera pipeline; check that OpenCV has GStreamer support and a camera is attached");
@@ -92,8 +100,13 @@ std::optional<Frame> PiCameraSource::read()
 {
   cv::Mat image;
   if (!this->capture.read(image) || image.empty()) {
+    // One failed grab is not an end of stream: with drop=true max-buffers=1 on a live source it is
+    // routinely a dropped buffer or a momentary renegotiation. Only a whole budget of them in a row
+    // means the camera has actually stopped -- see ended().
+    ++this->consecutiveFailures;
     return std::nullopt;
   }
+  this->consecutiveFailures = 0;
   // Stamp after the grab returns: this is as close to the capture instant as this API allows.
   return Frame{.image = image, .t = core::Clock::now()};
 }

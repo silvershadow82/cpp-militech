@@ -22,8 +22,14 @@ class IFrameSource {
 public:
   virtual ~IFrameSource() = default;
 
-  // The next frame, or nullopt when the source is exhausted or a capture failed.
+  // The next frame, or nullopt when no frame was available this tick. A nullopt on its own is a
+  // transient miss -- a dropped buffer, a renegotiation, an ISP hiccup -- which the caller must
+  // keep flying through; only ended() says the source can never deliver another frame.
   virtual std::optional<Frame> read() = 0;
+
+  // True once the source is exhausted and read() will never succeed again. A source with no end
+  // (a live camera that is still healthy, the synthetic source) never reports true.
+  virtual bool ended() const { return false; }
 };
 
 // A bright target crossing a textured background, for tests and for exercising the adapter on a
@@ -53,11 +59,15 @@ public:
 
   std::optional<Frame> read() override;
 
+  // True once the clip has run out: a file really does end, unlike a live camera.
+  bool ended() const override { return this->atEnd; }
+
 private:
   cv::VideoCapture capture;
   cv::Size trackSize;
   core::Clock::duration period;
   core::TimePoint next;
+  bool atEnd{false};
 };
 
 }  // namespace follow::vision

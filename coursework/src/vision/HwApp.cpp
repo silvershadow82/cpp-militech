@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <thread>
 
 #include "follow/config/ConfigJson.h"
@@ -19,6 +22,14 @@
 #include "follow/vision/Tracker.h"
 
 namespace follow::runtime {
+
+namespace {
+
+// How long shutdown waits for the I/O thread to send the zero setpoint. The thread iterates at
+// least every 5 ms, so this is a bound for a link that has already failed, not a normal delay.
+constexpr auto kFailsafeSendTimeout = std::chrono::milliseconds{200};
+
+}  // namespace
 
 void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
 {
@@ -60,7 +71,10 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
   ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, core::Clock::now());
 
   print("follow_app --hw: tracker " + app.vision.tracker + ", link " + linkSpec + ", log " + options.logPath.string());
+  // Two stop flags, not one: the I/O thread outlives the other two so the fail-safe setpoint below
+  // can still be put on the wire after the control loop has stopped writing setpoints.
   std::atomic<bool> threadsStop{false};
+  std::atomic<bool> ioStop{false};
   std::atomic<bool> framesEnded{false};
   const auto overlayPeriod = std::chrono::duration_cast<core::Clock::duration>(std::chrono::duration<double>(1.0 / app.vision.overlayFps));
   const auto framePeriod = std::chrono::duration_cast<core::Clock::duration>(std::chrono::duration<double>(1.0 / app.vision.fps));
@@ -68,10 +82,15 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
   auto visionLoop = [&] {
     core::TimePoint nextOverlay = core::Clock::now();
     core::TimePoint nextFrame = core::Clock::now();
+    uint64_t reportedMisses = 0;
     while (!threadsStop) {
       if (!source.iterate()) {
         framesEnded = true;
         return;
+      }
+      if (source.missedFrames() != reportedMisses) {
+        reportedMisses = source.missedFrames();
+        print("follow_app: camera missed a frame (" + std::to_string(reportedMisses) + " so far)");
       }
       core::TimePoint now = core::Clock::now();
       if (framebuffer && now >= nextOverlay && source.lastFrame()) {
@@ -91,33 +110,49 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
   std::thread ioThread;
   std::thread visionThread;
   std::thread controlThread;
+
+  // Every exit path -- a clean stop, a camera that really ended, or a throw -- goes through here.
+  // ArduPilot holds the last velocity target until its guided timeout (3 s), so an app that simply
+  // stops leaves the vehicle flying at whatever it was last commanded. Command zero and wait for
+  // the I/O thread to put it on the wire before stopping it. Nothing has touched the capture object
+  // at this point: on this libcamerasrc build an end-of-stream can hang, so cv::VideoCapture's
+  // release() (in the caller, after this returns) must never come first.
+  auto shutdown = [&] {
+    threadsStop = true;
+    if (controlThread.joinable()) {
+      controlThread.join();
+    }
+    if (visionThread.joinable()) {
+      visionThread.join();
+    }
+    if (ioThread.joinable()) {
+      // The control loop has stopped, so this is the last write to the slot.
+      channels.setpoint.write(core::VelocityCmd{}, core::Clock::now());
+      std::optional<Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
+      core::TimePoint deadline = core::Clock::now() + kFailsafeSendTimeout;
+      while (zero && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+      }
+      ioStop = true;
+      ioThread.join();
+    }
+  };
+
   try {
-    ioThread = std::thread([&] { io.run(threadsStop); });
+    ioThread = std::thread([&] { io.run(ioStop); });
     visionThread = std::thread(visionLoop);
     controlThread = std::thread([&] { control.run(threadsStop); });
   }
   catch (...) {
     // Same reason as runSimApp: a joinable std::thread destructing calls std::terminate().
-    threadsStop = true;
-    if (ioThread.joinable()) {
-      ioThread.join();
-    }
-    if (visionThread.joinable()) {
-      visionThread.join();
-    }
-    if (controlThread.joinable()) {
-      controlThread.join();
-    }
+    shutdown();
     throw;
   }
 
   while (!stop && !framesEnded) {
     std::this_thread::sleep_for(std::chrono::milliseconds{50});
   }
-  threadsStop = true;
-  controlThread.join();
-  visionThread.join();
-  ioThread.join();
+  shutdown();
   print(framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped");
 }
 

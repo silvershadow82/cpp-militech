@@ -28,13 +28,17 @@ public:
   // and reports the failure once through onStatusText.
   void run(const std::atomic<bool>& stop);
 
+  // Sequence number of the last setpoint handed to the link, so a caller that must know its
+  // fail-safe setpoint really went out can wait for it before it stops this thread.
+  uint64_t sentSetpointSequence() const { return this->sentSetpoint; }
+
 private:
   mavlink::ByteLink& link;
   mavlink::MavlinkClient client;
   Channels& channels;
   mavlink::MavlinkClient::StatusTextHandler onStatusText;
-  uint64_t sentSetpoint{0};  // sequence number of the last setpoint sent
-  bool waitFailing{false};   // reports through onStatusText once, on the transition into failure
+  std::atomic<uint64_t> sentSetpoint{0};  // sequence number of the last setpoint sent
+  bool waitFailing{false};                // reports through onStatusText once, on the transition into failure
 };
 
 }  // namespace follow::runtime

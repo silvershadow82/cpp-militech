@@ -80,6 +80,10 @@ if(FOLLOW_WITH_OPENCV)
                                     src/vision/CameraTrackerSource.cpp src/vision/Overlay.cpp src/vision/HwApp.cpp)
   target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)
+
+  add_executable(follow_tracker_bench src/tools/tracker_bench_main.cpp)
+  target_link_libraries(follow_tracker_bench PRIVATE follow_vision)
+  target_compile_options(follow_tracker_bench PRIVATE -Wall -Wextra)
 endif()
 
 # --- Executables ----------------------------------------------------------------

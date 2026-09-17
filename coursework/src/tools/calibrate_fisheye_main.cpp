@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cctype>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -15,7 +16,8 @@ namespace {
 
 constexpr const char* kUsage =
   "usage: follow_calibrate_fisheye IMAGE_DIR --board WxH --square M [--tilt DEG] [--out FILE]\n"
-  "  IMAGE_DIR  checkerboard captures (png/jpg) taken at the capture resolution, e.g. with rpicam-still\n"
+  "  IMAGE_DIR  checkerboard captures (png/jpg/jpeg) taken at the capture resolution, e.g. with\n"
+  "             libcamera-still (Raspberry Pi OS bullseye) or rpicam-still (bookworm and later)\n"
   "  --board    inner corners, e.g. 9x6\n"
   "  --square   square size in metres\n"
   "  --tilt     camera tilt up from body forward, degrees (default 0)\n"
@@ -81,6 +83,7 @@ int main(int argc, char** argv)
     std::vector<std::filesystem::path> files;
     for (const auto& entry : std::filesystem::directory_iterator(dir)) {
       std::string ext = entry.path().extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
       if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
         files.push_back(entry.path());
       }

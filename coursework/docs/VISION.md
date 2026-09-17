@@ -69,6 +69,10 @@ The vision configuration is in `follow.json` (or overridden via `--config FILE`)
 
 Both flips are applied by `PiCameraSource::piCameraPipeline`, never by `follow_core`, the estimator or the overlay: those assume an upright image, so the mount is corrected once, at capture, instead of being threaded through the rest of the pipeline. This airframe's camera is bolted in upside-down, so the committed `follow.json` sets both `vision.hflip` and `vision.vflip` to `true` (equivalent to a 180-degree rotation) to deliver upright frames to the tracker.
 
+**`vision.hflip` and `vision.vflip` must be equal.** No physical mount can mirror an image: a single flip reverses handedness, so the camera model returns the wrong bearing sign on that axis and the controller drives yaw the wrong way until the target leaves the frame. `ConfigJson.cpp` rejects `hflip != vflip` at load time; the only supported settings are "both false" (upright mount), "both true" (upside-down mount, this airframe), or a 90-degree mount corrected some other way upstream of this code.
+
+**Calibration must be captured through the same flips as `--hw` runs with**, because `pixelToRay` subtracts `cx`/`cy` directly and neither the capture pipeline nor the calibration tool moves the principal point to compensate for a flip. The committed `camera_imx219_160.json` is the nominal, exactly-centred model (`cx = 320`, `cy = 240`, `k1..k4 = 0`), so this is latent today; it stops being latent the moment a real calibration is captured unflipped while `--hw` still flips at capture -- see the calibration steps below.
+
 ### Overlay behavior
 
 When `/dev/fb0` exists, frames with tracking overlays (lock box and target box) are written at `overlay_fps` Hz. If the framebuffer is missing or cannot be opened, a message is printed and tracking continues without the overlay.
@@ -109,9 +113,15 @@ Tracking decisions, estimator state, and control commands are logged to CSV form
 
 Benchmark the tracker on a recorded video:
 
-1. On the drone, record a clip with the target centered in the first frame:
+1. On the drone, record a clip with the target centered in the first frame. The camera app binary
+   depends on the OS image: the verified bring-up target is Raspberry Pi OS **bullseye**, which ships
+   `libcamera-vid`; `rpicam-vid` is the renamed binary on Raspberry Pi OS **bookworm** and later. The
+   two take the same arguments.
 
 ```bash
+# Raspberry Pi OS bullseye (verified on this project's Pi 4B):
+libcamera-vid --width 640 --height 480 --framerate 20 --codec mjpeg -o clip.mjpeg
+# Raspberry Pi OS bookworm and later:
 rpicam-vid --width 640 --height 480 --framerate 20 --codec mjpeg -o clip.mjpeg
 ```
 
@@ -126,6 +136,8 @@ This locks on the centered box in the first frame and tracks to the end. It does
 ### Acceptance criteria
 
 The tracker must maintain **at least 15 fps** at 640×480 on a Pi 4B. Slower hardware or lossy patterns (occlusion, blur, rapid turns) will drop the frame rate.
+
+Measured on the verified Pi 4B (tracker only, via `follow_tracker_bench`): **KCF 69.43 fps**, **CSRT 7.55 fps**, both at 640×480. KCF clears the >= 15 fps requirement with margin; CSRT does not meet it on this hardware. Neither figure includes the `--hw` overlay path (clone + draw + resize + colour convert + memcpy), which runs inline in the vision thread against the same frame budget and has not been measured end-to-end with the overlay enabled -- see "Hardware bring-up state" below.
 
 ### Options
 
@@ -144,10 +156,13 @@ Fisheye calibration corrects the camera distortion and computes intrinsics for t
 
 1. Print a checkerboard (e.g., 9×6 inner corners, 0.025 m squares) on a flat surface (paper or cardboard).
 
-2. Capture 15–25 images at the full capture resolution, angling the board to cover the corners of the fisheye image:
+2. Capture 15–25 images at the full capture resolution, angling the board to cover the corners of the fisheye image. Pass `--hflip --vflip` whenever the airframe's `follow.json` sets `vision.hflip`/`vision.vflip` (this airframe does): the calibration images must go through the **same** flips as `--hw` capture, or the calibrated `cx`/`cy` are the unflipped principal point while every runtime pixel coordinate is in the flipped frame -- see the warning under the flip table above. As with the tracker bench command, the binary name depends on the OS image: `libcamera-still` on the verified bullseye target, `rpicam-still` on bookworm and later.
 
 ```bash
-rpicam-still --width 1640 --height 1232 -r --timelapse 100 captures/img_%05d.jpg
+# Raspberry Pi OS bullseye (verified on this project's Pi 4B):
+libcamera-still --width 1640 --height 1232 --hflip --vflip -r --timelapse 100 captures/img_%05d.jpg
+# Raspberry Pi OS bookworm and later:
+rpicam-still --width 1640 --height 1232 --hflip --vflip -r --timelapse 100 captures/img_%05d.jpg
 ```
 
 3. Run the calibration tool:
@@ -189,7 +204,7 @@ The tool computes the reprojection error (RMS) over all calibration views. It **
 follow_calibrate_fisheye IMAGE_DIR --board WxH --square M [--tilt DEG] [--out FILE]
 ```
 
-- `IMAGE_DIR`: Directory of checkerboard images (.png or .jpg), captured at `vision.capture` resolution.
+- `IMAGE_DIR`: Directory of checkerboard images (.png, .jpg or .jpeg, matched case-insensitively), captured at `vision.capture` resolution.
 - `--board`: Checkerboard inner corner count (e.g., 9x6).
 - `--square`: Square side in metres (e.g., 0.025 for 2.5 cm).
 - `--tilt`: Camera tilt up from body forward, in degrees (default 0). Used by the TargetEstimator's bearing geometry (`cameraToBody` and `bodyToCamera` frame conversions); an incorrect tilt skews bearing and distance estimates.
@@ -209,7 +224,7 @@ The codebase handles OpenCV 4.x and 5.0 API differences with conditional include
 #endif
 ```
 
-The contrib `tracking` module carries KCF and CSRT trackers on both OpenCV 4.6 (Pi OS with libopencv-contrib-dev) and 5.0 (Homebrew). The guard checks for contrib's presence (4.5.1 and later). If contrib is not installed, the fallback is `video/tracking.hpp`, which carries the trackers on OpenCV 4.5.1 and later, so a build without contrib still compiles.
+The contrib `tracking` module carries KCF and CSRT trackers on both OpenCV 4.5.1 (the verified Pi OS bullseye target, with libopencv-contrib-dev) and 5.0 (Homebrew). The guard checks for contrib's presence (4.5.1 and later). If contrib is not installed, the fallback is `video/tracking.hpp`, which carries the trackers on OpenCV 4.5.1 and later, so a build without contrib still compiles.
 
 ### Chessboard detection (Calibration.cpp)
 
@@ -230,3 +245,29 @@ OpenCV 5.0 moved chessboard detection to `objdetect.hpp`. On OpenCV 4.x, the fun
 Fisheye calibration (`cv::fisheye::calibrate` and `cv::fisheye::CALIB_*` constants) live in `calib3d.hpp` on both OpenCV 4 and 5. No guard is needed.
 
 These three guards ensure the vision code compiles against both OpenCV versions without modification.
+
+## Hardware bring-up state
+
+The environment this branch was actually verified on, and what was and was not confirmed there. `.superpowers/` (the development ledger) is git-ignored, so this section -- not the ledger -- is what a reader of the merged branch has.
+
+- Raspberry Pi OS **bullseye**, Pi 4B, imx219 camera, libcamera v0.0.5+83-bde9b04f (built 17-07-2023), GStreamer 1.18.4, OpenCV **4.5.1**.
+- `/boot/config.txt` deltas applied for this bring-up, relative to the stock image:
+  - `dtoverlay=vc4-kms-v3d` replacing `dtoverlay=vc4-fkms-v3d,composite` (the KMS driver, not the legacy FKMS one with composite baked in).
+  - `enable_tvout=1` commented out.
+  - `camera_auto_detect=0` with an explicit `dtoverlay=imx219`.
+- The overlay was verified on **HDMI at 1920x1080, 16 bits per pixel** only.
+- The spec's composite-output deliverable ("composite output enabled in `/boot/firmware/config.txt`, replacing whatever currently puts the camera on analog out") is **not met by this branch**: the config.txt changes above do the opposite (they move the console to HDMI/KMS) and composite has not been re-enabled under KMS. This is open work, deferred to Plan 4.
+- The end-to-end `--hw` frame rate with the overlay enabled has not been measured on hardware; only the tracker in isolation was benchmarked (see "Acceptance criteria" above).
+
+## Known latency, to be measured at Plan-4 bring-up
+
+`PiCameraSource::read()` stamps `Frame::t` with `core::Clock::now()` **after** `capture.read()` returns, so `tFrame` is the grab-return time, not the instant the sensor captured the frame. The gap between them is the whole unmeasured `libcamerasrc -> rawvideoparse -> videoconvert -> videoscale -> videoflip -> appsink` pipeline latency, plus whatever `appsink` buffers before yielding a sample (the appsink is not configured with `sync=false`, which is an untested lever for reducing this).
+
+This biases two things `tFrame` feeds directly, both toward reporting a target's bearing as if it were captured later than it really was:
+
+- The yaw compensation in `TargetEstimator::update` (`bearingAtFrame` corrected by the yaw turned since `tFrame`) under-corrects by the unmeasured latency, so the reported bearing lags the true bearing during yaw.
+- The 300 ms staleness gate (`supervisor.stale_ms`) has less margin than it appears to: the clock is already running before the estimator ever sees the frame.
+
+Measurement procedure (Plan 4): compare `GstBuffer` PTS against `steady_clock` over a few hundred frames on the airframe and record the offset; then decide whether to compensate `tFrame` or simply document the residual bias.
+
+**Pilot-facing risk, until this is measured:** bearing lags true bearing during yaw by an unknown, unmeasured amount. Expect the follow behaviour to slightly undershoot a moving target's true bearing while the vehicle is actively yawing.

@@ -73,6 +73,12 @@ int main(int argc, char** argv)
     if (video.empty()) {
       throw std::invalid_argument("a video file is required");
     }
+    if (!(lockBoxFrac > 0.0 && lockBoxFrac <= 1.0)) {
+      throw std::invalid_argument("--lock-box-frac must be in (0, 1]");
+    }
+    if (track.width <= 0 || track.height <= 0) {
+      throw std::invalid_argument("--track dimensions must be positive");
+    }
   }
   catch (const std::exception& e) {
     std::cerr << "follow_tracker_bench: " << e.what() << '\n' << kUsage;

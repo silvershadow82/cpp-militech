@@ -1,0 +1,12 @@
+{
+  "name": "stationary_known_size",
+  "description": "Target stands 5 m ahead; its known 1.7 m height gives metric distance, so the vehicle closes to d_set.",
+  "duration_s": 14,
+  "target": { "start": [5.0, 0.0], "motions": [{ "hold": { "duration_s": 30 } }] },
+  "config": { "target": { "height_m": 1.7 } },
+  "expect": {
+    "states": ["Locking", "Following"],
+    "final_distance": { "reference": "set", "tolerance": 0.15 },
+    "min_distance_m": 1.5
+  }
+}

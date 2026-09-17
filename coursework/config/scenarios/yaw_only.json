@@ -1,0 +1,16 @@
+{
+  "name": "yaw_only",
+  "description": "Bring-up stage 2: enable_vx = false, target circles; only yaw is commanded.",
+  "duration_s": 14,
+  "target": {
+    "start": [3.0, 0.0],
+    "motions": [{ "hold": { "duration_s": 2 } }, { "circle": { "duration_s": 60, "center": [9.0, 0.0], "speed": 1.0 } }]
+  },
+  "config": { "control": { "enable_vx": false } },
+  "expect": {
+    "states": ["Locking", "Following"],
+    "bearing_max_deg": 15,
+    "bearing_settle_s": 3,
+    "no_forward_speed": true
+  }
+}

@@ -19,7 +19,7 @@ On Raspberry Pi OS, install the libraries:
 sudo apt install libopencv-dev libopencv-contrib-dev gstreamer1.0-libcamera
 ```
 
-The contrib package provides `opencv2/tracking.hpp` (KCF and CSRT trackers) and libcamerasrc for the Pi camera.
+The contrib package provides `opencv2/tracking.hpp` (KCF and CSRT trackers). The GStreamer package provides libcamerasrc and its libcamera integration; OpenCV also needs GStreamer support compiled into its build (cv::CAP_GSTREAMER).
 
 On macOS with Homebrew, OpenCV is installed but GStreamer is not available:
 
@@ -59,7 +59,7 @@ The vision configuration is in `follow.json` (or overridden via `--config FILE`)
 | `vision.tracker` | "kcf" | Tracker algorithm: "kcf" or "csrt". |
 | `vision.lock_box_frac` | 0.20 | Side of the lock box as a fraction of the image height. |
 | `vision.min_confidence` | 0.3 | Minimum tracker confidence (0–1) to continue following. Below this, the target is considered lost. |
-| `vision.fps` | 20 | Camera frame rate (Hz). The Pi camera supports up to 30 fps but thermal throttling on long runs may reduce this. |
+| `vision.fps` | 20 | Camera frame rate (Hz) requested from libcamerasrc. |
 | `vision.framebuffer` | "/dev/fb0" | Linux framebuffer for the overlay. Leave empty to disable the overlay. |
 | `vision.overlay_fps` | 15 | Overlay redraw rate (Hz). |
 | `vision.reacquire_period_ms` | 500 | Time between reacquisition attempts when lost (milliseconds). |
@@ -101,7 +101,7 @@ rpicam-vid --width 640 --height 480 --framerate 20 --codec mjpeg -o clip.mjpeg
 ./build/vision/follow_tracker_bench clip.mjpeg --tracker kcf --out annotated.avi
 ```
 
-This locks on the centered box in the first frame and tracks to the end, reporting frames tracked, frames per second (tracker only), and the number of reacquisition events.
+This locks on the centered box in the first frame and tracks to the end. It does not re-lock after a loss; it reports total frames, frames per second (tracker only), and the number of losses (transitions from tracking into failure).
 
 ### Acceptance criteria
 
@@ -157,7 +157,7 @@ The output is a camera JSON with intrinsics at the capture resolution:
 }
 ```
 
-Keys: `model`, `width`, `height`, `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `k3`, `k4`, `tilt_deg`.
+Keys: `model`, `width`, `height`, `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `k3`, `k4`, `tilt_deg`. The tilt angle is used by the TargetEstimator's bearing geometry; an incorrect tilt skews bearing and distance estimates.
 
 ### Pass/fail
 
@@ -172,7 +172,7 @@ follow_calibrate_fisheye IMAGE_DIR --board WxH --square M [--tilt DEG] [--out FI
 - `IMAGE_DIR`: Directory of checkerboard images (.png or .jpg), captured at `vision.capture` resolution.
 - `--board`: Checkerboard inner corner count (e.g., 9x6).
 - `--square`: Square side in metres (e.g., 0.025 for 2.5 cm).
-- `--tilt`: Camera tilt up from body forward, in degrees (default 0). Stored in the JSON but not used during tracking.
+- `--tilt`: Camera tilt up from body forward, in degrees (default 0). Used by the TargetEstimator's bearing geometry (`cameraToBody` and `bodyToCamera` frame conversions); an incorrect tilt skews bearing and distance estimates.
 - `--out`: Output camera JSON file (default `camera_imx219_160.json`).
 
 ## OpenCV 4 vs 5 include guards
@@ -189,7 +189,7 @@ The codebase handles OpenCV 4.x and 5.0 API differences with conditional include
 #endif
 ```
 
-OpenCV 5.0 moved KCF and CSRT to the contrib module's `tracking.hpp`. OpenCV 4.x and later keeps them in `video/tracking.hpp`. The guard tries the 5.0 path first; if it does not exist, falls back to the main video module. Both paths work on Pi OS (4.6 with contrib) and Homebrew (5.0).
+The contrib `tracking` module carries KCF and CSRT trackers on both OpenCV 4.6 (Pi OS with libopencv-contrib-dev) and 5.0 (Homebrew). The guard checks for contrib's presence (4.5.1 and later). If contrib is not installed, the fallback is `video/tracking.hpp`, which carries the trackers on OpenCV 4.5.1 and later, so a build without contrib still compiles.
 
 ### Chessboard detection (Calibration.cpp)
 

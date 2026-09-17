@@ -69,6 +69,22 @@ The vision configuration is in `follow.json` (or overridden via `--config FILE`)
 
 When `/dev/fb0` exists, frames with tracking overlays (lock box and target box) are written at `overlay_fps` Hz. If the framebuffer is missing or cannot be opened, a message is printed and tracking continues without the overlay.
 
+### Camera pipeline: libcamerasrc row-stride workaround
+
+On first hardware bring-up (Pi 4B, imx219, Raspberry Pi OS bullseye, libcamera v0.0.5+83-bde9b04f built 17-07-2023, GStreamer 1.18.4, OpenCV 4.5.1), `follow_app --hw` produced overlay frames with a visible defect: diagonal shearing and green/magenta colour banding, worse toward the bottom of the frame, at the full `vision.capture` resolution (1640x1232). The overlay draw itself (lock box, state text) was correct; only the underlying camera image was corrupted.
+
+Root cause: on this stack, `libcamerasrc` pads each NV21 row up to a 32-byte boundary (1640 pads to 1664 bytes) but attaches no `GstVideoMeta` describing that padding. Downstream elements that assume a tightly-packed row — `videoconvert`, `videoscale`, and OpenCV's own `appsink` ingestion — all silently misread every row after the first. 640x480 (the tracking resolution) is unaffected because 640 is already a multiple of 32.
+
+The fix, in `PiCameraSource::piCameraPipeline`, inserts a `rawvideoparse` stage right after `libcamerasrc` that states the real, padded NV21 layout explicitly (`plane-strides`/`plane-offsets`, computed from `captureWidth`/`captureHeight` rounded up to the next 32-byte boundary). This is applied unconditionally — there is nothing to detect at runtime, since the missing `GstVideoMeta` is exactly the absence of a signal to branch on — and it assumes a 2-plane semi-planar 4:2:0 layout (NV21: one luma plane, one interleaved chroma plane).
+
+**This is specific to the libcamera/GStreamer stack above.** Before relying on it on different hardware or a newer libcamera build, re-check on that hardware:
+
+- whether `libcamerasrc` now attaches `GstVideoMeta` (if so, the override is redundant at best, and actively wrong if the real stride it reports differs from what this code computes);
+- whether the row alignment is still 32 bytes (a different ISP/allocator could pad to a different boundary, e.g. 16 or 64);
+- whether NV21 is still the format `libcamerasrc` negotiates at the requested capture size (a different default, e.g. a packed or 3-plane format, would violate the semi-planar assumption the `rawvideoparse` properties depend on).
+
+Any of these changing makes the override wrong and it must be revisited. A caps mismatch from a wrong assumption fails loudly with GStreamer's "not-negotiated" error rather than silently corrupting frames, which is why this is handled by documenting the assumption instead of adding untested runtime detection.
+
 ### MAVLink link
 
 The default link is `uart:/dev/serial0:921600` (the Pi's UART to the flight controller). Override via `--link`:

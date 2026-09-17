@@ -72,3 +72,18 @@ TEST(PiCameraPipeline, StrideMatchesWidthWhenCaptureWidthIsAlready32Aligned)
   EXPECT_NE(pipeline.find("plane-strides=\"<640,640>\""), std::string::npos);
   EXPECT_NE(pipeline.find("plane-offsets=\"<0,307200>\""), std::string::npos);  // 640 * 480
 }
+
+TEST(PiCameraPipeline, RoundsAnArbitraryNonAlignedWidthUpTo32Bytes)
+{
+  // Neither production value (1640 nor 640): proves the rounding formula itself, not just the
+  // two constants it happens to be called with today. 100 is not a multiple of 32; the next one
+  // up is 128 (4 * 32).
+  follow::vision::PiCameraConfig config{};
+  config.captureWidth = 100;
+  config.captureHeight = 50;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("plane-strides=\"<128,128>\""), std::string::npos);
+  EXPECT_NE(pipeline.find("plane-offsets=\"<0,6400>\""), std::string::npos);  // 128 * 50
+}

@@ -254,3 +254,16 @@ TEST(ConfigJson, VisionHardwareValuesAreValidated)
   EXPECT_EQ(errorOf(R"({"vision": {"reacquire_period_ms": -1}})"), "vision.reacquire_period_ms: must not be negative");
   EXPECT_EQ(errorOf(R"({"vision": {"reacquire_expand": 0.9}})"), "vision.reacquire_expand: must be at least 1");
 }
+
+TEST(ConfigJson, AsymmetricFlipIsRejected)
+{
+  // A single flip mirrors the image: it reverses handedness, so pixelToRay returns the wrong sign on
+  // that axis and FollowController drives yaw the wrong way -- positive feedback until the target
+  // leaves frame. No physical mount can mirror an image, so this is a configuration error, not a
+  // supported mount ("the camera is mounted upside-down" is a vertical flip to most operators, i.e.
+  // vflip:true/hflip:false -- the single most likely mis-edit of this config).
+  EXPECT_EQ(errorOf(R"({"vision": {"hflip": true, "vflip": false}})"),
+            "vision.hflip/vision.vflip: a camera mount can only be rotated, not mirrored; set both or neither");
+  EXPECT_EQ(errorOf(R"({"vision": {"hflip": false, "vflip": true}})"),
+            "vision.hflip/vision.vflip: a camera mount can only be rotated, not mirrored; set both or neither");
+}

@@ -100,6 +100,10 @@ TEST(PiCameraPipeline, OmitsVideoflipWhenNeitherFlipIsSet)
   EXPECT_EQ(pipeline.find("videoflip"), std::string::npos);
 }
 
+// A single flip mirrors the image and is rejected by ConfigJson (vision.hflip/vflip must match) --
+// see ConfigJson.cpp and ConfigJson.AsymmetricFlipIsRejected. That validation lives in the config
+// layer, not here: piCameraPipeline is a pure string builder that must still produce the (rejected)
+// mirrored pipeline if a PiCameraConfig is ever constructed directly, bypassing config parsing.
 TEST(PiCameraPipeline, HflipOnlyUsesHorizontalFlipMethod)
 {
   follow::vision::PiCameraConfig config{};

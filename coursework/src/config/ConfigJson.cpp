@@ -56,6 +56,11 @@ AppConfig parseAppConfig(const json& doc)
   require(config.vision.reacquirePeriodMs >= 0, "vision.reacquire_period_ms: must not be negative");
   require(config.vision.reacquireExpand >= 1.0, "vision.reacquire_expand: must be at least 1");
   require(core.lockBoxFrac > 0.0 && core.lockBoxFrac <= 1.0, "vision.lock_box_frac: must be in (0, 1]");
+  // No physical mount can mirror an image: a single flip reverses handedness, so pixelToRay returns
+  // the wrong sign on that axis and FollowController drives yaw the wrong way. Reject the asymmetric
+  // case here rather than let it reach the capture pipeline.
+  require(config.vision.hflip == config.vision.vflip,
+          "vision.hflip/vision.vflip: a camera mount can only be rotated, not mirrored; set both or neither");
 
   root.child("target", {"height_m"}).readOptional("height_m", core.estimator.targetHeightM);
 

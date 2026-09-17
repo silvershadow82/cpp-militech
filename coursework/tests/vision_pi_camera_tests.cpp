@@ -35,3 +35,40 @@ TEST(PiCameraPipeline, DropsLateFramesRatherThanQueueingThem)
   EXPECT_NE(pipeline.find("drop=true"), std::string::npos);
   EXPECT_NE(pipeline.find("max-buffers=1"), std::string::npos);
 }
+
+TEST(PiCameraPipeline, CorrectsForLibcamerasrcRowStridePadding)
+{
+  // Confirmed on a Pi 4B/imx219: libcamerasrc emits NV21 buffers whose rows the vc4 ISP pads to a
+  // 32-byte boundary, but it attaches no GstVideoMeta describing that padding. Every downstream
+  // element that assumes a tightly-packed row (stride == captureWidth) then misreads the buffer --
+  // videoconvert, videoscale and even OpenCV's own appsink ingestion -- which showed up on hardware
+  // as a diagonal shear with colour banding, worse toward the bottom of the frame. rawvideoparse is
+  // told the real, padded layout explicitly (format/width/height plus plane-strides/plane-offsets)
+  // so videoconvert reads the correct bytes. 1640 is not a multiple of 32, so it pads to 1664.
+  follow::vision::PiCameraConfig config{};
+  config.captureWidth = 1640;
+  config.captureHeight = 1232;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("format=NV21"), std::string::npos);
+  EXPECT_NE(pipeline.find("rawvideoparse"), std::string::npos);
+  EXPECT_NE(pipeline.find("format=nv21"), std::string::npos);
+  // 1640 rounded up to the next 32-byte boundary is 1664; the Y and UV planes share that row stride.
+  EXPECT_NE(pipeline.find("plane-strides=\"<1664,1664>\""), std::string::npos);
+  // The UV plane starts right after the (padded) Y plane: 1664 * 1232.
+  EXPECT_NE(pipeline.find("plane-offsets=\"<0,2050048>\""), std::string::npos);
+}
+
+TEST(PiCameraPipeline, StrideMatchesWidthWhenCaptureWidthIsAlready32Aligned)
+{
+  // 640 is already a multiple of 32, so no padding correction is needed: stride == width.
+  follow::vision::PiCameraConfig config{};
+  config.captureWidth = 640;
+  config.captureHeight = 480;
+
+  std::string pipeline = follow::vision::piCameraPipeline(config);
+
+  EXPECT_NE(pipeline.find("plane-strides=\"<640,640>\""), std::string::npos);
+  EXPECT_NE(pipeline.find("plane-offsets=\"<0,307200>\""), std::string::npos);  // 640 * 480
+}

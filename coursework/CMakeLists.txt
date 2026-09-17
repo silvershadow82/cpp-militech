@@ -139,7 +139,8 @@ if(NOT CMAKE_CROSSCOMPILING)
   if(FOLLOW_WITH_OPENCV)
     target_sources(follow_tests PRIVATE tests/vision_tracker_tests.cpp tests/vision_frame_source_tests.cpp
                                         tests/vision_pi_camera_tests.cpp tests/vision_camera_tracker_source_tests.cpp
-                                        tests/vision_overlay_tests.cpp tests/vision_calibration_tests.cpp)
+                                        tests/vision_overlay_tests.cpp tests/vision_calibration_tests.cpp
+                                        tests/hw_app_tests.cpp)
     target_link_libraries(follow_tests PRIVATE follow_vision)
   endif()
   target_include_directories(follow_tests PRIVATE tests)

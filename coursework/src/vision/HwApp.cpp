@@ -41,6 +41,11 @@ bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::
   return true;
 }
 
+bool shouldReportMissEdge(core::TimePoint now, std::optional<core::TimePoint> lastReport, core::Clock::duration minInterval)
+{
+  return !lastReport || now - *lastReport >= minInterval;
+}
+
 }  // namespace detail
 
 namespace {
@@ -110,7 +115,7 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
     core::TimePoint nextFrame = core::Clock::now();
     uint64_t reportedMisses = 0;
     bool missing = false;
-    core::TimePoint lastMissReport{};  // epoch: the first edge always reports
+    std::optional<core::TimePoint> lastMissReport;  // nullopt: the first edge always reports
     while (!threadsStop) {
       if (!source.iterate()) {
         framesEnded = true;
@@ -120,14 +125,15 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
       // One line per dropped frame would take outMutex and flush against the 50 ms frame budget on
       // every miss, and is unbounded over a long flight with intermittent drops. Report the edges,
       // not every frame, the way MavlinkIo::run reports a failing wait -- and rate-limit both edges
-      // to at most one line per second (kMissReportInterval), so an alternating drop/good pattern
-      // does not still print on every edge forever; only bursts of three or more frames used to be
-      // bounded by the edge-triggering alone.
+      // to at most one line per second (kMissReportInterval, via detail::shouldReportMissEdge), so an
+      // alternating drop/good pattern does not still print on every edge forever; edge-triggering
+      // alone only bounds output for a multi-frame burst, not a single isolated drop (see
+      // ShouldReportMissEdge's tests, which pin exactly this).
       if (source.missedFrames() != reportedMisses) {
         reportedMisses = source.missedFrames();
         if (!missing) {
           missing = true;
-          if (now - lastMissReport >= kMissReportInterval) {
+          if (detail::shouldReportMissEdge(now, lastMissReport, kMissReportInterval)) {
             lastMissReport = now;
             print("follow_app: camera missing frames");
           }
@@ -135,7 +141,7 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
       }
       else if (missing) {
         missing = false;
-        if (now - lastMissReport >= kMissReportInterval) {
+        if (detail::shouldReportMissEdge(now, lastMissReport, kMissReportInterval)) {
           lastMissReport = now;
           print("follow_app: camera recovered (" + std::to_string(reportedMisses) + (reportedMisses == 1 ? " frame" : " frames") +
                 " missed so far)");

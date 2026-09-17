@@ -295,6 +295,77 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
   EXPECT_EQ(draws, 2);
 }
 
+// Simulates exactly how runHwApp's visionLoop drives shouldReportMissEdge: an edge is a transition of
+// the "currently missing" state (whether this frame's read failed, mirroring
+// `source.missedFrames() != reportedMisses` gated by `!missing`/`missing`), and the helper is asked
+// only on an edge. Returns the (0-based) frame index of every simulated print.
+std::vector<int> simulateMissReportPrints(const std::vector<bool>& missedPerFrame,
+                                          follow::core::Clock::duration frameSpacing,
+                                          follow::core::Clock::duration minInterval)
+{
+  follow::core::TimePoint now = follow::core::Clock::now();
+  std::optional<follow::core::TimePoint> lastReport;
+  bool missing = false;
+  std::vector<int> printedAtFrame;
+  for (std::size_t i = 0; i < missedPerFrame.size(); ++i) {
+    bool edge = missedPerFrame[i] != missing;
+    if (edge) {
+      missing = missedPerFrame[i];
+      if (follow::vision::detail::shouldReportMissEdge(now, lastReport, minInterval)) {
+        lastReport = now;
+        printedAtFrame.push_back(static_cast<int>(i));
+      }
+    }
+    now += frameSpacing;
+  }
+  return printedAtFrame;
+}
+
+// Important 1, my bug: the original edge-triggered version printed "missing" on the drop and
+// "recovered" on the very next good frame -- two lines for one isolated drop, and it inverted its own
+// rationale (bounding output for a burst, not a single miss). The fix must print at most one line for
+// this pattern.
+TEST(ShouldReportMissEdge, AnIsolatedSingleDropPrintsAtMostOneLine)
+{
+  std::vector<bool> missedPerFrame = {false, true, false, false, false};
+  std::vector<int> prints = simulateMissReportPrints(missedPerFrame, std::chrono::milliseconds{50}, std::chrono::seconds{1});
+  // Only the "missing" edge (frame 1) prints; "recovered" (frame 2) arrives 50 ms later, well inside
+  // the 1 s minimum gap, so it does not -- 1 line, not the 2 the original bug produced.
+  EXPECT_EQ(prints, (std::vector<int>{1}));
+}
+
+// The pattern the original bug handled worst: every single frame is an edge, so edge-triggering alone
+// prints on every one of them, forever, not just for a multi-frame burst.
+TEST(ShouldReportMissEdge, AnAlternatingDropGoodSequenceStaysBoundedOverManyFrames)
+{
+  std::vector<bool> missedPerFrame;
+  for (int i = 0; i < 200; ++i) {
+    missedPerFrame.push_back(i % 2 == 0);  // true,false,true,false,... every frame is an edge
+  }
+  std::vector<int> prints = simulateMissReportPrints(missedPerFrame, std::chrono::milliseconds{50}, std::chrono::seconds{1});
+  // 200 frames at 50 ms is 10 s of edges on every single frame. Rate-limited to 1/s, exactly 10 print,
+  // at frames 0, 20, 40, ... 180 (1 s apart) -- not 200, which is what "prints on every edge forever"
+  // would produce.
+  EXPECT_EQ(prints.size(), 10u);
+  for (int frame : prints) {
+    EXPECT_EQ(frame % 20, 0);  // 20 frames * 50 ms = 1000 ms apart
+  }
+}
+
+// A long burst must still report promptly at the start, not be silent because it looks like "just one
+// more edge" -- the rate limit bounds frequency, it must not swallow the first report entirely.
+TEST(ShouldReportMissEdge, ALongBurstOfConsecutiveDropsReportsPromptlyAtTheStart)
+{
+  std::vector<bool> missedPerFrame(40, true);  // 40 * 50 ms = 2 s of consecutive drops, then recovers
+  missedPerFrame.push_back(false);
+  std::vector<int> prints = simulateMissReportPrints(missedPerFrame, std::chrono::milliseconds{50}, std::chrono::seconds{1});
+  ASSERT_FALSE(prints.empty());
+  EXPECT_EQ(prints.front(), 0);  // the very first missed frame, not delayed
+  // The burst lasts 2 s (well past the 1 s minimum gap), so the recovery at the end also gets its own
+  // line: prompt at the start, and not silent at the end either.
+  EXPECT_EQ(prints, (std::vector<int>{0, 40}));
+}
+
 // Runs the whole follow_app --hw wiring against a fake autopilot with synthetic camera frames for
 // about 5 s: the pilot engages after 1 s, the tracker locks on the centered target and follows.
 TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)

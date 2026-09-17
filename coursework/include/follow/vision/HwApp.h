@@ -17,8 +17,18 @@ namespace detail {
 // `period` -- not reset to `now` -- so a draw that runs late does not shorten the next gap (the fix
 // for Important 5: restarting from the draw instant quantises overlay_fps to fps/2). If that leaves
 // `nextOverlay` still behind `now` (more than one whole period behind), it is clamped forward to
-// `now` so a long stall recovers instead of bursting through every missed slot.
+// `now + period` -- not `now` alone, which would make the very next tick immediately eligible again,
+// a back-to-back double draw -- so a long stall recovers instead of bursting through every missed slot.
 bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::Clock::duration period);
+
+// Whether a camera-missing/recovered edge should actually print, given the last time such a line was
+// printed (`lastReport`, or nullopt if none has printed yet) and the minimum gap `minInterval`
+// required between two lines. Pure: the caller updates `lastReport` itself when this returns true.
+// Exists because edge-triggering alone (print on missing, print again on recovered) still reports on
+// every transition -- for an alternating drop/good pattern that is a line every frame, forever, not
+// just for a multi-frame burst -- so this bounds total output to at most one line per `minInterval`
+// regardless of the drop pattern.
+bool shouldReportMissEdge(core::TimePoint now, std::optional<core::TimePoint> lastReport, core::Clock::duration minInterval);
 
 }  // namespace detail
 

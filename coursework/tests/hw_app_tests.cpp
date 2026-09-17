@@ -14,27 +14,10 @@
 
 #include "FakeAutopilot.h"
 #include "follow/config/ConfigJson.h"
+#include "follow/core/Types.h"
 #include "follow/runtime/HwApp.h"
+#include "follow/runtime/RunLog.h"
 #include "follow/vision/FrameSource.h"
-
-namespace {
-
-// The state column (second field) of every data row of a run log.
-std::vector<std::string> loggedStates(const std::filesystem::path& path)
-{
-  std::ifstream in(path);
-  std::string line;
-  std::getline(in, line);  // header
-  std::vector<std::string> states;
-  while (std::getline(in, line)) {
-    std::size_t first = line.find(',');
-    std::size_t second = line.find(',', first + 1);
-    states.push_back(line.substr(first + 1, second - first - 1));
-  }
-  return states;
-}
-
-}  // namespace
 
 // Runs the whole follow_app --hw wiring against a fake autopilot with synthetic camera frames for
 // about 5 s: the pilot engages after 1 s, the tracker locks on the centered target and follows.
@@ -64,10 +47,14 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   stopper.join();
   fc.stop();
 
-  std::vector<std::string> states = loggedStates(options.logPath);
-  ASSERT_FALSE(states.empty()) << out.str();
-  EXPECT_NE(std::find(states.begin(), states.end(), "Locking"), states.end()) << out.str();
-  EXPECT_NE(std::find(states.begin(), states.end(), "Following"), states.end()) << out.str();
+  std::ifstream log(options.logPath);
+  std::vector<follow::sim::StepRecord> steps = follow::runtime::readRunLog(log);
+  auto hasState = [&steps](follow::core::State state) {
+    return std::any_of(steps.begin(), steps.end(), [state](const follow::sim::StepRecord& step) { return step.state == state; });
+  };
+  EXPECT_FALSE(steps.empty()) << out.str();
+  EXPECT_TRUE(hasState(follow::core::State::Locking)) << out.str();
+  EXPECT_TRUE(hasState(follow::core::State::Following)) << out.str();
   EXPECT_NE(out.str().find("follow_app --hw: tracker kcf"), std::string::npos) << out.str();
   std::filesystem::remove_all(dir);
 }

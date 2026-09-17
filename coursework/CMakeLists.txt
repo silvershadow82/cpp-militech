@@ -13,6 +13,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 find_package(Threads REQUIRED)
 
+# 64-bit atomics: native instructions on 64-bit targets, but a 32-bit target (the drone's armhf
+# Raspberry Pi OS) lowers std::atomic<uint64_t> to __atomic_*_8 calls in libatomic. Detect it rather
+# than hardcode the architecture -- neither the macOS host nor the aarch64 cross-build needs the
+# library, so an unconditional link would fail there.
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles(
+  "#include <atomic>
+   #include <cstdint>
+   int main() {
+     std::atomic<std::uint64_t> v{0};
+     v.store(1);
+     return static_cast<int>(v.load());
+   }"
+  FOLLOW_HAVE_BUILTIN_ATOMIC64)
+if(NOT FOLLOW_HAVE_BUILTIN_ATOMIC64)
+  find_library(FOLLOW_LIBATOMIC NAMES atomic libatomic.so.1 REQUIRED)
+endif()
+
 # MAVLink C headers: the homework_11/c_library_v2 git submodule.
 set(FOLLOW_MAVLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../homework_11/c_library_v2" CACHE PATH "MAVLink c_library_v2 checkout")
 
@@ -65,6 +83,11 @@ add_library(
   src/runtime/SimVision.cpp
   src/runtime/SimApp.cpp)
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
+# PUBLIC: MavlinkIo's setpoint sequence is a std::atomic<uint64_t>, so everything linking this
+# library needs libatomic on a 32-bit target, not just this one.
+if(FOLLOW_LIBATOMIC)
+  target_link_libraries(follow_runtime PUBLIC ${FOLLOW_LIBATOMIC})
+endif()
 target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
 
 # --- Vision: camera, tracker and overlay (OpenCV). ----------------------------

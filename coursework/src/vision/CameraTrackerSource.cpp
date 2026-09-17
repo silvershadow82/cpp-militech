@@ -59,12 +59,27 @@ bool CameraTrackerSource::iterate()
   }
 
   std::optional<cv::Rect> box = this->tracker->update(this->frame->image);
+  this->lastUpdateOk = box.has_value();
   // OpenCV's KCF and CSRT only report success or failure, so confidence is 1 or 0 (spec §Vision adapter).
+  // min_confidence can therefore never reject a box: the estimator's own rules -- staleness, border
+  // margin, attitude freshness and the area jump -- are the only defence against the tracker drifting
+  // onto background, which is why Reacquire below must not throw a healthy lock away.
   core::TargetObservation observation{.tFrame = this->frame->t, .box = {}, .ok = box.has_value(), .confidence = box ? 1.0 : 0.0};
   if (box) {
     observation.box = toBBox(*box);
   }
   this->channels.observation.write(observation, this->frame->t);
+
+  if (this->lastUpdateOk) {
+    this->reacquiring = false;
+  }
+  else if (this->reacquiring) {
+    // Core::step emits a TrackerRequest only on a state edge, so exactly one Reacquire arrives per
+    // entry into Lost. The retry is the adapter's: keep re-seeding on the latched hint once per
+    // reacquirePeriod for as long as the tracker keeps failing (spec: "reacquire retried every
+    // 500 ms on the hint expanded x1.5").
+    this->reseed(*this->frame);
+  }
   return true;
 }
 
@@ -76,31 +91,49 @@ void CameraTrackerSource::handle(const core::TrackerRequest& request, const Fram
       if (hint.area() > 0) {
         this->tracker->init(frame.image, hint);
         this->isLocked = true;
+        this->lastUpdateOk = true;  // a freshly seeded tracker counts as healthy until it says otherwise
+        this->reacquiring = false;
         this->lastReacquire.reset();
       }
       break;
     case core::TrackerRequestKind::Reacquire: {
-      // The core also enters Lost for estimator-side reasons (area jump, border, staleness), so a
-      // Reacquire can arrive while the tracker still follows. It re-initializes on the hint, which is
-      // the last box the estimator accepted, at most once per reacquirePeriod.
       if (!this->isLocked) {
         break;
       }
-      if (this->lastReacquire && frame.t - *this->lastReacquire < this->config.reacquirePeriod) {
+      // The core also enters Lost for estimator-side reasons -- staleness, border margin, area jump --
+      // while the tracker is still locked on the target. The spec's "the adapter must keep tracking in
+      // that case and treat the request as a no-op" is read here as "do nothing at all", not merely
+      // "do not unlock": re-seeding a healthy tracker on a box grown x1.5 around where the target was
+      // hands KCF a patch that is mostly background, and a background lock is reported ok with
+      // confidence 1.0 for ever after, with nothing downstream able to detect it.
+      if (this->lastUpdateOk) {
         break;
       }
-      cv::Rect grown = expandBox(toRect(request.hint), this->config.reacquireExpand, frame.image.size());
-      if (grown.area() > 0) {
-        this->tracker->init(frame.image, grown);
-        this->lastReacquire = frame.t;
-      }
+      // The tracker really has failed. Latch the hint and re-seed now; iterate() retries it once per
+      // reacquirePeriod until the tracker recovers, since no second Reacquire will ever arrive.
+      this->reacquireHint = request.hint;
+      this->reacquiring = true;
+      this->reseed(frame);
       break;
     }
     case core::TrackerRequestKind::Unlock:
       this->isLocked = false;
+      this->reacquiring = false;
       break;
     case core::TrackerRequestKind::None:
       break;
+  }
+}
+
+void CameraTrackerSource::reseed(const Frame& frame)
+{
+  if (this->lastReacquire && frame.t - *this->lastReacquire < this->config.reacquirePeriod) {
+    return;
+  }
+  cv::Rect grown = expandBox(toRect(this->reacquireHint), this->config.reacquireExpand, frame.image.size());
+  if (grown.area() > 0) {
+    this->tracker->init(frame.image, grown);
+    this->lastReacquire = frame.t;
   }
 }
 

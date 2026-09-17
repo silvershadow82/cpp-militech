@@ -51,6 +51,37 @@ private:
   follow::vision::IFrameSource& inner;
 };
 
+// Counts init() calls and reports whatever the test tells it to. A real KCF hides both: it never
+// says how often it was re-seeded, and it succeeds on almost any patch it is given.
+class CountingTracker final : public follow::vision::ITracker {
+public:
+  void init(const cv::Mat&, const cv::Rect& box) override
+  {
+    ++this->inits;
+    this->lastInit = box;
+  }
+
+  std::optional<cv::Rect> update(const cv::Mat&) override { return this->result; }
+
+  int inits{0};
+  cv::Rect lastInit{};
+  std::optional<cv::Rect> result{cv::Rect(300, 220, 40, 40)};  // succeeding until a test clears it
+};
+
+// A fixture whose tracker the test controls; `tracker` stays valid for as long as `source` does.
+struct CountingFixture {
+  CountingFixture()
+    : tracker(new CountingTracker)
+    , source(frames, std::unique_ptr<follow::vision::ITracker>(tracker), follow::vision::CameraTrackerConfig{}, channels)
+  {
+  }
+
+  follow::runtime::Channels channels;
+  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  CountingTracker* tracker;
+  follow::vision::CameraTrackerSource source;
+};
+
 }  // namespace
 
 TEST(CameraTrackerSource, PublishesNothingBeforeLockCenter)
@@ -167,4 +198,104 @@ TEST(CameraTrackerSource, StopsOnlyWhenTheSourceReportsItIsExhausted)
 
   scripted.exhausted = true;
   EXPECT_FALSE(source.iterate());
+}
+
+TEST(CameraTrackerSource, ReacquireIsANoOpWhileTheTrackerStillSucceeds)
+{
+  // The core enters Lost for estimator-side reasons -- staleness, border margin, area jump -- with
+  // the tracker still locked on the target, and emits one Reacquire. Re-seeding then throws away a
+  // good lock for a box that is 1.5x too big and mostly background, which KCF will happily follow
+  // and report with confidence 1.0 for the rest of the flight. The spec calls for a no-op.
+  CountingFixture f;
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  f.source.iterate();
+  ASSERT_EQ(f.tracker->inits, 1);
+  cv::Rect published = follow::vision::toRect(f.channels.observation.read()->value.box);
+
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  f.source.iterate();
+
+  EXPECT_EQ(f.tracker->inits, 1);  // not re-seeded at all
+  EXPECT_TRUE(f.source.locked());
+  EXPECT_EQ(follow::vision::toRect(f.channels.observation.read()->value.box), published);
+}
+
+TEST(CameraTrackerSource, ReacquireReseedsAtMostOncePerPeriod)
+{
+  // Once the tracker really has failed, re-seeding is right -- but at most once per reacquirePeriod,
+  // so a burst of requests cannot restart KCF on every frame.
+  CountingFixture f;
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  f.source.iterate();
+  f.tracker->result.reset();
+  f.source.iterate();  // the update fails, so the next Reacquire is honoured
+  ASSERT_EQ(f.tracker->inits, 1);
+
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  f.source.iterate();
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  f.source.iterate();  // 50 ms later, well inside the 500 ms period
+
+  EXPECT_EQ(f.tracker->inits, 2);  // the LockCenter plus exactly one re-seed
+  EXPECT_EQ(f.tracker->lastInit, follow::vision::expandBox(follow::vision::toRect(kLockBox), 1.5, cv::Size(640, 480)));
+}
+
+TEST(CameraTrackerSource, ReacquireIsRetriedEveryPeriodWhileTheTrackerKeepsFailing)
+{
+  // Core::step emits a TrackerRequest only on a state edge, so exactly one Reacquire is produced per
+  // entry into Lost. The retry is therefore the adapter's job: without it reacquisition is a single
+  // attempt at the instant the tracker first failed and reacquire_period_ms is dead config.
+  CountingFixture f;
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  f.source.iterate();
+  f.tracker->result.reset();
+  f.source.iterate();  // the update the core sees fail, which is what makes it emit Reacquire
+  ASSERT_EQ(f.tracker->inits, 1);
+
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  for (int i = 0; i < 60; ++i) {  // 3 s of frames 50 ms apart, the whole lost_timeout_ms window
+    f.source.iterate();
+  }
+
+  EXPECT_EQ(f.tracker->inits, 1 + 6);  // the LockCenter plus one re-seed every 500 ms
+}
+
+TEST(CameraTrackerSource, RetryingStopsWhenTheTrackerRecovers)
+{
+  CountingFixture f;
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  f.source.iterate();
+  f.tracker->result.reset();
+  f.source.iterate();
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  f.source.iterate();
+  ASSERT_EQ(f.tracker->inits, 2);
+
+  f.tracker->result = cv::Rect(300, 220, 40, 40);
+  for (int i = 0; i < 40; ++i) {  // 2 s: four retries' worth, had the latch not been cleared
+    f.source.iterate();
+  }
+
+  EXPECT_EQ(f.tracker->inits, 2);
+  EXPECT_TRUE(f.channels.observation.read()->value.ok);
+}
+
+TEST(CameraTrackerSource, UnlockCancelsAnOutstandingReacquire)
+{
+  CountingFixture f;
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
+  f.source.iterate();
+  f.tracker->result.reset();
+  f.source.iterate();
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
+  f.source.iterate();
+  ASSERT_EQ(f.tracker->inits, 2);
+
+  f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Unlock, .hint = {}});
+  for (int i = 0; i < 40; ++i) {
+    f.source.iterate();
+  }
+
+  EXPECT_FALSE(f.source.locked());
+  EXPECT_EQ(f.tracker->inits, 2);
 }

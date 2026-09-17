@@ -51,6 +51,8 @@ public:
 
 private:
   void handle(const core::TrackerRequest& request, const Frame& frame);
+  // Re-initializes the tracker on the latched hint, at most once per reacquirePeriod.
+  void reseed(const Frame& frame);
 
   IFrameSource& frames;
   std::unique_ptr<ITracker> tracker;
@@ -59,6 +61,9 @@ private:
   std::optional<Frame> frame{};
   bool isLocked{false};
   uint64_t missed{0};
+  bool lastUpdateOk{false};    // the last tracker->update() result: Reacquire is a no-op while true
+  bool reacquiring{false};     // a Reacquire is outstanding and the tracker has not recovered yet
+  core::BBox reacquireHint{};  // the hint that Reacquire carried, retried until the tracker recovers
   std::optional<core::TimePoint> lastReacquire{};
 };
 

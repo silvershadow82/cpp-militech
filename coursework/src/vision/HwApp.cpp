@@ -1,9 +1,9 @@
-#include "follow/runtime/HwApp.h"
+#include "follow/vision/HwApp.h"
 
 #include <algorithm>
 #include <chrono>
-#include <fstream>
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -21,7 +21,7 @@
 #include "follow/vision/Overlay.h"
 #include "follow/vision/Tracker.h"
 
-namespace follow::runtime {
+namespace follow::vision {
 
 namespace {
 
@@ -31,7 +31,7 @@ constexpr auto kFailsafeSendTimeout = std::chrono::milliseconds{200};
 
 }  // namespace
 
-void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
+void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
 {
   config::AppConfig app = config::loadAppConfig(options.configPath);
   std::string linkSpec = options.link.value_or(app.mavlink.link);
@@ -49,26 +49,26 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
     out << line << std::endl;
   };
 
-  std::unique_ptr<vision::FramebufferWriter> framebuffer;
+  std::unique_ptr<FramebufferWriter> framebuffer;
   if (!app.vision.framebuffer.empty()) {
     try {
-      framebuffer = std::make_unique<vision::FramebufferWriter>(app.vision.framebuffer);
+      framebuffer = std::make_unique<FramebufferWriter>(app.vision.framebuffer);
     }
     catch (const std::runtime_error& e) {
       print(std::string("follow_app: no overlay: ") + e.what());
     }
   }
 
-  Channels channels;
-  RunLogWriter log(logFile);
+  runtime::Channels channels;
+  runtime::RunLogWriter log(logFile);
   mavlink::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
-  MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
-  vision::CameraTrackerSource source(frames,
-                                     vision::makeTracker(app.vision.tracker),
-                                     vision::CameraTrackerConfig{.reacquirePeriod = std::chrono::milliseconds{app.vision.reacquirePeriodMs},
-                                                                 .reacquireExpand = app.vision.reacquireExpand},
-                                     channels);
-  ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, core::Clock::now());
+  runtime::MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
+  CameraTrackerSource source(frames,
+                             makeTracker(app.vision.tracker),
+                             CameraTrackerConfig{.reacquirePeriod = std::chrono::milliseconds{app.vision.reacquirePeriodMs},
+                                                 .reacquireExpand = app.vision.reacquireExpand},
+                             channels);
+  runtime::ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, core::Clock::now());
 
   print("follow_app --hw: tracker " + app.vision.tracker + ", link " + linkSpec + ", log " + options.logPath.string());
   // Two stop flags, not one: the I/O thread outlives the other two so the fail-safe setpoint below
@@ -96,7 +96,7 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
       if (framebuffer && now >= nextOverlay && source.lastFrame()) {
         cv::Mat image = source.lastFrame()->image.clone();
         if (auto overlay = channels.overlay.read()) {
-          vision::drawOverlay(image, overlay->value);
+          drawOverlay(image, overlay->value);
         }
         framebuffer->write(image);
         nextOverlay = now + overlayPeriod;
@@ -153,7 +153,7 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
     if (ioThread.joinable()) {
       // The control loop has stopped, so this is the last write to the slot.
       channels.setpoint.write(core::VelocityCmd{}, core::Clock::now());
-      std::optional<Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
+      std::optional<runtime::Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
       core::TimePoint deadline = core::Clock::now() + kFailsafeSendTimeout;
       while (zero && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});
@@ -185,4 +185,4 @@ void runHwApp(const HwAppOptions& options, vision::IFrameSource& frames, const s
   print(framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped");
 }
 
-}  // namespace follow::runtime
+}  // namespace follow::vision

@@ -10,7 +10,7 @@
 
 #ifdef FOLLOW_WITH_OPENCV
 #include "follow/config/ConfigJson.h"
-#include "follow/runtime/HwApp.h"
+#include "follow/vision/HwApp.h"
 #include "follow/vision/PiCameraSource.h"
 #endif
 
@@ -116,8 +116,8 @@ int main(int argc, char** argv)
                                                                            .fps = app.vision.fps,
                                                                            .hflip = app.vision.hflip,
                                                                            .vflip = app.vision.vflip});
-      follow::runtime::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
-      follow::runtime::runHwApp(options, camera, stopRequested, std::cout);
+      follow::vision::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
+      follow::vision::runHwApp(options, camera, stopRequested, std::cout);
     }
 #endif
   }

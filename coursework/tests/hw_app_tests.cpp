@@ -20,9 +20,9 @@
 #include "FakeAutopilot.h"
 #include "follow/config/ConfigJson.h"
 #include "follow/core/Types.h"
-#include "follow/runtime/HwApp.h"
 #include "follow/runtime/RunLog.h"
 #include "follow/vision/FrameSource.h"
+#include "follow/vision/HwApp.h"
 
 namespace {
 
@@ -129,13 +129,13 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   follow::test::FakeAutopilot fc(1.0);
   fc.start();
   follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
-  follow::runtime::HwAppOptions options{
+  follow::vision::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{5});
   std::ostringstream out;
 
-  follow::runtime::runHwApp(options, frames, stop, out);
+  follow::vision::runHwApp(options, frames, stop, out);
 
   // The fail-safe: ArduPilot holds the last velocity target until its guided timeout (3 s, the rule
   // FakeAutopilot encodes), so an app that just stops leaves the vehicle coasting at its following
@@ -171,12 +171,12 @@ TEST(HwAppTest, ReportsAnUnreadableConfigInsteadOfAborting)
   TempDirGuard guard(dir);
 
   follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
-  follow::runtime::HwAppOptions options{.configPath = dir / "does_not_exist.json", .link = "udp:0", .logPath = dir / "run.csv"};
+  follow::vision::HwAppOptions options{.configPath = dir / "does_not_exist.json", .link = "udp:0", .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{5});
   std::ostringstream out;
 
-  EXPECT_THROW(follow::runtime::runHwApp(options, frames, stop, out), follow::config::ConfigError);
+  EXPECT_THROW(follow::vision::runHwApp(options, frames, stop, out), follow::config::ConfigError);
 }
 
 // An exception escaping a worker thread calls std::terminate(): the process dies instantly, no
@@ -194,14 +194,14 @@ TEST(HwAppTest, ReportsAFailedWorkerThreadAfterCommandingZero)
   fc.start();
   follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
   ThrowingFrames throwing(frames, 20);  // 1 s of frames, long enough to have commanded something
-  follow::runtime::HwAppOptions options{
+  follow::vision::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{10});  // must never fire: the throw ends the run
   std::ostringstream out;
 
   try {
-    follow::runtime::runHwApp(options, throwing, stop, out);
+    follow::vision::runHwApp(options, throwing, stop, out);
     ADD_FAILURE() << "runHwApp returned normally: " << out.str();
   }
   catch (const std::runtime_error& e) {

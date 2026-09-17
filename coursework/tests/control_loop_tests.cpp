@@ -96,3 +96,13 @@ TEST_F(ControlLoopTest, EveryTickIsLoggedWithFreshGroundTruth)
   EXPECT_EQ(first, "0.100,Idle,5,0,,,,,,,1.50,3.250");
   EXPECT_EQ(second, "0.300,Idle,5,0,,,,,,,,");
 }
+
+TEST_F(ControlLoopTest, PublishesTheOverlayEveryTick)
+{
+  core::Outputs out = this->loop.tick(at(0.0));
+
+  auto overlay = this->channels.overlay.read();
+  ASSERT_TRUE(overlay.has_value());
+  EXPECT_EQ(overlay->value.state, out.state);
+  EXPECT_DOUBLE_EQ(overlay->value.lockBox.w, out.overlay.lockBox.w);
+}

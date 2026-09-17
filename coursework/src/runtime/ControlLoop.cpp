@@ -37,6 +37,7 @@ core::Outputs ControlLoop::tick(core::TimePoint now)
   }
 
   core::Outputs out = this->core.step(inputs);
+  this->channels.overlay.write(out.overlay, now);
 
   if (out.setpoint) {
     this->channels.setpoint.write(*out.setpoint, now);

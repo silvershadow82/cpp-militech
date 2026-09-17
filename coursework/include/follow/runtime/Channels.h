@@ -14,15 +14,16 @@ struct SimTruth {
 };
 
 // Everything the threads of follow_app share. Each field has one writer:
-//   vehicle, (setpoint is read)  - MAVLink I/O thread
-//   observation, truth           - vision thread
-//   setpoint, trackerRequests    - control loop (trackerRequests is drained by the vision thread)
+//   vehicle, (setpoint is read)       - MAVLink I/O thread
+//   observation, truth                - vision thread
+//   setpoint, trackerRequests, overlay - control loop (trackerRequests is drained by the vision thread)
 struct Channels {
   Latest<core::VehicleState> vehicle;
   Latest<core::TargetObservation> observation;
   Latest<SimTruth> truth;
   Latest<core::VelocityCmd> setpoint;                // written only when the core commands a setpoint
   EventQueue<core::TrackerRequest> trackerRequests;  // edge events: must not be overwritten
+  Latest<core::OverlayInfo> overlay;                 // what the pilot's video overlay shows, every tick
 };
 
 }  // namespace follow::runtime

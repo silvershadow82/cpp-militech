@@ -112,7 +112,19 @@ int main(int argc, char** argv)
     }
 
     follow::vision::CalibrationResult result = follow::vision::calibrateFisheye(corners, board, square, imageSize);
-    std::ofstream(out) << std::setprecision(10) << follow::vision::cameraJson(result, tilt).dump(2) << '\n';
+
+    std::ofstream outFile(out);
+    if (!outFile) {
+      std::cerr << "follow_calibrate_fisheye: cannot write " << out.string() << '\n';
+      return 1;
+    }
+    outFile << std::setprecision(10) << follow::vision::cameraJson(result, tilt).dump(2) << '\n';
+    outFile.flush();
+    if (!outFile) {
+      std::cerr << "follow_calibrate_fisheye: cannot write " << out.string() << '\n';
+      return 1;
+    }
+
     std::cout << "views " << result.views << ", reprojection error " << result.rms << " px, wrote " << out.string() << '\n';
     if (result.rms >= 0.5) {
       std::cout << "stage 0 FAILS: reprojection error must be below 0.5 px\n";

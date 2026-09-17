@@ -198,6 +198,9 @@ TEST(CameraTrackerSource, StopsOnlyWhenTheSourceReportsItIsExhausted)
 
   scripted.exhausted = true;
   EXPECT_FALSE(source.iterate());
+  // The terminal read is an ending, not a miss: it must not inflate missedFrames() (iterate() checks
+  // frames.ended() before counting a nullopt read as a miss).
+  EXPECT_EQ(source.missedFrames(), 0u);
 }
 
 TEST(CameraTrackerSource, ReacquireIsANoOpWhileTheTrackerStillSucceeds)

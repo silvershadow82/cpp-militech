@@ -277,10 +277,14 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
   const auto tick = std::chrono::milliseconds{10};
   follow::core::TimePoint now = follow::core::Clock::now();
   follow::core::TimePoint nextOverlay = now;
-  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));
+  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));  // nextOverlay = now + 60ms
   now += std::chrono::milliseconds{500};                                             // long stall: nextOverlay is now far behind `now`
-  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));  // catches up, clamps to `now`
+  // Catches up and clamps to `now + period` (t+560ms), not `now` (t+500ms) -- clamping to `now` alone
+  // would make the very next tick immediately eligible again, a back-to-back double draw.
+  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));
 
+  // 12 ticks of 10 ms from t+500ms reach t+620ms. With nextOverlay clamped to t+560ms, draws land
+  // exactly at t+560ms (tick 5) and t+620ms (tick 11): exactly 2, one period apart, not back-to-back.
   int draws = 0;
   for (int i = 0; i < 12; ++i) {
     now += tick;
@@ -288,7 +292,7 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
       ++draws;
     }
   }
-  EXPECT_LE(draws, 3);
+  EXPECT_EQ(draws, 2);
 }
 
 // Runs the whole follow_app --hw wiring against a fake autopilot with synthetic camera frames for

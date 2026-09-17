@@ -32,9 +32,11 @@ bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::
   }
   nextOverlay += period;
   // More than one whole period behind even after advancing once: clamp forward instead of bursting
-  // through every slot missed during the stall.
+  // through every slot missed during the stall. Clamping to `now + period`, not `now`, keeps the next
+  // draw a full period away -- clamping to `now` alone makes the very next tick (however soon after
+  // this one) immediately eligible again, i.e. a back-to-back double draw right after every stall.
   if (nextOverlay < now) {
-    nextOverlay = now;
+    nextOverlay = now + period;
   }
   return true;
 }

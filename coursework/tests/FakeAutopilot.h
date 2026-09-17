@@ -62,19 +62,14 @@ private:
     const auto period = std::chrono::milliseconds{10};
     Clock::time_point next = Clock::now();
     std::optional<Clock::time_point> connected;
+    std::optional<bool> announced;  // the mode the last heartbeat reported, so a change can be sent at once
     std::optional<core::VelocityCmd> setpoint;
     Clock::time_point setpointTime{};
     for (int tick = 0; !this->stopRequested; ++tick) {
       Clock::time_point now = Clock::now();
       if (this->receiveSetpoint(setpoint)) {
         setpointTime = now;
-        if (!connected) {
-          connected = now;
-          // A real FC broadcasts HEARTBEAT continuously; over UDP this one cannot until the app has
-          // spoken first. Answer at once instead of waiting up to a second for the next scheduled
-          // one, so a test is not held in NoFc for a second of its run.
-          this->send(this->fc.heartbeat(core::kModeLoiter, true));
-        }
+        connected = connected.value_or(now);
       }
       bool guided = connected && now - *connected >= std::chrono::duration<double>(this->engageAfterS);
       // GUID_TIMEOUT: stop when setpoints stop for 3 s.
@@ -82,7 +77,19 @@ private:
       this->vehicle.step(guided && fresh ? setpoint : std::nullopt, 0.01);
 
       const sim::Pose& pose = this->vehicle.pose();
-      if (tick % 100 == 0) {
+      // A real FC broadcasts HEARTBEAT continuously; over UDP this one cannot until the app has
+      // spoken first, and at 1 Hz it would then quantise both the first contact and the
+      // LOITER -> GUIDED change to a one-second grid. An app waiting on either would leave NoFc,
+      // and lock, at a time that depends on where in the heartbeat period the run happened to
+      // start -- a race, and a slow one. Announce both the moment they happen.
+      //
+      // `announced` records only what a listener could actually have heard: before the first
+      // datagram arrives there is nowhere to send, so those heartbeats must not count as announced,
+      // or first contact finds guided == announced and says nothing until the next 1 Hz tick.
+      if (tick % 100 == 0 || (connected && guided != announced)) {
+        if (connected) {
+          announced = guided;
+        }
         this->send(this->fc.heartbeat(guided ? core::kModeGuided : core::kModeLoiter, true));
       }
       if (tick % 5 == 0) {

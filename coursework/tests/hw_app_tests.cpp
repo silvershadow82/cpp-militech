@@ -257,7 +257,7 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   follow::vision::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
-  Stopper stopper(stop, std::chrono::seconds{5});
+  Stopper stopper(stop, std::chrono::seconds{4});
   std::ostringstream out;
 
   follow::vision::runHwApp(options, realTime, stop, out);

@@ -114,6 +114,60 @@ private:
   follow::vision::IFrameSource& inner;
 };
 
+// A camera that stops answering, the way a stalled libcamerasrc does: read() blocks inside
+// gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
+// never counts, ended() never fires and the vision thread can never be joined. Everything the
+// fail-safe depends on must therefore happen before that join is attempted.
+class StallingFrames final : public follow::vision::IFrameSource {
+public:
+  explicit StallingFrames(follow::vision::IFrameSource& inner)
+    : inner(inner)
+  {
+  }
+
+  ~StallingFrames() override { this->release(); }
+
+  std::optional<follow::vision::Frame> read() override
+  {
+    std::unique_lock<std::mutex> lock(this->mutex);
+    if (this->stalling) {
+      this->released.wait(lock, [this] { return this->freed; });
+      return std::nullopt;
+    }
+    lock.unlock();
+    return this->inner.read();
+  }
+
+  // Only true once the stall has been released, so a stalled source never looks exhausted.
+  bool ended() const override
+  {
+    std::lock_guard<std::mutex> lock(this->mutex);
+    return this->freed;
+  }
+
+  void stall()
+  {
+    std::lock_guard<std::mutex> lock(this->mutex);
+    this->stalling = true;
+  }
+
+  void release()
+  {
+    {
+      std::lock_guard<std::mutex> lock(this->mutex);
+      this->freed = true;
+    }
+    this->released.notify_all();
+  }
+
+private:
+  follow::vision::IFrameSource& inner;
+  mutable std::mutex mutex;
+  std::condition_variable released;
+  bool stalling{false};
+  bool freed{false};
+};
+
 // A camera that dies mid-run the way OpenCV does: cv::Exception derives from std::exception and is
 // thrown for, among other things, a frame whose size or type no longer matches what the tracker was
 // initialized with -- exactly what a mid-run caps renegotiation on libcamerasrc produces.
@@ -304,6 +358,56 @@ TEST(HwAppTest, ReportsAFailedWorkerThreadAfterCommandingZero)
   }
   fc.stop();
   // The fail-safe goes out even on the failure path, and before runHwApp rethrows.
+  ASSERT_TRUE(last.has_value()) << out.str();
+  EXPECT_DOUBLE_EQ(last->vx, 0.0) << out.str();
+  EXPECT_DOUBLE_EQ(last->yawRate, 0.0) << out.str();
+}
+
+// The fail-safe must not depend on the camera thread being joinable. A stalled GStreamer pipeline
+// blocks the vision thread for ever, and the zero setpoint has to be on the wire before anything
+// waits on it -- otherwise this degrades to exactly the behaviour the fail-safe exists to remove:
+// the FC holding the last following setpoint for its whole guided timeout.
+TEST(HwAppTest, SendsTheFailSafeEvenWhenTheCameraThreadIsStuck)
+{
+  std::filesystem::path dir = std::filesystem::temp_directory_path() / ("follow_hw_app_stall_test_" + std::to_string(::getpid()));
+  std::filesystem::create_directories(dir);
+  TempDirGuard guard(dir);
+  std::filesystem::path configPath = writeTestConfig(dir);
+
+  follow::test::FakeAutopilot fc(0.3);
+  fc.start();
+  follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
+  RealTimeFrames realTime(frames);
+  StallingFrames stalling(realTime);
+  follow::vision::HwAppOptions options{
+    .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
+  std::atomic<bool> stop{false};
+  std::ostringstream out;
+  std::thread app([&] { follow::vision::runHwApp(options, stalling, stop, out); });
+
+  auto moving = [&fc] {
+    std::optional<follow::core::VelocityCmd> last = fc.lastSetpoint();
+    return last && (last->vx != 0.0 || last->yawRate != 0.0);
+  };
+  for (int i = 0; i < 600 && !moving(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+  }
+  bool wasMoving = moving();
+  // Stall the camera and stop the app in the same breath, so the estimator's 300 ms staleness rule
+  // cannot be what commands zero: this has to be runHwApp's own fail-safe.
+  stalling.stall();
+  stop = true;
+
+  std::optional<follow::core::VelocityCmd> last;
+  for (int i = 0; i < 400 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    last = fc.lastSetpoint();
+  }
+  stalling.release();
+  app.join();
+  fc.stop();
+
+  EXPECT_TRUE(wasMoving) << "the vehicle was never commanded to move, so zero proves nothing\n" << out.str();
   ASSERT_TRUE(last.has_value()) << out.str();
   EXPECT_DOUBLE_EQ(last->vx, 0.0) << out.str();
   EXPECT_DOUBLE_EQ(last->yawRate, 0.0) << out.str();

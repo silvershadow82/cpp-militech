@@ -136,28 +136,41 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
   std::thread visionThread;
   std::thread controlThread;
 
-  // Every exit path -- a clean stop, a camera that really ended, or a throw -- goes through here.
   // ArduPilot holds the last velocity target until its guided timeout (3 s), so an app that simply
-  // stops leaves the vehicle flying at whatever it was last commanded. Command zero and wait for
-  // the I/O thread to put it on the wire before stopping it. Nothing has touched the capture object
-  // at this point: on this libcamerasrc build an end-of-stream can hang, so cv::VideoCapture's
-  // release() (in the caller, after this returns) must never come first.
+  // stops leaves the vehicle flying at whatever it was last commanded. Command zero and wait for the
+  // I/O thread to put it on the wire.
+  //
+  // This must be able to run while the vision thread is still alive, and must not wait on anything
+  // that can block: a stalled libcamerasrc leaves capture.read() parked inside
+  // gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
+  // never counts, ended() never fires and that thread can never be joined. Nothing has touched the
+  // capture object here either -- cv::VideoCapture::release() runs in the caller, after runHwApp
+  // returns, and an end-of-stream can hang on this build.
+  auto sendFailsafe = [&] {
+    if (!ioThread.joinable()) {
+      return;
+    }
+    // The control loop is the only other writer of channels.setpoint (Channels.h), and it has been
+    // joined by now, so this is still the last write to the slot.
+    channels.setpoint.write(core::VelocityCmd{}, core::Clock::now());
+    std::optional<runtime::Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
+    core::TimePoint deadline = core::Clock::now() + kFailsafeSendTimeout;
+    while (zero && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+  };
+
+  // Every exit path -- a clean stop, a camera that really ended, or a throw -- goes through here.
   auto shutdown = [&] {
     threadsStop = true;
     if (controlThread.joinable()) {
       controlThread.join();
     }
+    sendFailsafe();
     if (visionThread.joinable()) {
       visionThread.join();
     }
     if (ioThread.joinable()) {
-      // The control loop has stopped, so this is the last write to the slot.
-      channels.setpoint.write(core::VelocityCmd{}, core::Clock::now());
-      std::optional<runtime::Stamped<core::VelocityCmd>> zero = channels.setpoint.read();
-      core::TimePoint deadline = core::Clock::now() + kFailsafeSendTimeout;
-      while (zero && io.sentSetpointSequence() < zero->sequence && core::Clock::now() < deadline) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{1});
-      }
       ioStop = true;
       ioThread.join();
     }

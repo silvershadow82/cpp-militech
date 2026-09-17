@@ -51,3 +51,88 @@ TEST(FramebufferWriter, MissingDeviceThrows)
 {
   EXPECT_THROW(follow::vision::FramebufferWriter("/nonexistent/fb0"), std::runtime_error);
 }
+
+using follow::vision::detail::ChannelOffsets;
+using follow::vision::detail::FramebufferGeometry;
+
+TEST(FramebufferWriteOffset, ZeroPanFitsExactly)
+{
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 0, .yoffset = 0, .mappingLength = 1280u * 480u};
+  EXPECT_EQ(follow::vision::detail::framebufferWriteOffset(g), 0u);
+}
+
+TEST(FramebufferWriteOffset, ThrowsWhenTheLineIsTooShortForThePanelWidth)
+{
+  // A 640px line at 4 bytes/pixel needs 2560 bytes; a fix.line_length of 1000 disagrees with that,
+  // which the two independent ioctls are free to do.
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 4, .lineLength = 1000, .xoffset = 0, .yoffset = 0, .mappingLength = 1000000u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(FramebufferWriteOffset, ThrowsWhenTheMappingIsTooSmallForTheHeight)
+{
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 0, .yoffset = 0, .mappingLength = 1280u * 400u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(FramebufferWriteOffset, HonoursThePanOffset)
+{
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 10, .yoffset = 5, .mappingLength = 1280u * 486u};
+  EXPECT_EQ(follow::vision::detail::framebufferWriteOffset(g), 5u * 1280u + 10u * 2u);
+}
+
+TEST(FramebufferWriteOffset, ThrowsWhenThePanPushesPastTheMapping)
+{
+  // Same geometry that fits at (0,0) no longer fits once panned -- the pan must be checked, not
+  // just the unshifted case.
+  FramebufferGeometry g{
+    .width = 640, .height = 480, .bytesPerPixel = 2, .lineLength = 1280, .xoffset = 0, .yoffset = 5, .mappingLength = 1280u * 480u};
+  EXPECT_THROW(follow::vision::detail::framebufferWriteOffset(g), std::runtime_error);
+}
+
+TEST(LetterboxRect, KeepsAspectRatioOnAWidePanel)
+{
+  // A 4:3 640x480 frame on a 16:9 1920x1080 panel: scaled by the height ratio (2.25x, the smaller of
+  // the two axis ratios) and centred, leaving equal black bars left and right instead of stretching
+  // the frame 33% horizontally.
+  EXPECT_EQ(follow::vision::detail::letterboxRect(cv::Size(640, 480), 1920, 1080), cv::Rect(240, 0, 1440, 1080));
+}
+
+TEST(LetterboxRect, FillsAPanelWithTheSameAspectRatio)
+{
+  EXPECT_EQ(follow::vision::detail::letterboxRect(cv::Size(640, 480), 640, 480), cv::Rect(0, 0, 640, 480));
+}
+
+TEST(LetterboxRect, LettersboxesTopAndBottomOnATallerPanel)
+{
+  EXPECT_EQ(follow::vision::detail::letterboxRect(cv::Size(640, 480), 480, 640), cv::Rect(0, 140, 480, 360));
+}
+
+TEST(RequireExpectedChannelLayout, AcceptsTheStandardRgb565Layout)
+{
+  EXPECT_NO_THROW(
+    follow::vision::detail::requireExpectedChannelLayout(16, ChannelOffsets{.redOffset = 11, .greenOffset = 5, .blueOffset = 0}));
+}
+
+TEST(RequireExpectedChannelLayout, RejectsASwappedRgb565Layout)
+{
+  EXPECT_THROW(follow::vision::detail::requireExpectedChannelLayout(16, ChannelOffsets{.redOffset = 0, .greenOffset = 5, .blueOffset = 11}),
+               std::runtime_error);
+}
+
+TEST(RequireExpectedChannelLayout, AcceptsTheStandardBgra32Layout)
+{
+  EXPECT_NO_THROW(
+    follow::vision::detail::requireExpectedChannelLayout(32, ChannelOffsets{.redOffset = 16, .greenOffset = 8, .blueOffset = 0}));
+}
+
+TEST(RequireExpectedChannelLayout, RejectsAnArgbLayout)
+{
+  EXPECT_THROW(
+    follow::vision::detail::requireExpectedChannelLayout(32, ChannelOffsets{.redOffset = 8, .greenOffset = 16, .blueOffset = 24}),
+    std::runtime_error);
+}

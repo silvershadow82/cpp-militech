@@ -77,13 +77,18 @@ if(FOLLOW_WITH_OPENCV)
   message(STATUS "follow: OpenCV ${OpenCV_VERSION} from ${OpenCV_INSTALL_PATH}")
 
   add_library(follow_vision STATIC src/vision/Tracker.cpp src/vision/FrameSource.cpp src/vision/PiCameraSource.cpp
-                                    src/vision/CameraTrackerSource.cpp src/vision/Overlay.cpp src/vision/HwApp.cpp)
+                                    src/vision/CameraTrackerSource.cpp src/vision/Overlay.cpp src/vision/HwApp.cpp
+                                    src/vision/Calibration.cpp)
   target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)
 
   add_executable(follow_tracker_bench src/tools/tracker_bench_main.cpp)
   target_link_libraries(follow_tracker_bench PRIVATE follow_vision)
   target_compile_options(follow_tracker_bench PRIVATE -Wall -Wextra)
+
+  add_executable(follow_calibrate_fisheye src/tools/calibrate_fisheye_main.cpp)
+  target_link_libraries(follow_calibrate_fisheye PRIVATE follow_vision)
+  target_compile_options(follow_calibrate_fisheye PRIVATE -Wall -Wextra)
 endif()
 
 # --- Executables ----------------------------------------------------------------
@@ -134,7 +139,7 @@ if(NOT CMAKE_CROSSCOMPILING)
   if(FOLLOW_WITH_OPENCV)
     target_sources(follow_tests PRIVATE tests/vision_tracker_tests.cpp tests/vision_frame_source_tests.cpp
                                         tests/vision_pi_camera_tests.cpp tests/vision_camera_tracker_source_tests.cpp
-                                        tests/vision_overlay_tests.cpp)
+                                        tests/vision_overlay_tests.cpp tests/vision_calibration_tests.cpp)
     target_link_libraries(follow_tests PRIVATE follow_vision)
   endif()
   target_include_directories(follow_tests PRIVATE tests)

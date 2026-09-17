@@ -10,6 +10,18 @@
 
 namespace follow::vision {
 
+namespace detail {
+
+// Whether the overlay should redraw at `now`, given the last scheduled draw instant `nextOverlay`
+// and the configured `period`. When it returns true, `nextOverlay` is advanced by exactly one
+// `period` -- not reset to `now` -- so a draw that runs late does not shorten the next gap (the fix
+// for Important 5: restarting from the draw instant quantises overlay_fps to fps/2). If that leaves
+// `nextOverlay` still behind `now` (more than one whole period behind), it is clamped forward to
+// `now` so a long stall recovers instead of bursting through every missed slot.
+bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::Clock::duration period);
+
+}  // namespace detail
+
 struct HwAppOptions {
   std::filesystem::path configPath{"config/follow.json"};
   std::optional<std::string> link{};  // overrides mavlink.link from follow.json when set

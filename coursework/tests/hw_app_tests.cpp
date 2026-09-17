@@ -238,6 +238,59 @@ std::filesystem::path writeTestConfig(const std::filesystem::path& dir)
 
 }  // namespace
 
+// Important 5: `nextOverlay = now + overlayPeriod` restarts the period from the draw instant, which
+// with the committed defaults (fps 20, overlay_fps 15) quantises the overlay to fps/2 = 10 fps, a
+// 33% shortfall against the ~15 fps spec value. Accumulating instead (`nextOverlay += period`) must
+// reach the configured rate.
+TEST(ShouldDrawOverlay, AccumulatesToTheConfiguredRateInsteadOfHalvingIt)
+{
+  const auto framePeriod = std::chrono::duration_cast<follow::core::Clock::duration>(std::chrono::duration<double>(1.0 / 20.0));
+  const auto overlayPeriod = std::chrono::duration_cast<follow::core::Clock::duration>(std::chrono::duration<double>(1.0 / 15.0));
+  follow::core::TimePoint now = follow::core::Clock::now();
+  follow::core::TimePoint nextOverlay = now;
+  int draws = 0;
+  const int ticks = 100;  // 5 s of frames at 20 fps
+  for (int i = 0; i < ticks; ++i) {
+    if (follow::vision::detail::shouldDrawOverlay(now, nextOverlay, overlayPeriod)) {
+      ++draws;
+    }
+    now += framePeriod;
+  }
+  // 5 s at 15 fps is 75 draws; the bug this fixes produces exactly 50 (10 fps). Allow +-1 for the
+  // boundary tick.
+  EXPECT_GE(draws, 74);
+  EXPECT_LE(draws, 76);
+}
+
+TEST(ShouldDrawOverlay, DoesNotDrawBeforeItsScheduledInstant)
+{
+  auto period = std::chrono::milliseconds{60};
+  follow::core::TimePoint nextOverlay = follow::core::Clock::now();
+  EXPECT_FALSE(follow::vision::detail::shouldDrawOverlay(nextOverlay - std::chrono::milliseconds{1}, nextOverlay, period));
+}
+
+// After a long stall (a blocked framebuffer write, a slow machine), the schedule must catch up to
+// `now` rather than bursting through every slot it missed while behind.
+TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
+{
+  const auto period = std::chrono::milliseconds{60};
+  const auto tick = std::chrono::milliseconds{10};
+  follow::core::TimePoint now = follow::core::Clock::now();
+  follow::core::TimePoint nextOverlay = now;
+  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));
+  now += std::chrono::milliseconds{500};                                             // long stall: nextOverlay is now far behind `now`
+  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));  // catches up, clamps to `now`
+
+  int draws = 0;
+  for (int i = 0; i < 12; ++i) {
+    now += tick;
+    if (follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period)) {
+      ++draws;
+    }
+  }
+  EXPECT_LE(draws, 3);
+}
+
 // Runs the whole follow_app --hw wiring against a fake autopilot with synthetic camera frames for
 // about 5 s: the pilot engages after 1 s, the tracker locks on the centered target and follows.
 TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)

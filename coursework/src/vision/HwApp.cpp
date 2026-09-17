@@ -23,6 +23,24 @@
 
 namespace follow::vision {
 
+namespace detail {
+
+bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::Clock::duration period)
+{
+  if (now < nextOverlay) {
+    return false;
+  }
+  nextOverlay += period;
+  // More than one whole period behind even after advancing once: clamp forward instead of bursting
+  // through every slot missed during the stall.
+  if (nextOverlay < now) {
+    nextOverlay = now;
+  }
+  return true;
+}
+
+}  // namespace detail
+
 namespace {
 
 // How long shutdown waits for the I/O thread to send the zero setpoint. The thread iterates at
@@ -104,13 +122,12 @@ void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atom
         print("follow_app: camera recovered (" + std::to_string(reportedMisses) + " frames missed so far)");
       }
       core::TimePoint now = core::Clock::now();
-      if (framebuffer && now >= nextOverlay && source.lastFrame()) {
+      if (framebuffer && source.lastFrame() && detail::shouldDrawOverlay(now, nextOverlay, overlayPeriod)) {
         cv::Mat image = source.lastFrame()->image.clone();
         if (auto overlay = channels.overlay.read()) {
           drawOverlay(image, overlay->value);
         }
         framebuffer->write(image);
-        nextOverlay = now + overlayPeriod;
       }
       // The Pi camera blocks until the next frame; a file or synthetic source does not, so pace it.
       nextFrame = std::max(nextFrame + framePeriod, now);

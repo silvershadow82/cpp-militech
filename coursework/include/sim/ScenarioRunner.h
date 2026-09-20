@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "Types.h"
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
 #include "models/Config.h"
 #include "models/Frames.h"
 #include "sim/KinematicVehicle.h"
@@ -52,7 +52,7 @@ GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double tar
 // Runs Core against SyntheticCamera + KinematicVehicle, starting in LOITER with the vehicle
 // at the origin facing north.
 ScenarioResult runScenario(const models::Config& config,
-                           const models::CameraModel& camera,
+                           const interfaces::ICameraModel& camera,
                            const models::CameraMount& mount,
                            const SimTarget& target,
                            const ScenarioOptions& options);

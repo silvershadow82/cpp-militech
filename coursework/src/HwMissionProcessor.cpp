@@ -12,7 +12,7 @@
 #include <thread>
 
 #include "StatCollector.h"
-#include "comms/ByteLink.h"
+#include "comms/LinkSpec.h"
 #include "comms/MavlinkIo.h"
 #include "config/ConfigJson.h"
 #include "ControlLoop.h"
@@ -67,8 +67,8 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   config::AppConfig app = config::loadAppConfig(options.configPath);
   std::string linkSpec = options.link.value_or(app.mavlink.link);
   // Owned here so it outlives the Core inside ControlLoop, which keeps a reference.
-  std::unique_ptr<models::CameraModel> camera = config::makeCameraModel(app.camera);
-  std::unique_ptr<comms::ByteLink> link = comms::openLink(comms::parseLinkSpec(linkSpec));
+  std::unique_ptr<interfaces::ICameraModel> camera = config::makeCameraModel(app.camera);
+  std::unique_ptr<interfaces::IByteLink> link = comms::openLink(comms::parseLinkSpec(linkSpec));
   std::ofstream logFile(options.logPath);
   if (!logFile) {
     throw std::runtime_error("cannot write run log " + options.logPath.string());

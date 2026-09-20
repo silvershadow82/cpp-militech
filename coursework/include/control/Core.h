@@ -4,8 +4,8 @@
 #include "control/FollowController.h"
 #include "control/Supervisor.h"
 #include "control/TargetEstimator.h"
+#include "interfaces/ICameraModel.h"
 #include "models/AttitudeHistory.h"
-#include "models/CameraModel.h"
 #include "models/Config.h"
 #include "models/Frames.h"
 
@@ -66,14 +66,14 @@ namespace follow::control
   class Core
   {
   public:
-    Core(const models::Config &config, const models::CameraModel &camera, const models::CameraMount &mount);
+    Core(const models::Config &config, const interfaces::ICameraModel &camera, const models::CameraMount &mount);
 
     Outputs step(const Inputs &inputs);
     models::BBox lockBox() const;
 
   private:
     models::Config config;
-    const models::CameraModel &camera;
+    const interfaces::ICameraModel &camera;
     TargetEstimator estimator;
     FollowController controller;
     Supervisor supervisor;

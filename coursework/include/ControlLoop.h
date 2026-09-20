@@ -4,7 +4,7 @@
 
 #include "StatCollector.h"
 #include "control/Core.h"
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
 #include "models/Config.h"
 #include "models/Frames.h"
 #include "util/Channels.h"
@@ -17,7 +17,7 @@ class ControlLoop {
 public:
   // `camera` must outlive the loop (Core keeps a reference). `log` may be null.
   ControlLoop(const models::Config& config,
-              const models::CameraModel& camera,
+              const interfaces::ICameraModel& camera,
               const models::CameraMount& mount,
               util::Channels& channels,
               util::RunLogWriter* log,

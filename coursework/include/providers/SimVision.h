@@ -5,7 +5,7 @@
 
 #include "config/ScenarioJson.h"
 #include "control/Core.h"
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
 #include "models/Frames.h"
 #include "sim/SimTarget.h"
 #include "sim/SyntheticCamera.h"
@@ -18,7 +18,7 @@ namespace follow::providers {
 class SimVision {
 public:
   // `camera` must outlive this object. `durationS` is how long the scenario runs after engage.
-  SimVision(const models::CameraModel& camera,
+  SimVision(const interfaces::ICameraModel& camera,
             const models::CameraMount& mount,
             const sim::SyntheticCameraConfig& cameraConfig,
             const config::TargetScript& script,

@@ -14,7 +14,7 @@ constexpr auto kMaxExtrapolation = std::chrono::milliseconds{200};
 
 }  // namespace
 
-SimVision::SimVision(const models::CameraModel& camera,
+SimVision::SimVision(const interfaces::ICameraModel& camera,
                      const models::CameraMount& mount,
                      const sim::SyntheticCameraConfig& cameraConfig,
                      const config::TargetScript& script,

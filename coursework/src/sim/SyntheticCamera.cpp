@@ -23,7 +23,9 @@ models::BBox expand(const models::BBox& box, double factor)
 
 }  // namespace
 
-SyntheticCamera::SyntheticCamera(const models::CameraModel& camera, const models::CameraMount& mount, const SyntheticCameraConfig& config)
+SyntheticCamera::SyntheticCamera(const interfaces::ICameraModel& camera,
+                                 const models::CameraMount& mount,
+                                 const SyntheticCameraConfig& config)
   : camera(camera)
   , mount(mount)
   , config(config)

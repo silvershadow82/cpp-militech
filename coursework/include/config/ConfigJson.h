@@ -6,7 +6,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
+#include "models/Intrinsics.h"
 #include "models/Config.h"
 #include "models/Frames.h"
 
@@ -69,6 +70,6 @@ AppConfig loadAppConfig(const std::filesystem::path& path);
 // Same, with `overrides` applied to follow.json as a JSON merge patch (RFC 7386) before parsing.
 AppConfig loadAppConfig(const std::filesystem::path& path, const nlohmann::json& overrides);
 
-std::unique_ptr<models::CameraModel> makeCameraModel(const CameraSettings& settings);
+std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings& settings);
 
 }  // namespace follow::config

@@ -41,7 +41,7 @@ struct MavlinkClient::Codec {
   std::optional<models::AttitudeSample> pendingAttitude{};
 };
 
-MavlinkClient::MavlinkClient(ByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
+MavlinkClient::MavlinkClient(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
   : link(link)
   , ids(ids)
   , onStatusText(std::move(onStatusText))

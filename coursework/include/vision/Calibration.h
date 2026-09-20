@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core.hpp>
 
-#include "models/CameraModel.h"
+#include "models/Intrinsics.h"
 
 namespace follow::vision {
 

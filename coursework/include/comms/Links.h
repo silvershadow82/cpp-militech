@@ -5,13 +5,13 @@
 
 #include <string>
 
-#include "comms/ByteLink.h"
+#include "interfaces/IByteLink.h"
 
 namespace follow::comms {
 
 // UDP endpoint bound to localPort (0 = any free port). Sends to the given remote, or, without one,
 // to the sender of the first datagram received (ArduPilot SITL's "udpclient" connects this way).
-class UdpLink final : public ByteLink {
+class UdpLink final : public interfaces::IByteLink {
 public:
   explicit UdpLink(int localPort, const std::string& remoteHost = {}, int remotePort = 0);
   ~UdpLink() override;
@@ -31,7 +31,7 @@ private:
 };
 
 // Serial port in raw 8N1, non-blocking, no flow control.
-class UartLink final : public ByteLink {
+class UartLink final : public interfaces::IByteLink {
 public:
   UartLink(const std::string& device, int baud);
   ~UartLink() override;

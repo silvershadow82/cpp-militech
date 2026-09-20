@@ -9,12 +9,12 @@
 #include <span>
 #include <vector>
 
-#include "comms/ByteLink.h"
+#include "interfaces/IByteLink.h"
 
 namespace follow::test {
 
 // In-memory link: tests append inbound bytes and inspect what was sent.
-class FakeLink : public comms::ByteLink {
+class FakeLink : public interfaces::IByteLink {
 public:
   int send(std::span<const uint8_t> bytes) override
   {

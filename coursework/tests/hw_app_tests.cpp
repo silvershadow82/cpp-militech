@@ -25,6 +25,7 @@
 #include "Types.h"
 #include "config/ConfigJson.h"
 #include "models/Angles.h"
+#include "interfaces/ICameraModel.h"
 #include "models/CameraModel.h"
 #include "models/Frames.h"
 #include "interfaces/IFrameSource.h"
@@ -196,7 +197,7 @@ private:
 
 // Bearing of a box center through the camera the app was configured with, in the level frame the
 // estimator reports. The fake vehicle hovers wings-level, so roll and pitch are zero.
-double bearingOfDeg(const follow::models::CameraModel& camera, const follow::models::CameraMount& mount, const cv::Rect& box)
+double bearingOfDeg(const follow::interfaces::ICameraModel& camera, const follow::models::CameraMount& mount, const cv::Rect& box)
 {
   follow::models::Pixel center{box.x + box.width / 2.0, box.y + box.height / 2.0};
   follow::models::Vec3 level = follow::models::bodyToLevel(follow::models::cameraToBody(camera.pixelToRay(center), mount), 0.0, 0.0);
@@ -421,7 +422,7 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   // The target crosses the frame at 3 px per frame, so a tracker that is on it sweeps the bearing by
   // tens of degrees while one on the background holds a constant bearing.
   follow::config::AppConfig app = follow::config::loadAppConfig(configPath);
-  std::unique_ptr<follow::models::CameraModel> camera = follow::config::makeCameraModel(app.camera);
+  std::unique_ptr<follow::interfaces::ICameraModel> camera = follow::config::makeCameraModel(app.camera);
   std::vector<double> bearings = validBearingsDeg(options.logPath);
   double truth = bearingOfDeg(*camera, app.camera.mount, frames.groundTruth());
   ASSERT_FALSE(bearings.empty()) << out.str();

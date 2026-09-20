@@ -4,7 +4,7 @@
 
 #include "Types.h"
 #include "models/AttitudeHistory.h"
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
 #include "models/Config.h"
 #include "models/Frames.h"
 
@@ -13,7 +13,7 @@ namespace follow::control {
 // Turns tracker observations (plus attitude and optional range) into a TargetState.
 class TargetEstimator {
 public:
-  TargetEstimator(const models::EstimatorConfig& config, const models::CameraModel& camera, const models::CameraMount& mount);
+  TargetEstimator(const models::EstimatorConfig& config, const interfaces::ICameraModel& camera, const models::CameraMount& mount);
 
   // Starts a new lock at `now`: frames captured earlier are ignored, and the first valid
   // observation after this becomes the size reference for TargetState::ratio.
@@ -33,7 +33,7 @@ private:
   double smooth(const std::optional<double>& previous, double sample) const;
 
   models::EstimatorConfig config;
-  const models::CameraModel& camera;
+  const interfaces::ICameraModel& camera;
   models::CameraMount mount;
 
   std::optional<models::TimePoint> lockTime{};

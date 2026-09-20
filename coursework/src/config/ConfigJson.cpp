@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 
 #include "ObjectReader.h"
+#include "models/CameraModel.h"
 
 namespace follow::config {
 
@@ -195,7 +196,7 @@ AppConfig loadAppConfig(const std::filesystem::path& path)
   return loadAppConfig(path, json::object());
 }
 
-std::unique_ptr<models::CameraModel> makeCameraModel(const CameraSettings& settings)
+std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings& settings)
 {
   if (settings.kind == CameraKind::Pinhole) {
     return std::make_unique<models::PinholeModel>(settings.intrinsics);

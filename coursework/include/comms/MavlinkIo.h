@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "Types.h"
-#include "comms/ByteLink.h"
+#include "interfaces/IByteLink.h"
 #include "comms/MavlinkClient.h"
 #include "util/Channels.h"
 
@@ -14,7 +14,7 @@ namespace follow::comms {
 // setpoints the control loop writes.
 class MavlinkIo {
 public:
-  MavlinkIo(comms::ByteLink& link,
+  MavlinkIo(interfaces::IByteLink& link,
             const comms::MavlinkIds& ids,
             util::Channels& channels,
             comms::MavlinkClient::StatusTextHandler onStatusText = {});
@@ -33,7 +33,7 @@ public:
   uint64_t sentSetpointSequence() const { return this->sentSetpoint; }
 
 private:
-  comms::ByteLink& link;
+  interfaces::IByteLink& link;
   comms::MavlinkClient client;
   util::Channels& channels;
   comms::MavlinkClient::StatusTextHandler onStatusText;

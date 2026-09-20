@@ -13,8 +13,9 @@
 #include <string>
 #include <vector>
 
-#include "comms/ByteLink.h"
+#include "comms/LinkSpec.h"
 #include "comms/Links.h"
+#include "interfaces/IByteLink.h"
 
 namespace follow::comms {
 
@@ -51,17 +52,17 @@ int parseNumber(const std::string& text, int minimum, int maximum, const std::st
   return static_cast<int>(value);
 }
 
-ByteLink::WaitStatus pollReadable(int fd, std::chrono::milliseconds timeout)
+interfaces::IByteLink::WaitStatus pollReadable(int fd, std::chrono::milliseconds timeout)
 {
   pollfd entry{.fd = fd, .events = POLLIN, .revents = 0};
   int rc = ::poll(&entry, 1, static_cast<int>(timeout.count()));
   if (rc < 0) {
-    return ByteLink::WaitStatus::Error;
+    return interfaces::IByteLink::WaitStatus::Error;
   }
   if (rc > 0 && (entry.revents & POLLIN) != 0) {
-    return ByteLink::WaitStatus::Readable;
+    return interfaces::IByteLink::WaitStatus::Readable;
   }
-  return ByteLink::WaitStatus::Timeout;
+  return interfaces::IByteLink::WaitStatus::Timeout;
 }
 
 std::string systemError(const std::string& what)
@@ -93,7 +94,7 @@ LinkSpec parseLinkSpec(const std::string& text)
   throw std::invalid_argument("link '" + text + "': expected udp:PORT, udp:PORT:HOST:PORT or uart:DEVICE:BAUD");
 }
 
-std::unique_ptr<ByteLink> openLink(const LinkSpec& spec)
+std::unique_ptr<interfaces::IByteLink> openLink(const LinkSpec& spec)
 {
   if (spec.kind == LinkSpec::Kind::Udp) {
     return std::make_unique<UdpLink>(spec.localPort, spec.remoteHost, spec.remotePort);
@@ -179,7 +180,7 @@ int UdpLink::receive(std::span<uint8_t> buffer)
   return static_cast<int>(received);
 }
 
-ByteLink::WaitStatus UdpLink::waitReadable(std::chrono::milliseconds timeout)
+interfaces::IByteLink::WaitStatus UdpLink::waitReadable(std::chrono::milliseconds timeout)
 {
   return pollReadable(this->fd, timeout);
 }
@@ -265,7 +266,7 @@ int UartLink::receive(std::span<uint8_t> buffer)
   return static_cast<int>(received);
 }
 
-ByteLink::WaitStatus UartLink::waitReadable(std::chrono::milliseconds timeout)
+interfaces::IByteLink::WaitStatus UartLink::waitReadable(std::chrono::milliseconds timeout)
 {
   return pollReadable(this->fd, timeout);
 }

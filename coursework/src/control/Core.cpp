@@ -15,7 +15,7 @@ bool isEngaged(models::State state)
 
 }  // namespace
 
-Core::Core(const models::Config& config, const models::CameraModel& camera, const models::CameraMount& mount)
+Core::Core(const models::Config& config, const interfaces::ICameraModel& camera, const models::CameraMount& mount)
   : config(config)
   , camera(camera)
   , estimator(this->config.estimator, camera, mount)

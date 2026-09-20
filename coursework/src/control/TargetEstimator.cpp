@@ -6,7 +6,9 @@
 
 namespace follow::control {
 
-TargetEstimator::TargetEstimator(const models::EstimatorConfig& config, const models::CameraModel& camera, const models::CameraMount& mount)
+TargetEstimator::TargetEstimator(const models::EstimatorConfig& config,
+                                 const interfaces::ICameraModel& camera,
+                                 const models::CameraMount& mount)
   : config(config)
   , camera(camera)
   , mount(mount)

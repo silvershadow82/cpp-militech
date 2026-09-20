@@ -41,6 +41,7 @@ set(FOLLOW_MAVLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../homework_11/c_library_v2"
 add_library(
   follow_core STATIC
   src/models/Frames.cpp
+  src/models/Intrinsics.cpp
   src/models/CameraModel.cpp
   src/models/AttitudeHistory.cpp
   src/control/TargetEstimator.cpp

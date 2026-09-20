@@ -4,6 +4,7 @@
 #include <numbers>
 
 #include "TestTime.h"
+#include "models/CameraModel.h"
 #include "providers/SimVision.h"
 #include "util/Channels.h"
 

@@ -13,7 +13,7 @@ constexpr auto kTruthMaxAge = std::chrono::milliseconds{200};
 }  // namespace
 
 ControlLoop::ControlLoop(const models::Config& config,
-                         const models::CameraModel& camera,
+                         const interfaces::ICameraModel& camera,
                          const models::CameraMount& mount,
                          util::Channels& channels,
                          util::RunLogWriter* log,

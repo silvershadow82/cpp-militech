@@ -11,6 +11,7 @@
 
 #include "config/ConfigJson.h"
 #include "config/ScenarioJson.h"
+#include "models/CameraModel.h"
 #include "sim/ScenarioCheck.h"
 #include "sim/ScenarioRunner.h"
 

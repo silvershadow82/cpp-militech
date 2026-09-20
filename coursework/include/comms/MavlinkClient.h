@@ -7,7 +7,7 @@
 #include <string>
 
 #include "Types.h"
-#include "comms/ByteLink.h"
+#include "interfaces/IByteLink.h"
 #include "control/Core.h"
 
 namespace follow::comms {
@@ -19,13 +19,13 @@ struct MavlinkIds {
   uint8_t fcCompid{1};  // MAV_COMP_ID_AUTOPILOT1
 };
 
-// MAVLink 2 over a ByteLink: decodes the FC's telemetry into a VehicleState and encodes our
+// MAVLink 2 over an IByteLink: decodes the FC's telemetry into a VehicleState and encodes our
 // heartbeat, stream requests and velocity setpoints. Not thread-safe: one I/O thread owns it.
 class MavlinkClient {
 public:
   using StatusTextHandler = std::function<void(const std::string&)>;
 
-  MavlinkClient(ByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText = {});
+  MavlinkClient(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText = {});
   ~MavlinkClient();
   MavlinkClient(const MavlinkClient&) = delete;
   MavlinkClient& operator=(const MavlinkClient&) = delete;
@@ -52,7 +52,7 @@ private:
   void handle(models::TimePoint now);
   void sendMessage();
 
-  ByteLink& link;
+  interfaces::IByteLink& link;
   MavlinkIds ids;
   StatusTextHandler onStatusText;
   std::unique_ptr<Codec> codec;

@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "comms/ByteLink.h"
+#include "comms/LinkSpec.h"
 #include "comms/Links.h"
 
 using namespace follow::comms;
@@ -27,10 +27,10 @@ std::span<const uint8_t> bytesOf(const std::string& text)
 }
 
 // Waits for data and returns what one receive() call reads.
-std::string receiveText(ByteLink& link)
+std::string receiveText(follow::interfaces::IByteLink& link)
 {
   std::array<uint8_t, 256> buffer{};
-  if (link.waitReadable(1000ms) != ByteLink::WaitStatus::Readable) {
+  if (link.waitReadable(1000ms) != follow::interfaces::IByteLink::WaitStatus::Readable) {
     return "<timeout>";
   }
   int n = link.receive(buffer);
@@ -86,7 +86,7 @@ TEST(UdpLinkTest, WaitReadableTimesOutWithoutData)
   UdpLink link(0);
   auto start = std::chrono::steady_clock::now();
 
-  EXPECT_EQ(link.waitReadable(30ms), ByteLink::WaitStatus::Timeout);
+  EXPECT_EQ(link.waitReadable(30ms), follow::interfaces::IByteLink::WaitStatus::Timeout);
   EXPECT_GE(std::chrono::steady_clock::now() - start, 25ms);
   std::array<uint8_t, 16> buffer{};
   EXPECT_EQ(link.receive(buffer), 0);

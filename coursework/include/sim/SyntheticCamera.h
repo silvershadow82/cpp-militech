@@ -8,7 +8,7 @@
 
 #include "Types.h"
 #include "control/Core.h"
-#include "models/CameraModel.h"
+#include "interfaces/ICameraModel.h"
 #include "models/Frames.h"
 #include "sim/SimTarget.h"
 
@@ -34,7 +34,7 @@ struct SyntheticCameraConfig {
 // with frame rate, latency, pixel noise and tracker lock/loss behaviour.
 class SyntheticCamera {
 public:
-  SyntheticCamera(const models::CameraModel& camera, const models::CameraMount& mount, const SyntheticCameraConfig& config);
+  SyntheticCamera(const interfaces::ICameraModel& camera, const models::CameraMount& mount, const SyntheticCameraConfig& config);
 
   // Target box as the camera sees it, clipped to the image; nullopt if not visible.
   std::optional<models::BBox> project(const Pose& vehicle, const models::Vec3& targetGroundNed, double heightM, double widthM) const;
@@ -47,7 +47,7 @@ public:
 private:
   void capture(models::TimePoint now, const Pose& vehicle, const SimTarget& target, double targetTimeS);
 
-  const models::CameraModel& camera;
+  const interfaces::ICameraModel& camera;
   models::CameraMount mount;
   SyntheticCameraConfig config;
   std::mt19937 rng;

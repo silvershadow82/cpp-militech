@@ -18,7 +18,7 @@ GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double tar
 }
 
 ScenarioResult runScenario(const models::Config& config,
-                           const models::CameraModel& camera,
+                           const interfaces::ICameraModel& camera,
                            const models::CameraMount& mount,
                            const SimTarget& target,
                            const ScenarioOptions& options)

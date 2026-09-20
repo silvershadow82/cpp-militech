@@ -5,6 +5,7 @@
 #include <string>
 
 #include "config/ConfigJson.h"
+#include "models/CameraModel.h"
 
 using namespace follow;
 using namespace follow::config;

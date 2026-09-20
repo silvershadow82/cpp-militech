@@ -2,6 +2,7 @@
 
 #include "TestTime.h"
 #include "control/Core.h"
+#include "models/CameraModel.h"
 
 using namespace follow::control;
 using namespace follow::models;

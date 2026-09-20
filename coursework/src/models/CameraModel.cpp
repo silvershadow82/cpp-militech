@@ -3,7 +3,6 @@
 #include <cmath>
 #include <numbers>
 
-#include "models/Angles.h"
 #include "models/Frames.h"
 
 namespace follow::models {
@@ -26,11 +25,6 @@ double distortThetaDerivative(const Intrinsics& k, double theta)
 }
 
 }  // namespace
-
-bool CameraModel::contains(const Pixel& p) const
-{
-  return p.u >= 0.0 && p.v >= 0.0 && p.u <= this->intr.width && p.v <= this->intr.height;
-}
 
 Vec3 PinholeModel::pixelToRay(const Pixel& p) const
 {
@@ -82,13 +76,6 @@ std::optional<Pixel> FisheyeKbModel::rayToPixel(const Vec3& ray) const
   double xd = thetaD * ray.x / rho;
   double yd = thetaD * ray.y / rho;
   return Pixel{this->intr.fx * xd + this->intr.cx, this->intr.fy * yd + this->intr.cy};
-}
-
-Intrinsics nominalFisheye(int width, int height, double diagonalFovDeg)
-{
-  double halfDiagonalPx = std::hypot(width, height) / 2.0;
-  double focal = halfDiagonalPx / degToRad(diagonalFovDeg / 2.0);
-  return Intrinsics{.width = width, .height = height, .fx = focal, .fy = focal, .cx = width / 2.0, .cy = height / 2.0};
 }
 
 }  // namespace follow::models

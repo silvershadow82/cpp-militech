@@ -22,6 +22,46 @@ setpoints on the wire. A scenario supplies the target's motion in place of a cam
 It does **not** exercise the camera path — the OpenCV tracker, the GStreamer pipeline and the
 framebuffer overlay are `--hw` only. A passing simulation says nothing about those.
 
+## Source layout
+
+The module follows `homework_11`'s structure: role directories, PascalCase filenames matching the
+class, `I`-prefixed interfaces, and includes with no project prefix (`#include "control/Core.h"`).
+
+```
+include/
+  Types.h  ControlLoop.h  MissionProcessor.h  HwMissionProcessor.h  StatCollector.h
+  models/     data and pure math: Angles, Frames, AttitudeHistory, Config, CameraModel
+  control/    the decision stack: Core, FollowController, TargetEstimator, Supervisor
+  comms/      links and protocol: ByteLink, Links, MavlinkClient, MavlinkIo
+  providers/  observation sources: FrameSource, PiCameraSource, CameraTrackerSource, SimVision
+  vision/     OpenCV-only: Tracker, Overlay, Calibration
+  config/  util/  sim/
+```
+
+Namespaces mirror the directories under a `follow::` root (`follow::models`, `follow::control`,
+`follow::comms`, ...). The root is kept deliberately: the top-level `CMakeLists.txt` builds
+`homework_11` and `coursework` in one project, and `homework_11` already defines a global
+`namespace comms` with its own `MavLink`/`SerialLink`/`SocketLink`. Without the `follow::` root
+those would collide.
+
+### follow_core must stay pure
+
+**`models/` and `control/` — and therefore the `follow_core` target — contain no threads, no I/O,
+no JSON, no MAVLink, no OpenCV and no clock reads.** Everything there is a pure function of its
+arguments, which is what makes the estimator, controller and supervisor testable without a vehicle.
+
+Anything that needs a thread, a socket, a file or the clock belongs outside them: `ControlLoop.h`
+and the `MissionProcessor`s at include root own the threads, `comms/` owns the sockets, `config/`
+owns the file parsing, `providers/` owns the cameras.
+
+Two practical consequences:
+
+- `FOLLOW_WITH_OPENCV=OFF` is the default and must keep building. If an OpenCV include reaches
+  `models/` or `control/`, the default build, the devcontainer gcc-13 build and the aarch64
+  cross-build all break at once.
+- `include/control/Core.h` is hand-formatted and is the one file never passed to clang-format.
+  Everything else is clang-format clean under `--style=file:.devcontainer/.clang-format`.
+
 ## Prerequisites
 
 **A C++20 toolchain and CMake ≥ 3.20.** The default build needs nothing else — no OpenCV.

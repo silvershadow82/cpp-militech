@@ -9,7 +9,7 @@
 #include "models/Frames.h"
 #include "util/Channels.h"
 
-namespace follow::control {
+namespace follow::app {
 
 // The 20 Hz control thread: reads the latest vehicle state and observation, steps the core,
 // publishes setpoints and tracker requests, and logs the step.
@@ -36,4 +36,4 @@ private:
   models::TimePoint start;
 };
 
-}  // namespace follow::control
+}  // namespace follow::app

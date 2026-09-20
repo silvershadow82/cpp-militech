@@ -15,7 +15,7 @@
 #include "comms/ByteLink.h"
 #include "comms/MavlinkIo.h"
 #include "config/ConfigJson.h"
-#include "control/ControlLoop.h"
+#include "ControlLoop.h"
 #include "providers/CameraTrackerSource.h"
 #include "util/Channels.h"
 #include "vision/Overlay.h"
@@ -100,7 +100,7 @@ void runHwApp(const HwAppOptions& options, providers::IFrameSource& frames, cons
     providers::CameraTrackerConfig{.reacquirePeriod = std::chrono::milliseconds{app.vision.reacquirePeriodMs},
                                    .reacquireExpand = app.vision.reacquireExpand},
     channels);
-  control::ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, models::Clock::now());
+  ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, models::Clock::now());
 
   print("follow_app --hw: tracker " + app.vision.tracker + ", link " + linkSpec + ", log " + options.logPath.string());
   // Two stop flags, not one: the I/O thread outlives the other two so the fail-safe setpoint below

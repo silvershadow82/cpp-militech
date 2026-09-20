@@ -5,10 +5,11 @@
 #include <vector>
 
 #include "TestTime.h"
-#include "control/ControlLoop.h"
+#include "ControlLoop.h"
 #include "util/Channels.h"
 
 using namespace follow;
+using namespace follow::app;
 using namespace follow::control;
 using namespace follow::util;
 using follow::test::at;

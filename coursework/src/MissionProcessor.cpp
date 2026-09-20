@@ -13,7 +13,7 @@
 #include "comms/MavlinkIo.h"
 #include "config/ConfigJson.h"
 #include "config/ScenarioJson.h"
-#include "control/ControlLoop.h"
+#include "ControlLoop.h"
 #include "providers/SimVision.h"
 #include "util/Channels.h"
 
@@ -42,7 +42,7 @@ void runSimApp(const SimAppOptions& options, const std::atomic<bool>& stop, std:
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
   comms::MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
   providers::SimVision vision(*camera, app.camera.mount, sim::SyntheticCameraConfig{}, scenario.target, scenario.durationS, channels);
-  control::ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, models::Clock::now());
+  ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, models::Clock::now());
 
   print("follow_app --sim: scenario " + scenario.name + ", link " + options.link + ", log " + options.logPath.string());
   std::atomic<bool> threadsStop{false};

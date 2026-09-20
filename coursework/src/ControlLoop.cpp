@@ -1,9 +1,9 @@
-#include "control/ControlLoop.h"
+#include "ControlLoop.h"
 
 #include <chrono>
 #include <thread>
 
-namespace follow::control {
+namespace follow::app {
 
 namespace {
 
@@ -75,4 +75,4 @@ void ControlLoop::run(const std::atomic<bool>& stop)
   }
 }
 
-}  // namespace follow::control
+}  // namespace follow::app

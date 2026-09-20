@@ -81,7 +81,7 @@ target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
 add_library(
   follow_runtime STATIC
   src/StatCollector.cpp
-  src/control/ControlLoop.cpp
+  src/ControlLoop.cpp
   src/comms/MavlinkIo.cpp
   src/providers/SimVision.cpp
   src/MissionProcessor.cpp)

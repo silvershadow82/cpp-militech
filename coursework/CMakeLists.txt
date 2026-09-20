@@ -40,13 +40,13 @@ set(FOLLOW_MAVLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../homework_11/c_library_v2"
 # --- Core: estimator, controller, supervisor. No I/O, threads or OpenCV. ------
 add_library(
   follow_core STATIC
-  src/core/Frames.cpp
-  src/core/CameraModel.cpp
-  src/core/AttitudeHistory.cpp
-  src/core/TargetEstimator.cpp
-  src/core/FollowController.cpp
-  src/core/Supervisor.cpp
-  src/core/Core.cpp)
+  src/models/Frames.cpp
+  src/models/CameraModel.cpp
+  src/models/AttitudeHistory.cpp
+  src/control/TargetEstimator.cpp
+  src/control/FollowController.cpp
+  src/control/Supervisor.cpp
+  src/control/Core.cpp)
 target_include_directories(follow_core PUBLIC include)
 target_compile_options(follow_core PRIVATE -Wall -Wextra)
 
@@ -72,7 +72,7 @@ target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_js
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
 # --- MAVLink: byte links (UDP, UART) and the MAVLink client. ------------------
-add_library(follow_mavlink STATIC src/mavlink/Links.cpp src/mavlink/MavlinkClient.cpp)
+add_library(follow_mavlink STATIC src/comms/Links.cpp src/comms/MavlinkClient.cpp)
 target_include_directories(follow_mavlink SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
 target_link_libraries(follow_mavlink PUBLIC follow_core Threads::Threads)
 target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
@@ -80,11 +80,11 @@ target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
 # --- Runtime: threads, shared slots, run log. ---------------------------------
 add_library(
   follow_runtime STATIC
-  src/runtime/RunLog.cpp
-  src/runtime/ControlLoop.cpp
-  src/runtime/MavlinkIo.cpp
-  src/runtime/SimVision.cpp
-  src/runtime/SimApp.cpp)
+  src/StatCollector.cpp
+  src/control/ControlLoop.cpp
+  src/comms/MavlinkIo.cpp
+  src/providers/SimVision.cpp
+  src/MissionProcessor.cpp)
 target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
 # PUBLIC: MavlinkIo's setpoint sequence is a std::atomic<uint64_t>, so everything linking this
 # library needs libatomic on a 32-bit target, not just this one.
@@ -102,8 +102,8 @@ if(FOLLOW_WITH_OPENCV)
   find_package(OpenCV CONFIG REQUIRED)
   message(STATUS "follow: OpenCV ${OpenCV_VERSION} from ${OpenCV_INSTALL_PATH}")
 
-  add_library(follow_vision STATIC src/vision/Tracker.cpp src/vision/FrameSource.cpp src/vision/PiCameraSource.cpp
-                                    src/vision/CameraTrackerSource.cpp src/vision/Overlay.cpp src/vision/HwApp.cpp
+  add_library(follow_vision STATIC src/vision/Tracker.cpp src/providers/FrameSource.cpp src/providers/PiCameraSource.cpp
+                                    src/providers/CameraTrackerSource.cpp src/vision/Overlay.cpp src/HwMissionProcessor.cpp
                                     src/vision/Calibration.cpp)
   target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)

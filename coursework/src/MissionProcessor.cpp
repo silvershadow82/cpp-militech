@@ -38,7 +38,7 @@ void runSimApp(const SimAppOptions& options, const std::atomic<bool>& stop, std:
   };
 
   util::Channels channels;
-  util::RunLogWriter log(logFile);
+  util::StatCollector log(logFile);
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
   comms::MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
   providers::SimVision vision(*camera, app.camera.mount, sim::SyntheticCameraConfig{}, scenario.target, scenario.durationS, channels);

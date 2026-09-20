@@ -5,7 +5,7 @@
 
 #include "Types.h"
 #include "interfaces/IByteLink.h"
-#include "comms/MavlinkClient.h"
+#include "comms/MavLink.h"
 #include "util/Channels.h"
 
 namespace follow::comms {
@@ -17,7 +17,7 @@ public:
   MavlinkIo(interfaces::IByteLink& link,
             const comms::MavlinkIds& ids,
             util::Channels& channels,
-            comms::MavlinkClient::StatusTextHandler onStatusText = {});
+            comms::MavLink::StatusTextHandler onStatusText = {});
 
   // One pass: parse what arrived and publish the vehicle state if the FC said anything, do the
   // heartbeat and stream-request duties, and send the setpoint if a new one was written.
@@ -34,9 +34,9 @@ public:
 
 private:
   interfaces::IByteLink& link;
-  comms::MavlinkClient client;
+  comms::MavLink client;
   util::Channels& channels;
-  comms::MavlinkClient::StatusTextHandler onStatusText;
+  comms::MavLink::StatusTextHandler onStatusText;
   std::atomic<uint64_t> sentSetpoint{0};  // sequence number of the last setpoint sent
   bool waitFailing{false};                // reports through onStatusText once, on the transition into failure
 };

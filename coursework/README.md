@@ -34,7 +34,7 @@ include/
   models/     data and pure math: Angles, Frames, AttitudeHistory, Config, Intrinsics,
               PinholeModel, FisheyeKbModel
   control/    the decision stack: Core, FollowController, TargetEstimator, Supervisor
-  comms/      links and protocol: LinkSpec, Links, MavlinkClient, MavlinkIo
+  comms/      links and protocol: LinkSpec, SocketLink, SerialLink, MavLink, MavlinkIo
   providers/  observation sources: SyntheticFrameSource, VideoFileSource, PiCameraSource,
               CameraTrackerSource, SimVision
   vision/     OpenCV-only: TrackerFactory, Overlay, Calibration

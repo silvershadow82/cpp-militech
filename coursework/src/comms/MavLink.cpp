@@ -1,4 +1,4 @@
-#include "comms/MavlinkClient.h"
+#include "comms/MavLink.h"
 
 #include <array>
 #include <chrono>
@@ -31,7 +31,7 @@ size_t boundedLength(const char* text, size_t maxLength)
 
 }  // namespace
 
-struct MavlinkClient::Codec {
+struct MavLink::Codec {
   mavlink_message_t rxBuffer{};
   mavlink_status_t rxStatus{};
   mavlink_message_t received{};
@@ -41,7 +41,7 @@ struct MavlinkClient::Codec {
   std::optional<models::AttitudeSample> pendingAttitude{};
 };
 
-MavlinkClient::MavlinkClient(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
+MavLink::MavLink(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
   : link(link)
   , ids(ids)
   , onStatusText(std::move(onStatusText))
@@ -49,9 +49,9 @@ MavlinkClient::MavlinkClient(interfaces::IByteLink& link, const MavlinkIds& ids,
 {
 }
 
-MavlinkClient::~MavlinkClient() = default;
+MavLink::~MavLink() = default;
 
-int MavlinkClient::poll(models::TimePoint now)
+int MavLink::poll(models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -89,7 +89,7 @@ int MavlinkClient::poll(models::TimePoint now)
   return accepted;
 }
 
-void MavlinkClient::handle(models::TimePoint now)
+void MavLink::handle(models::TimePoint now)
 {
   const mavlink_message_t& message = this->codec->received;
   switch (message.msgid) {
@@ -127,7 +127,7 @@ void MavlinkClient::handle(models::TimePoint now)
   }
 }
 
-void MavlinkClient::service(models::TimePoint now)
+void MavLink::service(models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -146,7 +146,7 @@ void MavlinkClient::service(models::TimePoint now)
   }
 }
 
-void MavlinkClient::sendHeartbeat()
+void MavLink::sendHeartbeat()
 {
   Codec& k = *this->codec;
   mavlink_msg_heartbeat_pack_status(this->ids.sysid,
@@ -161,7 +161,7 @@ void MavlinkClient::sendHeartbeat()
   this->sendMessage();
 }
 
-void MavlinkClient::requestStreams()
+void MavLink::requestStreams()
 {
   Codec& k = *this->codec;
   for (auto [messageId, intervalUs] :
@@ -185,7 +185,7 @@ void MavlinkClient::requestStreams()
   }
 }
 
-void MavlinkClient::sendSetpoint(const models::VelocityCmd& command, models::TimePoint now)
+void MavLink::sendSetpoint(const models::VelocityCmd& command, models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -215,7 +215,7 @@ void MavlinkClient::sendSetpoint(const models::VelocityCmd& command, models::Tim
   this->sendMessage();
 }
 
-void MavlinkClient::sendMessage()
+void MavLink::sendMessage()
 {
   std::array<uint8_t, MAVLINK_MAX_PACKET_LEN> bytes{};
   uint16_t length = mavlink_msg_to_send_buffer(bytes.data(), &this->codec->outgoing);

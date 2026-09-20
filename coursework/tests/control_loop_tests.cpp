@@ -33,7 +33,7 @@ protected:
   control::VehicleState vehicle{};
   Channels channels{};
   std::ostringstream logText{};
-  RunLogWriter log{logText};
+  StatCollector log{logText};
   ControlLoop loop{models::Config{}, camera, models::CameraMount{}, channels, &log, at(0.0)};
 };
 

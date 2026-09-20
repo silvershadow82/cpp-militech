@@ -20,7 +20,7 @@ public:
               const interfaces::ICameraModel& camera,
               const models::CameraMount& mount,
               util::Channels& channels,
-              util::RunLogWriter* log,
+              util::StatCollector* log,
               models::TimePoint start);
 
   control::Outputs tick(models::TimePoint now);
@@ -32,7 +32,7 @@ private:
   models::Config config;
   control::Core core;
   util::Channels& channels;
-  util::RunLogWriter* log;
+  util::StatCollector* log;
   models::TimePoint start;
 };
 

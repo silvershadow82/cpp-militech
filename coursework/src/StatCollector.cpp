@@ -70,13 +70,13 @@ double toDouble(const std::string& text, size_t lineNumber, const char* column)
 
 }  // namespace
 
-RunLogWriter::RunLogWriter(std::ostream& out)
+StatCollector::StatCollector(std::ostream& out)
   : out(out)
 {
   this->out << kHeader << '\n';
 }
 
-void RunLogWriter::write(const LogRow& row)
+void StatCollector::write(const LogRow& row)
 {
   const models::TargetState& target = row.target;
   this->out << fixed(row.tS, 3) << ',' << sim::stateName(row.state) << ',' << row.customMode << ',' << (target.valid ? 1 : 0) << ','

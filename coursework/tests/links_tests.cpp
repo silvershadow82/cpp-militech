@@ -14,7 +14,8 @@
 #include <string>
 
 #include "comms/LinkSpec.h"
-#include "comms/Links.h"
+#include "comms/SerialLink.h"
+#include "comms/SocketLink.h"
 
 using namespace follow::comms;
 using namespace std::chrono_literals;
@@ -67,11 +68,11 @@ TEST(LinkSpecTest, RejectsMalformedSpecs)
   EXPECT_THROW(parseLinkSpec("uart:/dev/serial0:0"), std::invalid_argument);
 }
 
-TEST(UdpLinkTest, LearnsPeerFromFirstDatagramAndReplies)
+TEST(SocketLinkTest, LearnsPeerFromFirstDatagramAndReplies)
 {
   // Setup: `listener` has no remote, `client` sends to the listener's port
-  UdpLink listener(0);
-  UdpLink client(0, "127.0.0.1", listener.localPort());
+  SocketLink listener(0);
+  SocketLink client(0, "127.0.0.1", listener.localPort());
 
   // Run + Assert
   EXPECT_EQ(listener.send(bytesOf("too early")), 0);
@@ -81,9 +82,9 @@ TEST(UdpLinkTest, LearnsPeerFromFirstDatagramAndReplies)
   EXPECT_EQ(receiveText(client), "back");
 }
 
-TEST(UdpLinkTest, WaitReadableTimesOutWithoutData)
+TEST(SocketLinkTest, WaitReadableTimesOutWithoutData)
 {
-  UdpLink link(0);
+  SocketLink link(0);
   auto start = std::chrono::steady_clock::now();
 
   EXPECT_EQ(link.waitReadable(30ms), follow::interfaces::IByteLink::WaitStatus::Timeout);
@@ -92,19 +93,19 @@ TEST(UdpLinkTest, WaitReadableTimesOutWithoutData)
   EXPECT_EQ(link.receive(buffer), 0);
 }
 
-TEST(UdpLinkTest, UnresolvableRemoteThrows)
+TEST(SocketLinkTest, UnresolvableRemoteThrows)
 {
-  EXPECT_THROW(UdpLink(0, "no-such-host.invalid", 1), std::runtime_error);
+  EXPECT_THROW(SocketLink(0, "no-such-host.invalid", 1), std::runtime_error);
 }
 
-TEST(UartLinkTest, PassesBytesBothWaysThroughPseudoTerminal)
+TEST(SerialLinkTest, PassesBytesBothWaysThroughPseudoTerminal)
 {
   // Setup: the pty master plays the flight controller
   int master = -1;
   int slave = -1;
   std::array<char, 128> name{};
   ASSERT_EQ(openpty(&master, &slave, name.data(), nullptr, nullptr), 0);
-  UartLink link(name.data(), 921600);
+  SerialLink link(name.data(), 921600);
 
   // Run + Assert: FC -> link
   ASSERT_EQ(::write(master, "ping", 4), 4);
@@ -120,8 +121,8 @@ TEST(UartLinkTest, PassesBytesBothWaysThroughPseudoTerminal)
   ::close(master);
 }
 
-TEST(UartLinkTest, MissingDeviceThrows)
+TEST(SerialLinkTest, MissingDeviceThrows)
 {
-  EXPECT_THROW(UartLink("/dev/does-not-exist", 921600), std::runtime_error);
+  EXPECT_THROW(SerialLink("/dev/does-not-exist", 921600), std::runtime_error);
   EXPECT_THROW(openLink(parseLinkSpec("uart:/dev/does-not-exist:921600")), std::runtime_error);
 }

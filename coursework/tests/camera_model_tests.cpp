@@ -103,7 +103,7 @@ TEST(FisheyeKbModel, RayAtRightAngleHasNoPixel)
   EXPECT_FALSE(model.rayToPixel({1.0, 0.0, 0.0}));
 }
 
-TEST(CameraModel, ContainsChecksImageBounds)
+TEST(ICameraModel, ContainsChecksImageBounds)
 {
   PinholeModel model(kPinhole);
   EXPECT_TRUE(model.contains({0.0, 0.0}));

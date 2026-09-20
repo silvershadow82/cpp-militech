@@ -12,11 +12,11 @@ using namespace follow;
 using namespace follow::util;
 using S = models::State;
 
-TEST(RunLogTest, WritesHeaderAndOneLinePerRow)
+TEST(StatCollectorTest, WritesHeaderAndOneLinePerRow)
 {
   // Setup
   std::ostringstream out;
-  RunLogWriter writer(out);
+  StatCollector writer(out);
 
   // Run: idle before engage, then following with a metric distance and ground truth
   writer.write({.tS = 0.05, .state = S::Idle, .customMode = 5, .trueBearingDeg = 0.0, .trueDistanceM = 3.2});
@@ -35,11 +35,11 @@ TEST(RunLogTest, WritesHeaderAndOneLinePerRow)
             "1.500,Following,4,1,5.73,1.050,3.15,KnownSize,0.250000,-0.125000,5.50,3.123\n");
 }
 
-TEST(RunLogTest, ReaderReturnsStepsWrittenByWriter)
+TEST(StatCollectorTest, ReaderReturnsStepsWrittenByWriter)
 {
   // Setup
   std::stringstream log;
-  RunLogWriter writer(log);
+  StatCollector writer(log);
   writer.write(
     {.tS = 1.0, .state = S::Locking, .customMode = 4, .setpoint = models::VelocityCmd{}, .trueBearingDeg = -1.5, .trueDistanceM = 3.0});
   writer.write({.tS = 1.05,
@@ -66,7 +66,7 @@ TEST(RunLogTest, ReaderReturnsStepsWrittenByWriter)
   EXPECT_DOUBLE_EQ(steps[1].trueDistanceM, 2.9);
 }
 
-TEST(RunLogTest, ReaderRejectsMalformedLogs)
+TEST(StatCollectorTest, ReaderRejectsMalformedLogs)
 {
   const std::string header = "t,state,mode,valid,bearing_deg,ratio,distance_m,source,vx,yaw_rate,true_bearing_deg,true_distance_m\n";
   auto errorOf = [](const std::string& text) -> std::string {
@@ -86,7 +86,7 @@ TEST(RunLogTest, ReaderRejectsMalformedLogs)
   EXPECT_EQ(errorOf(header + "1.0,Idle,4,0,,,,,abc,0,0.0,3.0\n"), "run log line 2: bad vx 'abc'");
 }
 
-TEST(RunLogTest, StepsWithoutGroundTruthReadAsNan)
+TEST(StatCollectorTest, StepsWithoutGroundTruthReadAsNan)
 {
   std::istringstream in(
     "t,state,mode,valid,bearing_deg,ratio,distance_m,source,vx,yaw_rate,true_bearing_deg,true_distance_m\n"

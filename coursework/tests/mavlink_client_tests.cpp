@@ -7,7 +7,7 @@
 #include "MavlinkTestSupport.h"
 #include "TestTime.h"
 #include "Types.h"
-#include "comms/MavlinkClient.h"
+#include "comms/MavLink.h"
 
 using namespace follow;
 using namespace follow::comms;
@@ -18,16 +18,16 @@ using follow::test::Peer;
 
 namespace {
 
-class MavlinkClientTest : public ::testing::Test {
+class MavLinkTest : public ::testing::Test {
 protected:
   FakeLink link;
   Peer fc{1, 1};
-  MavlinkClient client{link, MavlinkIds{}};
+  MavLink client{link, MavlinkIds{}};
 };
 
 }  // namespace
 
-TEST_F(MavlinkClientTest, HeartbeatFromAutopilotSetsModeArmedAndTime)
+TEST_F(MavLinkTest, HeartbeatFromAutopilotSetsModeArmedAndTime)
 {
   // Setup
   link.feed(fc.heartbeat(models::kModeGuided, true));
@@ -42,7 +42,7 @@ TEST_F(MavlinkClientTest, HeartbeatFromAutopilotSetsModeArmedAndTime)
   EXPECT_TRUE(client.vehicle().armed);
 }
 
-TEST_F(MavlinkClientTest, MessagesFromOtherSystemsAndComponentsAreIgnored)
+TEST_F(MavLinkTest, MessagesFromOtherSystemsAndComponentsAreIgnored)
 {
   // Setup: a GCS (sysid 255) and another onboard component of the vehicle (1/100)
   Peer gcs(255, 190);
@@ -60,7 +60,7 @@ TEST_F(MavlinkClientTest, MessagesFromOtherSystemsAndComponentsAreIgnored)
   EXPECT_FALSE(client.vehicle().attitude.latest());
 }
 
-TEST_F(MavlinkClientTest, AttitudeIsStampedWithReceiveTime)
+TEST_F(MavLinkTest, AttitudeIsStampedWithReceiveTime)
 {
   // Setup
   link.feed(fc.attitude(0.1F, -0.2F, 1.5F));
@@ -77,7 +77,7 @@ TEST_F(MavlinkClientTest, AttitudeIsStampedWithReceiveTime)
   EXPECT_FLOAT_EQ(sample->yaw, 1.5F);
 }
 
-TEST_F(MavlinkClientTest, NewestAttitudeOfOneBatchWins)
+TEST_F(MavLinkTest, NewestAttitudeOfOneBatchWins)
 {
   link.feed(fc.attitude(0.0F, 0.0F, 1.0F));
   link.feed(fc.attitude(0.0F, 0.0F, 2.0F));
@@ -87,7 +87,7 @@ TEST_F(MavlinkClientTest, NewestAttitudeOfOneBatchWins)
   EXPECT_FLOAT_EQ(client.vehicle().attitude.latest()->yaw, 2.0F);
 }
 
-TEST_F(MavlinkClientTest, LocalPositionIsStored)
+TEST_F(MavLinkTest, LocalPositionIsStored)
 {
   link.feed(fc.localPosition(1.0F, 2.0F, -3.0F, 0.5F, -0.5F, 0.1F));
 
@@ -99,11 +99,11 @@ TEST_F(MavlinkClientTest, LocalPositionIsStored)
   EXPECT_FLOAT_EQ(client.vehicle().position->velocity.y, -0.5F);
 }
 
-TEST_F(MavlinkClientTest, StatusTextReachesHandler)
+TEST_F(MavLinkTest, StatusTextReachesHandler)
 {
   // Setup
   std::vector<std::string> texts;
-  MavlinkClient withLog(link, MavlinkIds{}, [&texts](const std::string& text) { texts.push_back(text); });
+  MavLink withLog(link, MavlinkIds{}, [&texts](const std::string& text) { texts.push_back(text); });
   link.feed(fc.statusText("PreArm: GPS not healthy"));
 
   // Run
@@ -113,7 +113,7 @@ TEST_F(MavlinkClientTest, StatusTextReachesHandler)
   EXPECT_EQ(texts, (std::vector<std::string>{"PreArm: GPS not healthy"}));
 }
 
-TEST_F(MavlinkClientTest, FramesSplitAcrossReadsAndNoiseAreParsed)
+TEST_F(MavLinkTest, FramesSplitAcrossReadsAndNoiseAreParsed)
 {
   // Setup: garbage, then a heartbeat delivered 3 bytes per read, then a corrupted attitude
   link.maxChunk = 3;
@@ -133,7 +133,7 @@ TEST_F(MavlinkClientTest, FramesSplitAcrossReadsAndNoiseAreParsed)
   EXPECT_FLOAT_EQ(client.vehicle().attitude.latest()->yaw, 2.0F);
 }
 
-TEST_F(MavlinkClientTest, SetpointCommandsBodyVelocityAndYawRateOnly)
+TEST_F(MavLinkTest, SetpointCommandsBodyVelocityAndYawRateOnly)
 {
   // Run
   client.poll(at(10.0));
@@ -158,7 +158,7 @@ TEST_F(MavlinkClientTest, SetpointCommandsBodyVelocityAndYawRateOnly)
   EXPECT_FLOAT_EQ(target.yaw_rate, -0.5F);
 }
 
-TEST_F(MavlinkClientTest, HeartbeatIdentifiesOnboardControllerOncePerSecond)
+TEST_F(MavLinkTest, HeartbeatIdentifiesOnboardControllerOncePerSecond)
 {
   // Run
   client.service(at(1.0));
@@ -176,7 +176,7 @@ TEST_F(MavlinkClientTest, HeartbeatIdentifiesOnboardControllerOncePerSecond)
   EXPECT_EQ(sent[1].seq, static_cast<uint8_t>(sent[0].seq + 1));
 }
 
-TEST_F(MavlinkClientTest, StreamsAreRequestedUntilAttitudeArrives)
+TEST_F(MavLinkTest, StreamsAreRequestedUntilAttitudeArrives)
 {
   // Setup: count SET_MESSAGE_INTERVAL commands sent since the last count
   auto streamRequests = [this] {
@@ -212,7 +212,7 @@ TEST_F(MavlinkClientTest, StreamsAreRequestedUntilAttitudeArrives)
   EXPECT_EQ(streamRequests(), 0);
 }
 
-TEST_F(MavlinkClientTest, StreamsAreRequestedUntilPositionArrives)
+TEST_F(MavLinkTest, StreamsAreRequestedUntilPositionArrives)
 {
   // Setup: count SET_MESSAGE_INTERVAL commands sent since the last count
   auto streamRequests = [this] {
@@ -245,11 +245,11 @@ TEST_F(MavlinkClientTest, StreamsAreRequestedUntilPositionArrives)
   EXPECT_EQ(streamRequests(), 2);
 }
 
-TEST_F(MavlinkClientTest, SendFailureIsReportedExactlyOnceUntilItRecovers)
+TEST_F(MavLinkTest, SendFailureIsReportedExactlyOnceUntilItRecovers)
 {
   // Setup
   std::vector<std::string> texts;
-  MavlinkClient withLog(link, MavlinkIds{}, [&texts](const std::string& text) { texts.push_back(text); });
+  MavLink withLog(link, MavlinkIds{}, [&texts](const std::string& text) { texts.push_back(text); });
   link.failSend = true;
 
   // Run: two sends while the link is down
@@ -269,7 +269,7 @@ TEST_F(MavlinkClientTest, SendFailureIsReportedExactlyOnceUntilItRecovers)
   EXPECT_EQ(texts, (std::vector<std::string>{"mavlink link send failed", "mavlink link send failed"}));
 }
 
-TEST_F(MavlinkClientTest, StreamRequestAsksForTwentyAndTenHertz)
+TEST_F(MavLinkTest, StreamRequestAsksForTwentyAndTenHertz)
 {
   client.requestStreams();
 

@@ -15,7 +15,7 @@ constexpr auto kWaitFailureBackoff = std::chrono::milliseconds{50};
 MavlinkIo::MavlinkIo(interfaces::IByteLink& link,
                      const comms::MavlinkIds& ids,
                      util::Channels& channels,
-                     comms::MavlinkClient::StatusTextHandler onStatusText)
+                     comms::MavLink::StatusTextHandler onStatusText)
   : link(link)
   , client(link, ids, onStatusText)
   , channels(channels)

@@ -16,7 +16,7 @@ ControlLoop::ControlLoop(const models::Config& config,
                          const interfaces::ICameraModel& camera,
                          const models::CameraMount& mount,
                          util::Channels& channels,
-                         util::RunLogWriter* log,
+                         util::StatCollector* log,
                          models::TimePoint start)
   : config(config)
   , core(config, camera, mount)

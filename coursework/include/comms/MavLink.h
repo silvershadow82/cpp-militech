@@ -21,14 +21,14 @@ struct MavlinkIds {
 
 // MAVLink 2 over an IByteLink: decodes the FC's telemetry into a VehicleState and encodes our
 // heartbeat, stream requests and velocity setpoints. Not thread-safe: one I/O thread owns it.
-class MavlinkClient {
+class MavLink {
 public:
   using StatusTextHandler = std::function<void(const std::string&)>;
 
-  MavlinkClient(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText = {});
-  ~MavlinkClient();
-  MavlinkClient(const MavlinkClient&) = delete;
-  MavlinkClient& operator=(const MavlinkClient&) = delete;
+  MavLink(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText = {});
+  ~MavLink();
+  MavLink(const MavLink&) = delete;
+  MavLink& operator=(const MavLink&) = delete;
 
   // Reads and parses everything the link has. Messages from the FC are stamped with `now`.
   // Returns the number of FC messages accepted.

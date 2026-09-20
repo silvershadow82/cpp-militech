@@ -24,9 +24,9 @@ struct LogRow {
 
 // CSV columns: t,state,mode,valid,bearing_deg,ratio,distance_m,source,vx,yaw_rate,true_bearing_deg,true_distance_m.
 // Absent values are empty fields; yaw_rate is rad/s.
-class RunLogWriter {
+class StatCollector {
 public:
-  explicit RunLogWriter(std::ostream& out);
+  explicit StatCollector(std::ostream& out);
   void write(const LogRow& row);
 
 private:

@@ -73,27 +73,29 @@ add_library(follow_config STATIC src/config/ConfigJson.cpp src/config/ScenarioJs
 target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_json)
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
-# --- MAVLink: byte links (UDP, UART) and the MAVLink client. ------------------
-add_library(follow_mavlink STATIC src/comms/Links.cpp src/comms/MavlinkClient.cpp)
-target_include_directories(follow_mavlink SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
-target_link_libraries(follow_mavlink PUBLIC follow_core Threads::Threads)
-target_compile_options(follow_mavlink PRIVATE -Wall -Wextra)
+# --- Comms: byte links (UDP, UART) and the MAVLink client. --------------------
+add_library(follow_comms STATIC src/comms/LinkSpec.cpp src/comms/SocketLink.cpp src/comms/SerialLink.cpp
+                                src/comms/MavLink.cpp)
+target_include_directories(follow_comms SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
+target_link_libraries(follow_comms PUBLIC follow_core Threads::Threads)
+target_compile_options(follow_comms PRIVATE -Wall -Wextra)
 
-# --- Runtime: threads, shared slots, run log. ---------------------------------
+# --- App: threads, shared slots, stat collector. Named after the executable it ------
+# backs, as homework_11 names simulation11_lib after simulation11.
 add_library(
-  follow_runtime STATIC
+  follow_app_lib STATIC
   src/StatCollector.cpp
   src/ControlLoop.cpp
   src/comms/MavlinkIo.cpp
   src/providers/SimVision.cpp
   src/MissionProcessor.cpp)
-target_link_libraries(follow_runtime PUBLIC follow_config follow_mavlink Threads::Threads)
+target_link_libraries(follow_app_lib PUBLIC follow_config follow_comms Threads::Threads)
 # PUBLIC: MavlinkIo's setpoint sequence is a std::atomic<uint64_t>, so everything linking this
 # library needs libatomic on a 32-bit target, not just this one.
 if(FOLLOW_LIBATOMIC)
-  target_link_libraries(follow_runtime PUBLIC ${FOLLOW_LIBATOMIC})
+  target_link_libraries(follow_app_lib PUBLIC ${FOLLOW_LIBATOMIC})
 endif()
-target_compile_options(follow_runtime PRIVATE -Wall -Wextra)
+target_compile_options(follow_app_lib PRIVATE -Wall -Wextra)
 
 # --- Vision: camera, tracker and overlay (OpenCV). ----------------------------
 # Off by default: the devcontainer has no OpenCV and the aarch64 toolchain has no sysroot, so both
@@ -108,7 +110,7 @@ if(FOLLOW_WITH_OPENCV)
                                     src/providers/VideoFileSource.cpp src/providers/PiCameraSource.cpp
                                     src/providers/CameraTrackerSource.cpp src/vision/Overlay.cpp src/HwMissionProcessor.cpp
                                     src/vision/Calibration.cpp)
-  target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})
+  target_link_libraries(follow_vision PUBLIC follow_app_lib ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)
 
   add_executable(follow_tracker_bench src/tools/tracker_bench_main.cpp)
@@ -122,7 +124,7 @@ endif()
 
 # --- Executables ----------------------------------------------------------------
 add_executable(follow_app src/app/main.cpp)
-target_link_libraries(follow_app PRIVATE follow_runtime)
+target_link_libraries(follow_app PRIVATE follow_app_lib)
 target_compile_options(follow_app PRIVATE -Wall -Wextra)
 if(FOLLOW_WITH_OPENCV)
   target_link_libraries(follow_app PRIVATE follow_vision)
@@ -130,7 +132,7 @@ if(FOLLOW_WITH_OPENCV)
 endif()
 
 add_executable(follow_check_run src/app/check_run_main.cpp)
-target_link_libraries(follow_check_run PRIVATE follow_runtime)
+target_link_libraries(follow_check_run PRIVATE follow_app_lib)
 target_compile_options(follow_check_run PRIVATE -Wall -Wextra)
 
 # --- Tests (GoogleTest, host only) --------------------------------------------
@@ -173,7 +175,7 @@ if(NOT CMAKE_CROSSCOMPILING)
     target_link_libraries(follow_tests PRIVATE follow_vision)
   endif()
   target_include_directories(follow_tests PRIVATE tests)
-  target_link_libraries(follow_tests PRIVATE follow_runtime GTest::gtest_main)
+  target_link_libraries(follow_tests PRIVATE follow_app_lib GTest::gtest_main)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(follow_tests PRIVATE util) # openpty
   endif()

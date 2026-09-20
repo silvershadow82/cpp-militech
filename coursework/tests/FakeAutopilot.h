@@ -13,7 +13,7 @@
 
 #include "MavlinkTestSupport.h"
 #include "Types.h"
-#include "comms/Links.h"
+#include "comms/SocketLink.h"
 #include "sim/KinematicVehicle.h"
 
 namespace follow::test {
@@ -135,7 +135,7 @@ private:
 
   void send(const std::vector<uint8_t>& bytes) { this->link.send(std::span<const uint8_t>(bytes.data(), bytes.size())); }
 
-  comms::UdpLink link;
+  comms::SocketLink link;
   sim::KinematicVehicle vehicle;
   double engageAfterS;
   Peer fc{1, 1};

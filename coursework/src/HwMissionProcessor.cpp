@@ -91,7 +91,7 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   }
 
   util::Channels channels;
-  util::RunLogWriter log(logFile);
+  util::StatCollector log(logFile);
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
   comms::MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
   providers::CameraTrackerSource source(

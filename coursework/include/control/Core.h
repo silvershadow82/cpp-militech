@@ -1,35 +1,35 @@
 #pragma once
 
-#include "follow/core/AttitudeHistory.h"
-#include "follow/core/CameraModel.h"
-#include "follow/core/Config.h"
-#include "follow/core/FollowController.h"
-#include "follow/core/Frames.h"
-#include "follow/core/Supervisor.h"
-#include "follow/core/TargetEstimator.h"
-#include "follow/core/Types.h"
+#include "Types.h"
+#include "control/FollowController.h"
+#include "control/Supervisor.h"
+#include "control/TargetEstimator.h"
+#include "models/AttitudeHistory.h"
+#include "models/CameraModel.h"
+#include "models/Config.h"
+#include "models/Frames.h"
 
 #include <cstdint>
 #include <optional>
 
-namespace follow::core
+namespace follow::control
 {
 
   struct VehicleState
   {
-    std::optional<TimePoint> lastHeartbeat{};
+    std::optional<models::TimePoint> lastHeartbeat{};
     uint32_t customMode{0};
     bool armed{false};
-    AttitudeHistory attitude{};
-    std::optional<LocalPositionNed> position{}; // not used by Core; the simulated camera needs it
+    models::AttitudeHistory attitude{};
+    std::optional<models::LocalPositionNed> position{}; // not used by Core; the simulated camera needs it
   };
 
   struct Inputs
   {
-    TimePoint now{};
+    models::TimePoint now{};
     VehicleState vehicle{};
-    std::optional<TargetObservation> target{};
-    std::optional<RangeMeasurement> range{};
+    std::optional<models::TargetObservation> target{};
+    std::optional<models::RangeMeasurement> range{};
   };
 
   enum class TrackerRequestKind
@@ -43,41 +43,41 @@ namespace follow::core
   struct TrackerRequest
   {
     TrackerRequestKind kind{TrackerRequestKind::None};
-    BBox hint{}; // LockCenter: the lock box; Reacquire: the last good bbox
+    models::BBox hint{}; // LockCenter: the lock box; Reacquire: the last good bbox
   };
 
   struct OverlayInfo
   {
-    State state{State::Idle};
-    BBox lockBox{};
-    std::optional<BBox> targetBox{};
+    models::State state{models::State::Idle};
+    models::BBox lockBox{};
+    std::optional<models::BBox> targetBox{};
   };
 
   struct Outputs
   {
-    State state{State::Idle};
-    std::optional<VelocityCmd> setpoint{}; // nullopt = send nothing
+    models::State state{models::State::Idle};
+    std::optional<models::VelocityCmd> setpoint{}; // nullopt = send nothing
     TrackerRequest tracker{};
     OverlayInfo overlay{};
-    TargetState target{};
+    models::TargetState target{};
   };
 
   // One control step. Deterministic: no clock reads, threads or I/O.
   class Core
   {
   public:
-    Core(const Config &config, const CameraModel &camera, const CameraMount &mount);
+    Core(const models::Config &config, const models::CameraModel &camera, const models::CameraMount &mount);
 
     Outputs step(const Inputs &inputs);
-    BBox lockBox() const;
+    models::BBox lockBox() const;
 
   private:
-    Config config;
-    const CameraModel &camera;
+    models::Config config;
+    const models::CameraModel &camera;
     TargetEstimator estimator;
     FollowController controller;
     Supervisor supervisor;
-    std::optional<TimePoint> lastStep{};
+    std::optional<models::TimePoint> lastStep{};
   };
 
-} // namespace follow::core
+} // namespace follow::control

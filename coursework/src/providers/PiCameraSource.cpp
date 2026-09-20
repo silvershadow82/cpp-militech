@@ -1,11 +1,11 @@
-#include "follow/vision/PiCameraSource.h"
+#include "providers/PiCameraSource.h"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
 
-namespace follow::vision {
+namespace follow::providers {
 
 std::string piCameraPipeline(const PiCameraConfig& config)
 {
@@ -108,7 +108,7 @@ std::optional<Frame> PiCameraSource::read()
   }
   this->consecutiveFailures = 0;
   // Stamp after the grab returns: this is as close to the capture instant as this API allows.
-  return Frame{.image = image, .t = core::Clock::now()};
+  return Frame{.image = image, .t = models::Clock::now()};
 }
 
-}  // namespace follow::vision
+}  // namespace follow::providers

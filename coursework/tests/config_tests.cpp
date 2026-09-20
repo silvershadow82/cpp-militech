@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "follow/config/ConfigJson.h"
+#include "config/ConfigJson.h"
 
 using namespace follow;
 using namespace follow::config;
@@ -25,7 +25,7 @@ std::string errorOf(const char* text)
   return "";
 }
 
-void expectIntrinsicsNear(const core::Intrinsics& actual, const core::Intrinsics& expected)
+void expectIntrinsicsNear(const models::Intrinsics& actual, const models::Intrinsics& expected)
 {
   EXPECT_EQ(actual.width, expected.width);
   EXPECT_EQ(actual.height, expected.height);
@@ -43,14 +43,14 @@ TEST(ConfigTest, EmptyDocumentKeepsDefaults)
   AppConfig config = parseAppConfig(json::object());
 
   // Assert
-  core::Config defaults{};
+  models::Config defaults{};
   EXPECT_EQ(config.core.rateHz, defaults.rateHz);
   EXPECT_EQ(config.core.control.vxMax, defaults.control.vxMax);
   EXPECT_EQ(config.core.supervisor.lostTimeout, defaults.supervisor.lostTimeout);
   EXPECT_FALSE(config.core.estimator.targetHeightM);
   EXPECT_EQ(config.mavlink.link, "uart:/dev/serial0:921600");
   EXPECT_EQ(config.camera.kind, CameraKind::Fisheye);
-  expectIntrinsicsNear(config.camera.intrinsics, core::nominalFisheye(640, 480, 160.0));
+  expectIntrinsicsNear(config.camera.intrinsics, models::nominalFisheye(640, 480, 160.0));
 }
 
 TEST(ConfigTest, CommittedFollowJsonMatchesSpecDefaults)
@@ -59,8 +59,8 @@ TEST(ConfigTest, CommittedFollowJsonMatchesSpecDefaults)
   AppConfig config = loadAppConfig(FOLLOW_CONFIG_DIR "/follow.json");
 
   // Assert: every tunable equals the built-in default from the spec
-  core::Config d{};
-  const core::Config& c = config.core;
+  models::Config d{};
+  const models::Config& c = config.core;
   EXPECT_EQ(c.rateHz, d.rateHz);
   EXPECT_EQ(c.lockBoxFrac, d.lockBoxFrac);
   EXPECT_EQ(c.estimator.emaAlpha, d.estimator.emaAlpha);
@@ -91,7 +91,7 @@ TEST(ConfigTest, CommittedFollowJsonMatchesSpecDefaults)
   EXPECT_EQ(config.vision.trackWidth, 640);
   EXPECT_EQ(config.vision.trackHeight, 480);
   EXPECT_EQ(config.camera.kind, CameraKind::Fisheye);
-  expectIntrinsicsNear(config.camera.intrinsics, core::nominalFisheye(640, 480, 160.0));
+  expectIntrinsicsNear(config.camera.intrinsics, models::nominalFisheye(640, 480, 160.0));
 }
 
 TEST(ConfigTest, LoadAppliesOverridesAsMergePatch)
@@ -194,8 +194,8 @@ TEST(ConfigTest, CameraModelFollowsTheModelField)
   auto fisheyeModel = makeCameraModel(parseCamera(fisheye, 640, 480));
 
   // Assert
-  EXPECT_NE(dynamic_cast<core::PinholeModel*>(pinholeModel.get()), nullptr);
-  EXPECT_NE(dynamic_cast<core::FisheyeKbModel*>(fisheyeModel.get()), nullptr);
+  EXPECT_NE(dynamic_cast<models::PinholeModel*>(pinholeModel.get()), nullptr);
+  EXPECT_NE(dynamic_cast<models::FisheyeKbModel*>(fisheyeModel.get()), nullptr);
 }
 
 TEST(ConfigTest, MissingCameraFieldIsRejected)

@@ -3,7 +3,7 @@
 #include <chrono>
 #include <optional>
 
-namespace follow::core {
+namespace follow::models {
 
 struct EstimatorConfig {
   double emaAlpha{0.3};
@@ -47,4 +47,4 @@ struct Config {
   double lockBoxFrac{0.20};  // side of the square lock box as a fraction of image height
 };
 
-}  // namespace follow::core
+}  // namespace follow::models

@@ -1,4 +1,4 @@
-#include "follow/mavlink/MavlinkClient.h"
+#include "comms/MavlinkClient.h"
 
 #include <array>
 #include <chrono>
@@ -6,7 +6,7 @@
 #include <cstring>
 #include <utility>
 
-namespace follow::mavlink {
+namespace follow::comms {
 
 namespace {
 
@@ -38,7 +38,7 @@ struct MavlinkClient::Codec {
   mavlink_status_t receivedStatus{};
   mavlink_status_t txStatus{};  // our outgoing sequence number
   mavlink_message_t outgoing{};
-  std::optional<core::AttitudeSample> pendingAttitude{};
+  std::optional<models::AttitudeSample> pendingAttitude{};
 };
 
 MavlinkClient::MavlinkClient(ByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
@@ -51,7 +51,7 @@ MavlinkClient::MavlinkClient(ByteLink& link, const MavlinkIds& ids, StatusTextHa
 
 MavlinkClient::~MavlinkClient() = default;
 
-int MavlinkClient::poll(core::TimePoint now)
+int MavlinkClient::poll(models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -89,7 +89,7 @@ int MavlinkClient::poll(core::TimePoint now)
   return accepted;
 }
 
-void MavlinkClient::handle(core::TimePoint now)
+void MavlinkClient::handle(models::TimePoint now)
 {
   const mavlink_message_t& message = this->codec->received;
   switch (message.msgid) {
@@ -104,14 +104,14 @@ void MavlinkClient::handle(core::TimePoint now)
     case MAVLINK_MSG_ID_ATTITUDE: {
       mavlink_attitude_t attitude{};
       mavlink_msg_attitude_decode(&message, &attitude);
-      this->codec->pendingAttitude = core::AttitudeSample{.t = now, .roll = attitude.roll, .pitch = attitude.pitch, .yaw = attitude.yaw};
+      this->codec->pendingAttitude = models::AttitudeSample{.t = now, .roll = attitude.roll, .pitch = attitude.pitch, .yaw = attitude.yaw};
       break;
     }
     case MAVLINK_MSG_ID_LOCAL_POSITION_NED: {
       mavlink_local_position_ned_t local{};
       mavlink_msg_local_position_ned_decode(&message, &local);
       this->state.position =
-        core::LocalPositionNed{.t = now, .position = {local.x, local.y, local.z}, .velocity = {local.vx, local.vy, local.vz}};
+        models::LocalPositionNed{.t = now, .position = {local.x, local.y, local.z}, .velocity = {local.vx, local.vy, local.vz}};
       break;
     }
     case MAVLINK_MSG_ID_STATUSTEXT: {
@@ -127,7 +127,7 @@ void MavlinkClient::handle(core::TimePoint now)
   }
 }
 
-void MavlinkClient::service(core::TimePoint now)
+void MavlinkClient::service(models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -136,7 +136,7 @@ void MavlinkClient::service(core::TimePoint now)
     this->sendHeartbeat();
     this->lastHeartbeatSent = now;
   }
-  std::optional<core::AttitudeSample> latest = this->state.attitude.latest();
+  std::optional<models::AttitudeSample> latest = this->state.attitude.latest();
   bool attitudeMissing = !latest || now - latest->t > kStreamMissingAfter;
   bool positionMissing = !this->state.position || now - this->state.position->t > kStreamMissingAfter;
   bool requestDue = !this->lastStreamRequest || now - *this->lastStreamRequest >= kStreamRequestPeriod;
@@ -185,7 +185,7 @@ void MavlinkClient::requestStreams()
   }
 }
 
-void MavlinkClient::sendSetpoint(const core::VelocityCmd& command, core::TimePoint now)
+void MavlinkClient::sendSetpoint(const models::VelocityCmd& command, models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
@@ -234,4 +234,4 @@ void MavlinkClient::sendMessage()
   }
 }
 
-}  // namespace follow::mavlink
+}  // namespace follow::comms

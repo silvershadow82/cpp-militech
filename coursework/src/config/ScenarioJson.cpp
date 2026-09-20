@@ -1,4 +1,4 @@
-#include "follow/config/ScenarioJson.h"
+#include "config/ScenarioJson.h"
 
 #include <cmath>
 #include <cstddef>
@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "ObjectReader.h"
-#include "follow/config/ConfigJson.h"
+#include "config/ConfigJson.h"
 
 namespace follow::config {
 
@@ -53,13 +53,13 @@ sim::TargetMotion parseMotion(const json& item, const std::string& path)
   throw ConfigError(path + ": unknown motion '" + kind + "'");
 }
 
-std::vector<core::State> parseStates(const ObjectReader& reader, std::string_view key)
+std::vector<models::State> parseStates(const ObjectReader& reader, std::string_view key)
 {
   std::vector<std::string> names;
   reader.read(key, names);
-  std::vector<core::State> states;
+  std::vector<models::State> states;
   for (const std::string& name : names) {
-    std::optional<core::State> state = sim::stateFromName(name);
+    std::optional<models::State> state = sim::stateFromName(name);
     require(state.has_value(), reader.label(key) + ": unknown state '" + name + "'");
     states.push_back(*state);
   }
@@ -70,9 +70,9 @@ std::vector<core::State> parseStates(const ObjectReader& reader, std::string_vie
 
 sim::SimTarget TargetScript::place(const sim::Pose& atEngage) const
 {
-  auto groundPoint = [&atEngage](const core::Vec3& engageFrame) {
+  auto groundPoint = [&atEngage](const models::Vec3& engageFrame) {
     auto [north, east] = toNorthEast(engageFrame.x, engageFrame.y, atEngage.yaw);
-    return core::Vec3{atEngage.positionNed.x + north, atEngage.positionNed.y + east, 0.0};
+    return models::Vec3{atEngage.positionNed.x + north, atEngage.positionNed.y + east, 0.0};
   };
 
   std::vector<sim::TargetMotion> motions;

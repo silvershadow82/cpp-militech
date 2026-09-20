@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-namespace follow::runtime {
+namespace follow::util {
 
 // Lossless FIFO between threads, for edge events such as tracker requests that must not be
 // overwritten the way a Latest slot overwrites values.
@@ -32,4 +32,4 @@ private:
   std::deque<T> events;
 };
 
-}  // namespace follow::runtime
+}  // namespace follow::util

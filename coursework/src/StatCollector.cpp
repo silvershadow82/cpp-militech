@@ -1,4 +1,4 @@
-#include "follow/runtime/RunLog.h"
+#include "StatCollector.h"
 
 #include <cstdio>
 #include <limits>
@@ -6,10 +6,10 @@
 #include <stdexcept>
 #include <string>
 
-#include "follow/core/Angles.h"
-#include "follow/sim/ScenarioCheck.h"
+#include "models/Angles.h"
+#include "sim/ScenarioCheck.h"
 
-namespace follow::runtime {
+namespace follow::util {
 
 namespace {
 
@@ -27,14 +27,14 @@ std::string optionalFixed(const std::optional<double>& value, int decimals)
   return value ? fixed(*value, decimals) : std::string();
 }
 
-const char* sourceName(core::DistanceSource source)
+const char* sourceName(models::DistanceSource source)
 {
   switch (source) {
-    case core::DistanceSource::Relative:
+    case models::DistanceSource::Relative:
       return "Relative";
-    case core::DistanceSource::KnownSize:
+    case models::DistanceSource::KnownSize:
       return "KnownSize";
-    case core::DistanceSource::Range:
+    case models::DistanceSource::Range:
       return "Range";
   }
   return "?";
@@ -78,9 +78,9 @@ RunLogWriter::RunLogWriter(std::ostream& out)
 
 void RunLogWriter::write(const LogRow& row)
 {
-  const core::TargetState& target = row.target;
+  const models::TargetState& target = row.target;
   this->out << fixed(row.tS, 3) << ',' << sim::stateName(row.state) << ',' << row.customMode << ',' << (target.valid ? 1 : 0) << ','
-            << (target.valid ? fixed(core::radToDeg(target.bearingRad), 2) : "") << ',' << (target.valid ? fixed(target.ratio, 3) : "")
+            << (target.valid ? fixed(models::radToDeg(target.bearingRad), 2) : "") << ',' << (target.valid ? fixed(target.ratio, 3) : "")
             << ',' << optionalFixed(target.distanceM, 2) << ',' << (target.valid ? sourceName(target.source) : "") << ','
             << (row.setpoint ? fixed(row.setpoint->vx, 6) : "") << ',' << (row.setpoint ? fixed(row.setpoint->yawRate, 6) : "") << ','
             << optionalFixed(row.trueBearingDeg, 2) << ',' << optionalFixed(row.trueDistanceM, 3) << '\n';
@@ -102,7 +102,7 @@ std::vector<sim::StepRecord> readRunLog(std::istream& in)
     if (f.size() != 12) {
       throw std::runtime_error("run log line " + std::to_string(lineNumber) + ": expected 12 fields, got " + std::to_string(f.size()));
     }
-    std::optional<core::State> state = sim::stateFromName(f[1]);
+    std::optional<models::State> state = sim::stateFromName(f[1]);
     if (!state) {
       throw std::runtime_error("run log line " + std::to_string(lineNumber) + ": unknown state '" + f[1] + "'");
     }
@@ -116,11 +116,11 @@ std::vector<sim::StepRecord> readRunLog(std::istream& in)
       .trueDistanceM = f[11].empty() ? nan : toDouble(f[11], lineNumber, "true_distance_m"),
     };
     if (!f[8].empty() || !f[9].empty()) {
-      step.setpoint = core::VelocityCmd{.vx = toDouble(f[8], lineNumber, "vx"), .yawRate = toDouble(f[9], lineNumber, "yaw_rate")};
+      step.setpoint = models::VelocityCmd{.vx = toDouble(f[8], lineNumber, "vx"), .yawRate = toDouble(f[9], lineNumber, "yaw_rate")};
     }
     steps.push_back(step);
   }
   return steps;
 }
 
-}  // namespace follow::runtime
+}  // namespace follow::util

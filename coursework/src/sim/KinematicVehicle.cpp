@@ -1,9 +1,9 @@
-#include "follow/sim/KinematicVehicle.h"
+#include "sim/KinematicVehicle.h"
 
 #include <algorithm>
 #include <cmath>
 
-#include "follow/core/Angles.h"
+#include "models/Angles.h"
 
 namespace follow::sim {
 
@@ -19,12 +19,12 @@ KinematicVehicle::KinematicVehicle(const Pose& initial, const KinematicVehicleCo
 {
 }
 
-void KinematicVehicle::step(const std::optional<core::VelocityCmd>& command, double dtSec)
+void KinematicVehicle::step(const std::optional<models::VelocityCmd>& command, double dtSec)
 {
   if (dtSec <= 0.0) {
     return;
   }
-  core::VelocityCmd target = command.value_or(core::VelocityCmd{});
+  models::VelocityCmd target = command.value_or(models::VelocityCmd{});
   // Clamped so a step longer than the time constant settles on the command instead of overshooting.
   double blend = std::min(dtSec / this->config.tauS, 1.0);
 
@@ -33,7 +33,7 @@ void KinematicVehicle::step(const std::optional<core::VelocityCmd>& command, dou
   this->speed = newSpeed;
   this->rate += (target.yawRate - this->rate) * blend;
 
-  this->current.yaw = core::wrapPi(this->current.yaw + this->rate * dtSec);
+  this->current.yaw = models::wrapPi(this->current.yaw + this->rate * dtSec);
   this->current.positionNed.x += this->speed * std::cos(this->current.yaw) * dtSec;
   this->current.positionNed.y += this->speed * std::sin(this->current.yaw) * dtSec;
   // Speeding up tilts the nose down.

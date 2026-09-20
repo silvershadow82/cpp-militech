@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "FakeAutopilot.h"
-#include "follow/config/ConfigJson.h"
-#include "follow/config/ScenarioJson.h"
-#include "follow/runtime/RunLog.h"
-#include "follow/runtime/SimApp.h"
-#include "follow/sim/ScenarioCheck.h"
+#include "MissionProcessor.h"
+#include "StatCollector.h"
+#include "config/ConfigJson.h"
+#include "config/ScenarioJson.h"
+#include "sim/ScenarioCheck.h"
 
 using namespace follow;
 
@@ -45,10 +45,10 @@ TEST(SimAppTest, StationaryScenarioPassesAgainstFakeAutopilot)
 
   test::FakeAutopilot fc(1.0);
   fc.start();
-  runtime::SimAppOptions options{.configPath = FOLLOW_CONFIG_DIR "/follow.json",
-                                 .scenarioPath = dir / "stationary.json",
-                                 .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()),
-                                 .logPath = dir / "run.csv"};
+  app::SimAppOptions options{.configPath = FOLLOW_CONFIG_DIR "/follow.json",
+                             .scenarioPath = dir / "stationary.json",
+                             .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()),
+                             .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   std::atomic<bool> finished{false};
   std::thread watchdog([&] {
@@ -60,7 +60,7 @@ TEST(SimAppTest, StationaryScenarioPassesAgainstFakeAutopilot)
   std::ostringstream out;
 
   // Run
-  runtime::runSimApp(options, stop, out);
+  app::runSimApp(options, stop, out);
   finished = true;
   watchdog.join();
   fc.stop();
@@ -68,7 +68,7 @@ TEST(SimAppTest, StationaryScenarioPassesAgainstFakeAutopilot)
   // Assert
   EXPECT_NE(out.str().find("follow_app: scenario finished"), std::string::npos) << out.str();
   std::ifstream log(options.logPath);
-  std::vector<sim::StepRecord> steps = runtime::readRunLog(log);
+  std::vector<sim::StepRecord> steps = util::readRunLog(log);
   config::Scenario scenario = config::loadScenario(options.scenarioPath);
   config::AppConfig app = config::loadAppConfig(options.configPath, scenario.configOverrides);
   std::vector<std::string> failures = sim::checkRun(steps, scenario.expect, app.core.control, 1.5);

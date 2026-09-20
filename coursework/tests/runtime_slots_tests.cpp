@@ -6,10 +6,10 @@
 #include <vector>
 
 #include "TestTime.h"
-#include "follow/runtime/EventQueue.h"
-#include "follow/runtime/Latest.h"
+#include "util/EventQueue.h"
+#include "util/Latest.h"
 
-using namespace follow::runtime;
+using namespace follow::util;
 using follow::test::at;
 using namespace std::chrono_literals;
 

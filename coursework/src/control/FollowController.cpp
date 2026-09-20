@@ -1,17 +1,17 @@
-#include "follow/core/FollowController.h"
+#include "control/FollowController.h"
 
 #include <algorithm>
 #include <cmath>
 
-#include "follow/core/Angles.h"
+#include "models/Angles.h"
 
-namespace follow::core {
+namespace follow::control {
 
-VelocityCmd FollowController::update(const TargetState& target, double dtSec)
+models::VelocityCmd FollowController::update(const models::TargetState& target, double dtSec)
 {
-  double bearingDeg = std::abs(radToDeg(target.bearingRad));
+  double bearingDeg = std::abs(models::radToDeg(target.bearingRad));
 
-  double yawRateMax = degToRad(this->config.yawRateMaxDps);
+  double yawRateMax = models::degToRad(this->config.yawRateMaxDps);
   double yawRate =
     bearingDeg < this->config.yawDeadbandDeg ? 0.0 : std::clamp(this->config.kYaw * target.bearingRad, -yawRateMax, yawRateMax);
 
@@ -38,4 +38,4 @@ VelocityCmd FollowController::update(const TargetState& target, double dtSec)
   return {.vx = vx, .yawRate = yawRate};
 }
 
-}  // namespace follow::core
+}  // namespace follow::control

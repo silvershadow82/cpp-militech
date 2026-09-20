@@ -3,11 +3,12 @@
 #include <cmath>
 
 #include "TestTime.h"
-#include "follow/core/Angles.h"
-#include "follow/core/Frames.h"
-#include "follow/core/TargetEstimator.h"
+#include "control/TargetEstimator.h"
+#include "models/Angles.h"
+#include "models/Frames.h"
 
-using namespace follow::core;
+using namespace follow::control;
+using namespace follow::models;
 using follow::test::at;
 
 namespace {

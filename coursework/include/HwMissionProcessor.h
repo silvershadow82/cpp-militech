@@ -6,9 +6,9 @@
 #include <ostream>
 #include <string>
 
-#include "follow/vision/FrameSource.h"
+#include "providers/FrameSource.h"
 
-namespace follow::vision {
+namespace follow::app {
 
 namespace detail {
 
@@ -19,7 +19,7 @@ namespace detail {
 // `nextOverlay` still behind `now` (more than one whole period behind), it is clamped forward to
 // `now + period` -- not `now` alone, which would make the very next tick immediately eligible again,
 // a back-to-back double draw -- so a long stall recovers instead of bursting through every missed slot.
-bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::Clock::duration period);
+bool shouldDrawOverlay(models::TimePoint now, models::TimePoint& nextOverlay, models::Clock::duration period);
 
 // Whether a camera-missing/recovered edge should actually print, given the last time such a line was
 // printed (`lastReport`, or nullopt if none has printed yet) and the minimum gap `minInterval`
@@ -28,7 +28,7 @@ bool shouldDrawOverlay(core::TimePoint now, core::TimePoint& nextOverlay, core::
 // every transition -- for an alternating drop/good pattern that is a line every frame, forever, not
 // just for a multi-frame burst -- so this bounds total output to at most one line per `minInterval`
 // regardless of the drop pattern.
-bool shouldReportMissEdge(core::TimePoint now, std::optional<core::TimePoint> lastReport, core::Clock::duration minInterval);
+bool shouldReportMissEdge(models::TimePoint now, std::optional<models::TimePoint> lastReport, models::Clock::duration minInterval);
 
 }  // namespace detail
 
@@ -42,6 +42,6 @@ struct HwAppOptions {
 // until `stop` is set or the frame source ends. The overlay goes to vision.framebuffer when it opens;
 // a missing framebuffer is reported on `out` and the app runs without an overlay.
 // Throws config::ConfigError or std::runtime_error for bad files, links or log paths.
-void runHwApp(const HwAppOptions& options, IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out);
+void runHwApp(const HwAppOptions& options, providers::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out);
 
-}  // namespace follow::vision
+}  // namespace follow::app

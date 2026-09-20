@@ -5,17 +5,17 @@
 #include <string>
 #include <vector>
 
-#include "follow/core/Types.h"
-#include "follow/sim/ScenarioCheck.h"
-#include "follow/sim/SimTarget.h"
-#include "follow/sim/SyntheticCamera.h"
+#include "Types.h"
+#include "sim/ScenarioCheck.h"
+#include "sim/SimTarget.h"
+#include "sim/SyntheticCamera.h"
 
 namespace follow::config {
 
 // Target script in the engage frame: x forward and y right of the vehicle at the moment the pilot
 // engages, origin under the vehicle. Line velocities and circle centers use the same frame.
 struct TargetScript {
-  core::Vec3 start{};
+  models::Vec3 start{};
   std::vector<sim::TargetMotion> motions{};
   std::vector<sim::OcclusionWindow> occlusions{};  // seconds after engage
   double heightM{1.7};

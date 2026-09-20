@@ -4,11 +4,11 @@
 
 #include <opencv2/core.hpp>
 
-#include "follow/vision/Overlay.h"
+#include "vision/Overlay.h"
 
-using follow::core::BBox;
-using follow::core::OverlayInfo;
-using follow::core::State;
+using follow::control::OverlayInfo;
+using follow::models::BBox;
+using follow::models::State;
 
 TEST(OverlayText, MatchesTheSpecLabels)
 {

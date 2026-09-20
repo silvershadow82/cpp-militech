@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "MavlinkTestSupport.h"
-#include "follow/core/Types.h"
-#include "follow/mavlink/Links.h"
-#include "follow/sim/KinematicVehicle.h"
+#include "Types.h"
+#include "comms/Links.h"
+#include "sim/KinematicVehicle.h"
 
 namespace follow::test {
 
@@ -48,7 +48,7 @@ public:
   }
 
   // The most recent setpoint received, for tests asserting what the FC was left holding.
-  std::optional<core::VelocityCmd> lastSetpoint() const
+  std::optional<models::VelocityCmd> lastSetpoint() const
   {
     std::lock_guard<std::mutex> lock(this->setpointMutex);
     return this->lastReceived;
@@ -63,7 +63,7 @@ private:
     Clock::time_point next = Clock::now();
     std::optional<Clock::time_point> connected;
     std::optional<bool> announced;  // the mode the last heartbeat reported, so a change can be sent at once
-    std::optional<core::VelocityCmd> setpoint;
+    std::optional<models::VelocityCmd> setpoint;
     Clock::time_point setpointTime{};
     for (int tick = 0; !this->stopRequested; ++tick) {
       Clock::time_point now = Clock::now();
@@ -90,7 +90,7 @@ private:
         if (connected) {
           announced = guided;
         }
-        this->send(this->fc.heartbeat(guided ? core::kModeGuided : core::kModeLoiter, true));
+        this->send(this->fc.heartbeat(guided ? models::kModeGuided : models::kModeLoiter, true));
       }
       if (tick % 5 == 0) {
         this->send(this->fc.attitude(static_cast<float>(pose.roll), static_cast<float>(pose.pitch), static_cast<float>(pose.yaw)));
@@ -110,7 +110,7 @@ private:
   }
 
   // Reads all pending datagrams; true if any arrived (the app is connected). Updates `setpoint`.
-  bool receiveSetpoint(std::optional<core::VelocityCmd>& setpoint)
+  bool receiveSetpoint(std::optional<models::VelocityCmd>& setpoint)
   {
     bool any = false;
     std::array<uint8_t, 512> buffer{};
@@ -124,7 +124,7 @@ private:
             message.msgid == MAVLINK_MSG_ID_SET_POSITION_TARGET_LOCAL_NED) {
           mavlink_set_position_target_local_ned_t target{};
           mavlink_msg_set_position_target_local_ned_decode(&message, &target);
-          setpoint = core::VelocityCmd{.vx = target.vx, .yawRate = target.yaw_rate};
+          setpoint = models::VelocityCmd{.vx = target.vx, .yawRate = target.yaw_rate};
           std::lock_guard<std::mutex> lock(this->setpointMutex);
           this->lastReceived = setpoint;
         }
@@ -135,7 +135,7 @@ private:
 
   void send(const std::vector<uint8_t>& bytes) { this->link.send(std::span<const uint8_t>(bytes.data(), bytes.size())); }
 
-  mavlink::UdpLink link;
+  comms::UdpLink link;
   sim::KinematicVehicle vehicle;
   double engageAfterS;
   Peer fc{1, 1};
@@ -143,7 +143,7 @@ private:
   mavlink_status_t rxStatus{};
   std::atomic<bool> stopRequested{false};
   mutable std::mutex setpointMutex;
-  std::optional<core::VelocityCmd> lastReceived{};
+  std::optional<models::VelocityCmd> lastReceived{};
   std::thread thread;
 };
 

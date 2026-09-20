@@ -13,10 +13,10 @@
 #include <string>
 #include <vector>
 
-#include "follow/mavlink/ByteLink.h"
-#include "follow/mavlink/Links.h"
+#include "comms/ByteLink.h"
+#include "comms/Links.h"
 
-namespace follow::mavlink {
+namespace follow::comms {
 
 namespace {
 
@@ -270,4 +270,4 @@ ByteLink::WaitStatus UartLink::waitReadable(std::chrono::milliseconds timeout)
   return pollReadable(this->fd, timeout);
 }
 
-}  // namespace follow::mavlink
+}  // namespace follow::comms

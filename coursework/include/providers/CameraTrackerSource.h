@@ -7,21 +7,21 @@
 
 #include <opencv2/core.hpp>
 
-#include "follow/core/Core.h"
-#include "follow/core/Types.h"
-#include "follow/runtime/Channels.h"
-#include "follow/vision/FrameSource.h"
-#include "follow/vision/Tracker.h"
+#include "Types.h"
+#include "control/Core.h"
+#include "providers/FrameSource.h"
+#include "util/Channels.h"
+#include "vision/Tracker.h"
 
-namespace follow::vision {
+namespace follow::providers {
 
 struct CameraTrackerConfig {
   std::chrono::milliseconds reacquirePeriod{500};  // Reacquire re-initializes at most this often
   double reacquireExpand{1.5};                     // on the last good box grown by this factor
 };
 
-core::BBox toBBox(const cv::Rect& rect);
-cv::Rect toRect(const core::BBox& box);
+models::BBox toBBox(const cv::Rect& rect);
+cv::Rect toRect(const models::BBox& box);
 // `box` grown by `factor` around its center, clipped to an image of `bounds`.
 cv::Rect expandBox(const cv::Rect& box, double factor, const cv::Size& bounds);
 
@@ -31,9 +31,9 @@ cv::Rect expandBox(const cv::Rect& box, double factor, const cv::Size& bounds);
 class CameraTrackerSource {
 public:
   CameraTrackerSource(IFrameSource& frames,
-                      std::unique_ptr<ITracker> tracker,
+                      std::unique_ptr<vision::ITracker> tracker,
                       const CameraTrackerConfig& config,
-                      runtime::Channels& channels);
+                      util::Channels& channels);
 
   // Reads one frame, applies pending requests to it, and publishes an observation if locked.
   // Returns false only when the frame source reports it is exhausted. A frame that failed to
@@ -50,21 +50,21 @@ public:
   uint64_t missedFrames() const { return this->missed; }
 
 private:
-  void handle(const core::TrackerRequest& request, const Frame& frame);
+  void handle(const control::TrackerRequest& request, const Frame& frame);
   // Re-initializes the tracker on the latched hint, at most once per reacquirePeriod.
   void reseed(const Frame& frame);
 
   IFrameSource& frames;
-  std::unique_ptr<ITracker> tracker;
+  std::unique_ptr<vision::ITracker> tracker;
   CameraTrackerConfig config;
-  runtime::Channels& channels;
+  util::Channels& channels;
   std::optional<Frame> frame{};
   bool isLocked{false};
   uint64_t missed{0};
-  bool lastUpdateOk{false};    // the last tracker->update() result: Reacquire is a no-op while true
-  bool reacquiring{false};     // a Reacquire is outstanding and the tracker has not recovered yet
-  core::BBox reacquireHint{};  // the hint that Reacquire carried, retried until the tracker recovers
-  std::optional<core::TimePoint> lastReacquire{};
+  bool lastUpdateOk{false};      // the last tracker->update() result: Reacquire is a no-op while true
+  bool reacquiring{false};       // a Reacquire is outstanding and the tracker has not recovered yet
+  models::BBox reacquireHint{};  // the hint that Reacquire carried, retried until the tracker recovers
+  std::optional<models::TimePoint> lastReacquire{};
 };
 
-}  // namespace follow::vision
+}  // namespace follow::providers

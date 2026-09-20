@@ -5,7 +5,7 @@
 #include <ostream>
 #include <string>
 
-namespace follow::runtime {
+namespace follow::app {
 
 struct SimAppOptions {
   std::filesystem::path configPath{"config/follow.json"};
@@ -21,4 +21,4 @@ struct SimAppOptions {
 // Throws config::ConfigError or std::runtime_error for bad files, links or log paths.
 void runSimApp(const SimAppOptions& options, const std::atomic<bool>& stop, std::ostream& out);
 
-}  // namespace follow::runtime
+}  // namespace follow::app

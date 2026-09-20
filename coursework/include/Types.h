@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace follow::core {
+namespace follow::models {
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
@@ -81,4 +81,4 @@ constexpr uint32_t kModeAltHold = 2;
 constexpr uint32_t kModeGuided = 4;
 constexpr uint32_t kModeLoiter = 5;
 
-}  // namespace follow::core
+}  // namespace follow::models

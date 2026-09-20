@@ -1,8 +1,8 @@
 #pragma once
 
-#include "follow/core/Types.h"
+#include "Types.h"
 
-namespace follow::core {
+namespace follow::models {
 
 // Frames used by the core:
 //   camera - optical frame: x right, y down, z forward
@@ -25,4 +25,4 @@ Vec3 normalized(const Vec3& v);
 // Angle between two vectors in radians.
 double angleBetween(const Vec3& a, const Vec3& b);
 
-}  // namespace follow::core
+}  // namespace follow::models

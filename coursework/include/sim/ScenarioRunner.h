@@ -3,13 +3,13 @@
 #include <optional>
 #include <vector>
 
-#include "follow/core/CameraModel.h"
-#include "follow/core/Config.h"
-#include "follow/core/Frames.h"
-#include "follow/core/Types.h"
-#include "follow/sim/KinematicVehicle.h"
-#include "follow/sim/SimTarget.h"
-#include "follow/sim/SyntheticCamera.h"
+#include "Types.h"
+#include "models/CameraModel.h"
+#include "models/Config.h"
+#include "models/Frames.h"
+#include "sim/KinematicVehicle.h"
+#include "sim/SimTarget.h"
+#include "sim/SyntheticCamera.h"
 
 namespace follow::sim {
 
@@ -29,8 +29,8 @@ struct ScenarioOptions {
 
 struct StepRecord {
   double tS{0.0};
-  core::State state{core::State::Idle};
-  std::optional<core::VelocityCmd> setpoint{};
+  models::State state{models::State::Idle};
+  std::optional<models::VelocityCmd> setpoint{};
   bool targetValid{false};
   double trueBearingDeg{0.0};
   double trueDistanceM{0.0};  // camera to target center
@@ -38,7 +38,7 @@ struct StepRecord {
 
 struct ScenarioResult {
   std::vector<StepRecord> steps;
-  std::vector<core::State> states;        // state sequence with consecutive duplicates removed
+  std::vector<models::State> states;      // state sequence with consecutive duplicates removed
   std::optional<double> lockDistanceM{};  // true distance when Following was first entered
 };
 
@@ -51,9 +51,9 @@ GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double tar
 
 // Runs Core against SyntheticCamera + KinematicVehicle, starting in LOITER with the vehicle
 // at the origin facing north.
-ScenarioResult runScenario(const core::Config& config,
-                           const core::CameraModel& camera,
-                           const core::CameraMount& mount,
+ScenarioResult runScenario(const models::Config& config,
+                           const models::CameraModel& camera,
+                           const models::CameraMount& mount,
                            const SimTarget& target,
                            const ScenarioOptions& options);
 

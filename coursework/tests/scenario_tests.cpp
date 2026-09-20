@@ -5,12 +5,12 @@
 #include <optional>
 #include <vector>
 
-#include "follow/core/Angles.h"
-#include "follow/sim/ScenarioRunner.h"
+#include "models/Angles.h"
+#include "sim/ScenarioRunner.h"
 
 using namespace follow;
 using namespace follow::sim;
-using S = core::State;
+using S = models::State;
 
 namespace {
 
@@ -56,7 +56,7 @@ std::vector<double> distancesBetween(const ScenarioResult& result, double fromS,
 }
 
 // Every scenario must respect the command envelope, and only Following may move the vehicle.
-void expectSafeCommands(const ScenarioResult& result, const core::ControlConfig& control)
+void expectSafeCommands(const ScenarioResult& result, const models::ControlConfig& control)
 {
   for (const StepRecord& step : result.steps) {
     bool idleOrNoFc = step.state == S::Idle || step.state == S::NoFc;
@@ -65,7 +65,7 @@ void expectSafeCommands(const ScenarioResult& result, const core::ControlConfig&
       continue;
     }
     EXPECT_LE(std::abs(step.setpoint->vx), control.vxMax + 1e-9) << "t=" << step.tS;
-    EXPECT_LE(std::abs(step.setpoint->yawRate), core::degToRad(control.yawRateMaxDps) + 1e-9) << "t=" << step.tS;
+    EXPECT_LE(std::abs(step.setpoint->yawRate), models::degToRad(control.yawRateMaxDps) + 1e-9) << "t=" << step.tS;
     if (step.state != S::Following) {
       EXPECT_EQ(step.setpoint->vx, 0.0) << "t=" << step.tS;
       EXPECT_EQ(step.setpoint->yawRate, 0.0) << "t=" << step.tS;
@@ -83,9 +83,9 @@ protected:
     return result;
   }
 
-  core::FisheyeKbModel camera{core::nominalFisheye(640, 480, 160.0)};
-  core::CameraMount mount{};
-  core::Config config{};
+  models::FisheyeKbModel camera{models::nominalFisheye(640, 480, 160.0)};
+  models::CameraMount mount{};
+  models::Config config{};
   ScenarioOptions options{};  // engage at 1 s, vehicle 2 m up facing north
 };
 

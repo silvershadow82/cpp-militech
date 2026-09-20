@@ -1,4 +1,4 @@
-#include "follow/sim/SimTarget.h"
+#include "sim/SimTarget.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,7 +13,7 @@ double durationOf(const TargetMotion& motion)
   return std::visit([](const auto& m) { return m.durationS; }, motion);
 }
 
-core::Vec3 advance(const core::Vec3& from, const TargetMotion& motion, double dt)
+models::Vec3 advance(const models::Vec3& from, const TargetMotion& motion, double dt)
 {
   if (const auto* line = std::get_if<TargetLine>(&motion)) {
     return {from.x + line->velNorth * dt, from.y + line->velEast * dt, 0.0};
@@ -34,7 +34,7 @@ core::Vec3 advance(const core::Vec3& from, const TargetMotion& motion, double dt
 }  // namespace
 
 SimTarget::SimTarget(
-  core::Vec3 startNed, std::vector<TargetMotion> motions, std::vector<OcclusionWindow> occlusions, double heightM, double widthM)
+  models::Vec3 startNed, std::vector<TargetMotion> motions, std::vector<OcclusionWindow> occlusions, double heightM, double widthM)
   : start{startNed.x, startNed.y, 0.0}
   , motions(std::move(motions))
   , occlusions(std::move(occlusions))
@@ -43,9 +43,9 @@ SimTarget::SimTarget(
 {
 }
 
-core::Vec3 SimTarget::positionAt(double tSec) const
+models::Vec3 SimTarget::positionAt(double tSec) const
 {
-  core::Vec3 position = this->start;
+  models::Vec3 position = this->start;
   double elapsed = 0.0;
   for (const TargetMotion& motion : this->motions) {
     double duration = durationOf(motion);

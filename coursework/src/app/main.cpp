@@ -6,12 +6,12 @@
 #include <stdexcept>
 #include <string>
 
-#include "follow/runtime/SimApp.h"
+#include "MissionProcessor.h"
 
 #ifdef FOLLOW_WITH_OPENCV
-#include "follow/config/ConfigJson.h"
-#include "follow/vision/HwApp.h"
-#include "follow/vision/PiCameraSource.h"
+#include "HwMissionProcessor.h"
+#include "config/ConfigJson.h"
+#include "providers/PiCameraSource.h"
 #endif
 
 namespace {
@@ -99,25 +99,25 @@ int main(int argc, char** argv)
   std::signal(SIGTERM, onSignal);
   try {
     if (sim) {
-      follow::runtime::SimAppOptions options;
+      follow::app::SimAppOptions options;
       options.configPath = configPath;
       options.scenarioPath = scenarioPath;
       options.link = link.value_or(options.link);
       options.logPath = logPath;
-      follow::runtime::runSimApp(options, stopRequested, std::cout);
+      follow::app::runSimApp(options, stopRequested, std::cout);
     }
 #ifdef FOLLOW_WITH_OPENCV
     else {
       follow::config::AppConfig app = follow::config::loadAppConfig(configPath);
-      follow::vision::PiCameraSource camera(follow::vision::PiCameraConfig{.captureWidth = app.vision.captureWidth,
-                                                                           .captureHeight = app.vision.captureHeight,
-                                                                           .trackWidth = app.vision.trackWidth,
-                                                                           .trackHeight = app.vision.trackHeight,
-                                                                           .fps = app.vision.fps,
-                                                                           .hflip = app.vision.hflip,
-                                                                           .vflip = app.vision.vflip});
-      follow::vision::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
-      follow::vision::runHwApp(options, camera, stopRequested, std::cout);
+      follow::providers::PiCameraSource camera(follow::providers::PiCameraConfig{.captureWidth = app.vision.captureWidth,
+                                                                                 .captureHeight = app.vision.captureHeight,
+                                                                                 .trackWidth = app.vision.trackWidth,
+                                                                                 .trackHeight = app.vision.trackHeight,
+                                                                                 .fps = app.vision.fps,
+                                                                                 .hflip = app.vision.hflip,
+                                                                                 .vflip = app.vision.vflip});
+      follow::app::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
+      follow::app::runHwApp(options, camera, stopRequested, std::cout);
     }
 #endif
   }

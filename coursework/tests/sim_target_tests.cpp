@@ -3,10 +3,10 @@
 #include <cmath>
 #include <numbers>
 
-#include "follow/sim/SimTarget.h"
+#include "sim/SimTarget.h"
 
 using namespace follow::sim;
-using follow::core::Vec3;
+using follow::models::Vec3;
 
 TEST(SimTarget, HoldStaysAtStartOnGround)
 {

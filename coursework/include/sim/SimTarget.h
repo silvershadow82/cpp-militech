@@ -3,7 +3,7 @@
 #include <variant>
 #include <vector>
 
-#include "follow/core/Types.h"
+#include "Types.h"
 
 namespace follow::sim {
 
@@ -20,7 +20,7 @@ struct TargetLine {
 // Walks around centerNed at the given speed; positive speed is clockwise seen from above.
 struct TargetCircle {
   double durationS{0.0};
-  core::Vec3 centerNed{};
+  models::Vec3 centerNed{};
   double speed{0.0};
 };
 
@@ -34,20 +34,20 @@ struct OcclusionWindow {
 // Scripted target: a person-sized upright box moving on the ground (NED z = 0).
 class SimTarget {
 public:
-  SimTarget(core::Vec3 startNed,
+  SimTarget(models::Vec3 startNed,
             std::vector<TargetMotion> motions,
             std::vector<OcclusionWindow> occlusions = {},
             double heightM = 1.7,
             double widthM = 0.5);
 
   // Ground point under the target at tSec after the scenario's target clock started.
-  core::Vec3 positionAt(double tSec) const;
+  models::Vec3 positionAt(double tSec) const;
   bool occludedAt(double tSec) const;
   double height() const { return this->heightM; }
   double width() const { return this->widthM; }
 
 private:
-  core::Vec3 start;
+  models::Vec3 start;
   std::vector<TargetMotion> motions;
   std::vector<OcclusionWindow> occlusions;
   double heightM;

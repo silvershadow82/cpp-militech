@@ -2,9 +2,9 @@
 
 #include <optional>
 
-#include "follow/core/Types.h"
+#include "Types.h"
 
-namespace follow::core {
+namespace follow::models {
 
 // Intrinsics in OpenCV's layout. k1..k4 are only used by the fisheye model.
 struct Intrinsics {
@@ -68,4 +68,4 @@ public:
 // Undistorted equidistant fisheye whose image diagonal spans diagonalFovDeg. Used until calibrated.
 Intrinsics nominalFisheye(int width, int height, double diagonalFovDeg);
 
-}  // namespace follow::core
+}  // namespace follow::models

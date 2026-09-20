@@ -3,10 +3,10 @@
 #include <cmath>
 #include <numbers>
 
-#include "follow/core/Angles.h"
-#include "follow/core/Frames.h"
+#include "models/Angles.h"
+#include "models/Frames.h"
 
-using namespace follow::core;
+using namespace follow::models;
 using std::numbers::pi;
 
 namespace {

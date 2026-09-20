@@ -5,9 +5,9 @@
 
 #include <string>
 
-#include "follow/mavlink/ByteLink.h"
+#include "comms/ByteLink.h"
 
-namespace follow::mavlink {
+namespace follow::comms {
 
 // UDP endpoint bound to localPort (0 = any free port). Sends to the given remote, or, without one,
 // to the sender of the first datagram received (ArduPilot SITL's "udpclient" connects this way).
@@ -48,4 +48,4 @@ private:
   int fd{-1};
 };
 
-}  // namespace follow::mavlink
+}  // namespace follow::comms

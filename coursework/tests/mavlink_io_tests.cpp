@@ -5,11 +5,12 @@
 
 #include "MavlinkTestSupport.h"
 #include "TestTime.h"
-#include "follow/runtime/Channels.h"
-#include "follow/runtime/MavlinkIo.h"
+#include "comms/MavlinkIo.h"
+#include "util/Channels.h"
 
 using namespace follow;
-using namespace follow::runtime;
+using namespace follow::comms;
+using namespace follow::util;
 using follow::test::at;
 using follow::test::decodeFrames;
 using follow::test::FakeLink;
@@ -31,7 +32,7 @@ protected:
   FakeLink link;
   Peer fc{1, 1};
   Channels channels;
-  MavlinkIo io{link, mavlink::MavlinkIds{}, channels};
+  MavlinkIo io{link, comms::MavlinkIds{}, channels};
 };
 
 }  // namespace
@@ -42,13 +43,13 @@ TEST_F(MavlinkIoTest, PublishesVehicleStateWhenTheFcSpeaks)
   io.iterate(at(1.0));
   EXPECT_FALSE(channels.vehicle.read());
 
-  link.feed(fc.heartbeat(core::kModeGuided, true));
+  link.feed(fc.heartbeat(models::kModeGuided, true));
   io.iterate(at(1.1));
 
   auto vehicle = channels.vehicle.read();
   ASSERT_TRUE(vehicle);
   EXPECT_EQ(vehicle->t, at(1.1));
-  EXPECT_EQ(vehicle->value.customMode, core::kModeGuided);
+  EXPECT_EQ(vehicle->value.customMode, models::kModeGuided);
   EXPECT_EQ(vehicle->value.lastHeartbeat, at(1.1));
 }
 

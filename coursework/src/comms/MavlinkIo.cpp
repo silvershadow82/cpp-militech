@@ -1,10 +1,10 @@
-#include "follow/runtime/MavlinkIo.h"
+#include "comms/MavlinkIo.h"
 
 #include <chrono>
 #include <thread>
 #include <utility>
 
-namespace follow::runtime {
+namespace follow::comms {
 
 namespace {
 
@@ -12,10 +12,10 @@ constexpr auto kWaitFailureBackoff = std::chrono::milliseconds{50};
 
 }  // namespace
 
-MavlinkIo::MavlinkIo(mavlink::ByteLink& link,
-                     const mavlink::MavlinkIds& ids,
-                     Channels& channels,
-                     mavlink::MavlinkClient::StatusTextHandler onStatusText)
+MavlinkIo::MavlinkIo(comms::ByteLink& link,
+                     const comms::MavlinkIds& ids,
+                     util::Channels& channels,
+                     comms::MavlinkClient::StatusTextHandler onStatusText)
   : link(link)
   , client(link, ids, onStatusText)
   , channels(channels)
@@ -23,7 +23,7 @@ MavlinkIo::MavlinkIo(mavlink::ByteLink& link,
 {
 }
 
-void MavlinkIo::iterate(core::TimePoint now)
+void MavlinkIo::iterate(models::TimePoint now)
 {
   if (this->client.poll(now) > 0) {
     this->channels.vehicle.write(this->client.vehicle(), now);
@@ -38,8 +38,8 @@ void MavlinkIo::iterate(core::TimePoint now)
 void MavlinkIo::run(const std::atomic<bool>& stop)
 {
   while (!stop) {
-    mavlink::ByteLink::WaitStatus status = this->link.waitReadable(std::chrono::milliseconds{5});
-    if (status == mavlink::ByteLink::WaitStatus::Error) {
+    comms::ByteLink::WaitStatus status = this->link.waitReadable(std::chrono::milliseconds{5});
+    if (status == comms::ByteLink::WaitStatus::Error) {
       // Report only on the transition into the failing state, so a broken fd does not spam the log.
       if (!this->waitFailing) {
         this->waitFailing = true;
@@ -53,8 +53,8 @@ void MavlinkIo::run(const std::atomic<bool>& stop)
     else {
       this->waitFailing = false;
     }
-    this->iterate(core::Clock::now());
+    this->iterate(models::Clock::now());
   }
 }
 
-}  // namespace follow::runtime
+}  // namespace follow::comms

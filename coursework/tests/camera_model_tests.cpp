@@ -2,11 +2,11 @@
 
 #include <array>
 
-#include "follow/core/Angles.h"
-#include "follow/core/CameraModel.h"
-#include "follow/core/Frames.h"
+#include "models/Angles.h"
+#include "models/CameraModel.h"
+#include "models/Frames.h"
 
-using namespace follow::core;
+using namespace follow::models;
 
 namespace {
 

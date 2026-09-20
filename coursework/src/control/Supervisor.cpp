@@ -1,69 +1,72 @@
-#include "follow/core/Supervisor.h"
+#include "control/Supervisor.h"
 
-namespace follow::core {
+namespace follow::control {
 
-State Supervisor::update(TimePoint now, std::optional<TimePoint> lastHeartbeat, uint32_t customMode, bool targetValid)
+models::State Supervisor::update(models::TimePoint now,
+                                 std::optional<models::TimePoint> lastHeartbeat,
+                                 uint32_t customMode,
+                                 bool targetValid)
 {
   bool fcAlive = lastHeartbeat && now - *lastHeartbeat <= this->config.fcTimeout;
   if (!fcAlive) {
     this->previousMode.reset();
-    this->enter(State::NoFc, now);
+    this->enter(models::State::NoFc, now);
     return this->current;
   }
 
-  bool guided = customMode == kModeGuided;
-  bool becameGuided = guided && this->previousMode && *this->previousMode != kModeGuided;
+  bool guided = customMode == models::kModeGuided;
+  bool becameGuided = guided && this->previousMode && *this->previousMode != models::kModeGuided;
   this->previousMode = customMode;
 
   switch (this->current) {
-    case State::NoFc:
-      this->enter(State::Idle, now);
+    case models::State::NoFc:
+      this->enter(models::State::Idle, now);
       break;
-    case State::Idle:
+    case models::State::Idle:
       if (becameGuided) {
-        this->enter(State::Locking, now);
+        this->enter(models::State::Locking, now);
       }
       break;
-    case State::Locking:
+    case models::State::Locking:
       if (!guided) {
-        this->enter(State::Idle, now);
+        this->enter(models::State::Idle, now);
       }
       else if (targetValid) {
-        this->enter(State::Following, now);
+        this->enter(models::State::Following, now);
       }
       else if (now - this->since >= this->config.lockTimeout) {
-        this->enter(State::Lost, now);
+        this->enter(models::State::Lost, now);
       }
       break;
-    case State::Following:
+    case models::State::Following:
       if (!guided) {
-        this->enter(State::Idle, now);
+        this->enter(models::State::Idle, now);
       }
       else if (!targetValid) {
-        this->enter(State::Lost, now);
+        this->enter(models::State::Lost, now);
       }
       break;
-    case State::Lost:
+    case models::State::Lost:
       if (!guided) {
-        this->enter(State::Idle, now);
+        this->enter(models::State::Idle, now);
       }
       else if (targetValid) {
-        this->enter(State::Following, now);
+        this->enter(models::State::Following, now);
       }
       else if (now - this->since >= this->config.lostTimeout) {
-        this->enter(State::Hold, now);
+        this->enter(models::State::Hold, now);
       }
       break;
-    case State::Hold:
+    case models::State::Hold:
       if (!guided) {
-        this->enter(State::Idle, now);
+        this->enter(models::State::Idle, now);
       }
       break;
   }
   return this->current;
 }
 
-void Supervisor::enter(State next, TimePoint now)
+void Supervisor::enter(models::State next, models::TimePoint now)
 {
   if (next != this->current) {
     this->current = next;
@@ -71,4 +74,4 @@ void Supervisor::enter(State next, TimePoint now)
   }
 }
 
-}  // namespace follow::core
+}  // namespace follow::control

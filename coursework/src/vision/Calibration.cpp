@@ -1,4 +1,4 @@
-#include "follow/vision/Calibration.h"
+#include "vision/Calibration.h"
 
 #include <stdexcept>
 
@@ -54,16 +54,16 @@ CalibrationResult calibrateFisheye(const std::vector<std::vector<cv::Point2f>>& 
     objectPoints, corners, image, K, D, rvecs, tvecs, flags, cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, 1e-8));
 
   CalibrationResult result;
-  result.intrinsics = core::Intrinsics{.width = image.width,
-                                       .height = image.height,
-                                       .fx = K(0, 0),
-                                       .fy = K(1, 1),
-                                       .cx = K(0, 2),
-                                       .cy = K(1, 2),
-                                       .k1 = D[0],
-                                       .k2 = D[1],
-                                       .k3 = D[2],
-                                       .k4 = D[3]};
+  result.intrinsics = models::Intrinsics{.width = image.width,
+                                         .height = image.height,
+                                         .fx = K(0, 0),
+                                         .fy = K(1, 1),
+                                         .cx = K(0, 2),
+                                         .cy = K(1, 2),
+                                         .k1 = D[0],
+                                         .k2 = D[1],
+                                         .k3 = D[2],
+                                         .k4 = D[3]};
   result.rms = rms;
   result.views = static_cast<int>(corners.size());
   return result;
@@ -71,7 +71,7 @@ CalibrationResult calibrateFisheye(const std::vector<std::vector<cv::Point2f>>& 
 
 nlohmann::json cameraJson(const CalibrationResult& result, double tiltDeg)
 {
-  const core::Intrinsics& k = result.intrinsics;
+  const models::Intrinsics& k = result.intrinsics;
   return nlohmann::json{{"model", "fisheye"},
                         {"width", k.width},
                         {"height", k.height},

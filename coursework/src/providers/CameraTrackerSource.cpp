@@ -1,19 +1,19 @@
-#include "follow/vision/CameraTrackerSource.h"
+#include "providers/CameraTrackerSource.h"
 
 #include <cmath>
 #include <utility>
 
-namespace follow::vision {
+namespace follow::providers {
 
-core::BBox toBBox(const cv::Rect& rect)
+models::BBox toBBox(const cv::Rect& rect)
 {
-  return core::BBox{.x = static_cast<double>(rect.x),
-                    .y = static_cast<double>(rect.y),
-                    .w = static_cast<double>(rect.width),
-                    .h = static_cast<double>(rect.height)};
+  return models::BBox{.x = static_cast<double>(rect.x),
+                      .y = static_cast<double>(rect.y),
+                      .w = static_cast<double>(rect.width),
+                      .h = static_cast<double>(rect.height)};
 }
 
-cv::Rect toRect(const core::BBox& box)
+cv::Rect toRect(const models::BBox& box)
 {
   return cv::Rect(static_cast<int>(std::lround(box.x)),
                   static_cast<int>(std::lround(box.y)),
@@ -30,9 +30,9 @@ cv::Rect expandBox(const cv::Rect& box, double factor, const cv::Size& bounds)
 }
 
 CameraTrackerSource::CameraTrackerSource(IFrameSource& frames,
-                                         std::unique_ptr<ITracker> tracker,
+                                         std::unique_ptr<vision::ITracker> tracker,
                                          const CameraTrackerConfig& config,
-                                         runtime::Channels& channels)
+                                         util::Channels& channels)
   : frames(frames)
   , tracker(std::move(tracker))
   , config(config)
@@ -54,7 +54,7 @@ bool CameraTrackerSource::iterate()
     return true;
   }
   this->frame = std::move(next);
-  for (const core::TrackerRequest& request : this->channels.trackerRequests.drain()) {
+  for (const control::TrackerRequest& request : this->channels.trackerRequests.drain()) {
     this->handle(request, *this->frame);
   }
   if (!this->isLocked) {
@@ -67,7 +67,7 @@ bool CameraTrackerSource::iterate()
   // min_confidence can therefore never reject a box: the estimator's own rules -- staleness, border
   // margin, attitude freshness and the area jump -- are the only defence against the tracker drifting
   // onto background, which is why Reacquire below must not throw a healthy lock away.
-  core::TargetObservation observation{.tFrame = this->frame->t, .box = {}, .ok = box.has_value(), .confidence = box ? 1.0 : 0.0};
+  models::TargetObservation observation{.tFrame = this->frame->t, .box = {}, .ok = box.has_value(), .confidence = box ? 1.0 : 0.0};
   if (box) {
     observation.box = toBBox(*box);
   }
@@ -86,11 +86,11 @@ bool CameraTrackerSource::iterate()
   return true;
 }
 
-void CameraTrackerSource::handle(const core::TrackerRequest& request, const Frame& frame)
+void CameraTrackerSource::handle(const control::TrackerRequest& request, const Frame& frame)
 {
   cv::Rect hint = toRect(request.hint) & cv::Rect(0, 0, frame.image.cols, frame.image.rows);
   switch (request.kind) {
-    case core::TrackerRequestKind::LockCenter:
+    case control::TrackerRequestKind::LockCenter:
       if (hint.area() > 0) {
         this->tracker->init(frame.image, hint);
         this->isLocked = true;
@@ -99,7 +99,7 @@ void CameraTrackerSource::handle(const core::TrackerRequest& request, const Fram
         this->lastReacquire.reset();
       }
       break;
-    case core::TrackerRequestKind::Reacquire: {
+    case control::TrackerRequestKind::Reacquire: {
       if (!this->isLocked) {
         break;
       }
@@ -119,11 +119,11 @@ void CameraTrackerSource::handle(const core::TrackerRequest& request, const Fram
       this->reseed(frame);
       break;
     }
-    case core::TrackerRequestKind::Unlock:
+    case control::TrackerRequestKind::Unlock:
       this->isLocked = false;
       this->reacquiring = false;
       break;
-    case core::TrackerRequestKind::None:
+    case control::TrackerRequestKind::None:
       break;
   }
 }
@@ -140,4 +140,4 @@ void CameraTrackerSource::reseed(const Frame& frame)
   }
 }
 
-}  // namespace follow::vision
+}  // namespace follow::providers

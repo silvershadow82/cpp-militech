@@ -1,11 +1,11 @@
-#include "follow/core/Frames.h"
+#include "models/Frames.h"
 
 #include <algorithm>
 #include <cmath>
 
-#include "follow/core/Angles.h"
+#include "models/Angles.h"
 
-namespace follow::core {
+namespace follow::models {
 
 namespace {
 
@@ -78,4 +78,4 @@ double angleBetween(const Vec3& a, const Vec3& b)
   return std::acos(std::clamp(cosine, -1.0, 1.0));
 }
 
-}  // namespace follow::core
+}  // namespace follow::models

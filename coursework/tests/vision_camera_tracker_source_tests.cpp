@@ -2,35 +2,36 @@
 
 #include <memory>
 
-#include "follow/runtime/Channels.h"
-#include "follow/vision/CameraTrackerSource.h"
-#include "follow/vision/FrameSource.h"
-#include "follow/vision/Tracker.h"
+#include "providers/CameraTrackerSource.h"
+#include "providers/FrameSource.h"
+#include "util/Channels.h"
+#include "vision/Tracker.h"
 
 namespace {
 
-using follow::core::BBox;
-using follow::core::TrackerRequest;
-using follow::core::TrackerRequestKind;
+using follow::control::TrackerRequest;
+using follow::control::TrackerRequestKind;
+using follow::models::BBox;
 
 const BBox kLockBox{.x = 272.0, .y = 192.0, .w = 96.0, .h = 96.0};  // Core::lockBox() for 640x480, lock_box_frac 0.20
 
 struct Fixture {
-  follow::runtime::Channels channels;
-  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
-  follow::vision::CameraTrackerSource source{frames, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
+  follow::util::Channels channels;
+  follow::providers::SyntheticFrameSource frames{640, 480, follow::models::Clock::now()};
+  follow::providers::CameraTrackerSource source{
+    frames, follow::vision::makeTracker("kcf"), follow::providers::CameraTrackerConfig{}, channels};
 };
 
 // A source the test drives: `miss` makes one read() fail the way a live camera drops a buffer,
 // `exhausted` reports the end of the stream the way a clip does at EOF.
-class ScriptedFrames final : public follow::vision::IFrameSource {
+class ScriptedFrames final : public follow::providers::IFrameSource {
 public:
-  explicit ScriptedFrames(follow::vision::IFrameSource& inner)
+  explicit ScriptedFrames(follow::providers::IFrameSource& inner)
     : inner(inner)
   {
   }
 
-  std::optional<follow::vision::Frame> read() override
+  std::optional<follow::providers::Frame> read() override
   {
     if (this->miss) {
       this->miss = false;
@@ -48,7 +49,7 @@ public:
   bool exhausted{false};
 
 private:
-  follow::vision::IFrameSource& inner;
+  follow::providers::IFrameSource& inner;
 };
 
 // Counts init() calls and reports whatever the test tells it to. A real KCF hides both: it never
@@ -72,14 +73,14 @@ public:
 struct CountingFixture {
   CountingFixture()
     : tracker(new CountingTracker)
-    , source(frames, std::unique_ptr<follow::vision::ITracker>(tracker), follow::vision::CameraTrackerConfig{}, channels)
+    , source(frames, std::unique_ptr<follow::vision::ITracker>(tracker), follow::providers::CameraTrackerConfig{}, channels)
   {
   }
 
-  follow::runtime::Channels channels;
-  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  follow::util::Channels channels;
+  follow::providers::SyntheticFrameSource frames{640, 480, follow::models::Clock::now()};
   CountingTracker* tracker;
-  follow::vision::CameraTrackerSource source;
+  follow::providers::CameraTrackerSource source;
 };
 
 }  // namespace
@@ -148,10 +149,10 @@ TEST(CameraTrackerSource, ReacquireBeforeAnyLockIsIgnored)
 
 TEST(ExpandBox, GrowsAroundTheCenterAndClipsToTheImage)
 {
-  cv::Rect grown = follow::vision::expandBox(cv::Rect(100, 100, 40, 80), 1.5, cv::Size(640, 480));
+  cv::Rect grown = follow::providers::expandBox(cv::Rect(100, 100, 40, 80), 1.5, cv::Size(640, 480));
   EXPECT_EQ(grown, cv::Rect(90, 80, 60, 120));
 
-  cv::Rect clipped = follow::vision::expandBox(cv::Rect(0, 0, 40, 40), 1.5, cv::Size(640, 480));
+  cv::Rect clipped = follow::providers::expandBox(cv::Rect(0, 0, 40, 40), 1.5, cv::Size(640, 480));
   EXPECT_EQ(clipped.x, 0);
   EXPECT_EQ(clipped.y, 0);
   EXPECT_LE(clipped.br().x, 640);
@@ -160,7 +161,7 @@ TEST(ExpandBox, GrowsAroundTheCenterAndClipsToTheImage)
 TEST(BoxConversion, RoundTripsIntegerBoxes)
 {
   cv::Rect r(12, 34, 56, 78);
-  EXPECT_EQ(follow::vision::toRect(follow::vision::toBBox(r)), r);
+  EXPECT_EQ(follow::providers::toRect(follow::providers::toBBox(r)), r);
 }
 
 TEST(CameraTrackerSource, AMissedFrameKeepsIteratingAndPublishesNothing)
@@ -169,10 +170,11 @@ TEST(CameraTrackerSource, AMissedFrameKeepsIteratingAndPublishesNothing)
   // one would leave the FC holding the last velocity setpoint for its guided timeout; publishing
   // nothing instead lets the estimator's staleness rule run, so the core goes Lost and commands
   // zero all by itself.
-  follow::runtime::Channels channels;
-  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  follow::util::Channels channels;
+  follow::providers::SyntheticFrameSource frames{640, 480, follow::models::Clock::now()};
   ScriptedFrames scripted{frames};
-  follow::vision::CameraTrackerSource source{scripted, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
+  follow::providers::CameraTrackerSource source{
+    scripted, follow::vision::makeTracker("kcf"), follow::providers::CameraTrackerConfig{}, channels};
   channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
   source.iterate();
   uint64_t before = channels.observation.read()->sequence;
@@ -190,10 +192,11 @@ TEST(CameraTrackerSource, AMissedFrameKeepsIteratingAndPublishesNothing)
 
 TEST(CameraTrackerSource, StopsOnlyWhenTheSourceReportsItIsExhausted)
 {
-  follow::runtime::Channels channels;
-  follow::vision::SyntheticFrameSource frames{640, 480, follow::core::Clock::now()};
+  follow::util::Channels channels;
+  follow::providers::SyntheticFrameSource frames{640, 480, follow::models::Clock::now()};
   ScriptedFrames scripted{frames};
-  follow::vision::CameraTrackerSource source{scripted, follow::vision::makeTracker("kcf"), follow::vision::CameraTrackerConfig{}, channels};
+  follow::providers::CameraTrackerSource source{
+    scripted, follow::vision::makeTracker("kcf"), follow::providers::CameraTrackerConfig{}, channels};
   EXPECT_TRUE(source.iterate());
 
   scripted.exhausted = true;
@@ -213,14 +216,14 @@ TEST(CameraTrackerSource, ReacquireIsANoOpWhileTheTrackerStillSucceeds)
   f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::LockCenter, .hint = kLockBox});
   f.source.iterate();
   ASSERT_EQ(f.tracker->inits, 1);
-  cv::Rect published = follow::vision::toRect(f.channels.observation.read()->value.box);
+  cv::Rect published = follow::providers::toRect(f.channels.observation.read()->value.box);
 
   f.channels.trackerRequests.push(TrackerRequest{.kind = TrackerRequestKind::Reacquire, .hint = kLockBox});
   f.source.iterate();
 
   EXPECT_EQ(f.tracker->inits, 1);  // not re-seeded at all
   EXPECT_TRUE(f.source.locked());
-  EXPECT_EQ(follow::vision::toRect(f.channels.observation.read()->value.box), published);
+  EXPECT_EQ(follow::providers::toRect(f.channels.observation.read()->value.box), published);
 }
 
 TEST(CameraTrackerSource, ReacquireReseedsAtMostOncePerPeriod)
@@ -240,7 +243,7 @@ TEST(CameraTrackerSource, ReacquireReseedsAtMostOncePerPeriod)
   f.source.iterate();  // 50 ms later, well inside the 500 ms period
 
   EXPECT_EQ(f.tracker->inits, 2);  // the LockCenter plus exactly one re-seed
-  EXPECT_EQ(f.tracker->lastInit, follow::vision::expandBox(follow::vision::toRect(kLockBox), 1.5, cv::Size(640, 480)));
+  EXPECT_EQ(f.tracker->lastInit, follow::providers::expandBox(follow::providers::toRect(kLockBox), 1.5, cv::Size(640, 480)));
 }
 
 TEST(CameraTrackerSource, ReacquireIsRetriedEveryPeriodWhileTheTrackerKeepsFailing)

@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
 
-#include "follow/core/Angles.h"
-#include "follow/core/FollowController.h"
+#include "control/FollowController.h"
+#include "models/Angles.h"
 
-using namespace follow::core;
+using namespace follow::control;
+using namespace follow::models;
 
 namespace {
 

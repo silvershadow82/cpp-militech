@@ -6,13 +6,13 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core.hpp>
 
-#include "follow/core/CameraModel.h"
+#include "models/CameraModel.h"
 
 namespace follow::vision {
 
 struct CalibrationResult {
-  core::Intrinsics intrinsics{};  // at the resolution of the calibration images
-  double rms{0.0};                // reprojection error, px; bring-up stage 0 requires < 0.5
+  models::Intrinsics intrinsics{};  // at the resolution of the calibration images
+  double rms{0.0};                  // reprojection error, px; bring-up stage 0 requires < 0.5
   int views{0};
 };
 

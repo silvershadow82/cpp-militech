@@ -5,13 +5,14 @@
 #include <vector>
 
 #include "TestTime.h"
-#include "follow/runtime/Channels.h"
-#include "follow/runtime/ControlLoop.h"
+#include "control/ControlLoop.h"
+#include "util/Channels.h"
 
 using namespace follow;
-using namespace follow::runtime;
+using namespace follow::control;
+using namespace follow::util;
 using follow::test::at;
-using S = core::State;
+using S = models::State;
 
 namespace {
 
@@ -26,19 +27,19 @@ protected:
     this->channels.vehicle.write(this->vehicle, at(tSec));
   }
 
-  core::FisheyeKbModel camera{core::nominalFisheye(640, 480, 160.0)};
-  core::VehicleState vehicle{};
+  models::FisheyeKbModel camera{models::nominalFisheye(640, 480, 160.0)};
+  control::VehicleState vehicle{};
   Channels channels{};
   std::ostringstream logText{};
   RunLogWriter log{logText};
-  ControlLoop loop{core::Config{}, camera, core::CameraMount{}, channels, &log, at(0.0)};
+  ControlLoop loop{models::Config{}, camera, models::CameraMount{}, channels, &log, at(0.0)};
 };
 
 }  // namespace
 
 TEST_F(ControlLoopTest, NoVehicleDataMeansNoFcAndNoSetpoint)
 {
-  core::Outputs out = loop.tick(at(0.05));
+  control::Outputs out = loop.tick(at(0.05));
 
   EXPECT_EQ(out.state, S::NoFc);
   EXPECT_FALSE(channels.setpoint.read());
@@ -47,18 +48,18 @@ TEST_F(ControlLoopTest, NoVehicleDataMeansNoFcAndNoSetpoint)
 TEST_F(ControlLoopTest, EngagePublishesLockRequestAndZeroSetpoint)
 {
   // Setup
-  publishVehicle(0.0, core::kModeLoiter);
+  publishVehicle(0.0, models::kModeLoiter);
   loop.tick(at(0.0));
-  publishVehicle(0.05, core::kModeGuided);
+  publishVehicle(0.05, models::kModeGuided);
 
   // Run
-  core::Outputs out = loop.tick(at(0.05));
+  control::Outputs out = loop.tick(at(0.05));
 
   // Assert
   EXPECT_EQ(out.state, S::Locking);
-  std::vector<core::TrackerRequest> requests = channels.trackerRequests.drain();
+  std::vector<control::TrackerRequest> requests = channels.trackerRequests.drain();
   ASSERT_EQ(requests.size(), 1u);
-  EXPECT_EQ(requests[0].kind, core::TrackerRequestKind::LockCenter);
+  EXPECT_EQ(requests[0].kind, control::TrackerRequestKind::LockCenter);
   auto setpoint = channels.setpoint.read();
   ASSERT_TRUE(setpoint);
   EXPECT_EQ(setpoint->sequence, 1u);
@@ -68,7 +69,7 @@ TEST_F(ControlLoopTest, EngagePublishesLockRequestAndZeroSetpoint)
 
 TEST_F(ControlLoopTest, IdlePublishesNothing)
 {
-  publishVehicle(0.0, core::kModeLoiter);
+  publishVehicle(0.0, models::kModeLoiter);
 
   loop.tick(at(0.0));
   loop.tick(at(0.05));
@@ -80,7 +81,7 @@ TEST_F(ControlLoopTest, IdlePublishesNothing)
 TEST_F(ControlLoopTest, EveryTickIsLoggedWithFreshGroundTruth)
 {
   // Setup
-  publishVehicle(0.0, core::kModeLoiter);
+  publishVehicle(0.0, models::kModeLoiter);
   channels.truth.write({.bearingDeg = 1.5, .distanceM = 3.25}, at(0.0));
 
   // Run: truth is fresh at 0.1 s and 300 ms old at 0.3 s
@@ -99,7 +100,7 @@ TEST_F(ControlLoopTest, EveryTickIsLoggedWithFreshGroundTruth)
 
 TEST_F(ControlLoopTest, PublishesTheOverlayEveryTick)
 {
-  core::Outputs out = this->loop.tick(at(0.0));
+  control::Outputs out = this->loop.tick(at(0.0));
 
   auto overlay = this->channels.overlay.read();
   ASSERT_TRUE(overlay.has_value());

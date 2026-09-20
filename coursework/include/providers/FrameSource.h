@@ -6,16 +6,16 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
-#include "follow/core/Types.h"
+#include "Types.h"
 
-namespace follow::vision {
+namespace follow::providers {
 
 // One captured frame at the tracking resolution, stamped when it was captured. The estimator
 // compensates bearing for the yaw change since this time, so the stamp must be the capture time,
 // not the time tracking finished.
 struct Frame {
   cv::Mat image{};
-  core::TimePoint t{};
+  models::TimePoint t{};
 };
 
 class IFrameSource {
@@ -36,7 +36,7 @@ public:
 // machine with no camera. Deterministic: frames are stamped 50 ms apart from `start`.
 class SyntheticFrameSource final : public IFrameSource {
 public:
-  SyntheticFrameSource(int width, int height, core::TimePoint start);
+  SyntheticFrameSource(int width, int height, models::TimePoint start);
 
   std::optional<Frame> read() override;
 
@@ -46,7 +46,7 @@ public:
 private:
   int width;
   int height;
-  core::TimePoint next;
+  models::TimePoint next;
   int index{0};
   cv::Rect truth{};
   cv::Mat background{};  // rendered once: on a Pi 4B, redrawing it per frame costs real budget
@@ -56,7 +56,7 @@ private:
 // back with the timing it was recorded at. Throws std::runtime_error if the file cannot be opened.
 class VideoFileSource final : public IFrameSource {
 public:
-  VideoFileSource(const std::filesystem::path& path, const cv::Size& trackSize, double fps, core::TimePoint start);
+  VideoFileSource(const std::filesystem::path& path, const cv::Size& trackSize, double fps, models::TimePoint start);
 
   std::optional<Frame> read() override;
 
@@ -66,9 +66,9 @@ public:
 private:
   cv::VideoCapture capture;
   cv::Size trackSize;
-  core::Clock::duration period;
-  core::TimePoint next;
+  models::Clock::duration period;
+  models::TimePoint next;
   bool atEnd{false};
 };
 
-}  // namespace follow::vision
+}  // namespace follow::providers

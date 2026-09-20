@@ -1,13 +1,13 @@
-#include "follow/vision/FrameSource.h"
+#include "providers/FrameSource.h"
 
 #include <chrono>
 #include <stdexcept>
 
 #include <opencv2/imgproc.hpp>
 
-namespace follow::vision {
+namespace follow::providers {
 
-SyntheticFrameSource::SyntheticFrameSource(int width, int height, core::TimePoint start)
+SyntheticFrameSource::SyntheticFrameSource(int width, int height, models::TimePoint start)
   : width(width)
   , height(height)
   , next(start)
@@ -36,10 +36,10 @@ std::optional<Frame> SyntheticFrameSource::read()
   return frame;
 }
 
-VideoFileSource::VideoFileSource(const std::filesystem::path& path, const cv::Size& trackSize, double fps, core::TimePoint start)
+VideoFileSource::VideoFileSource(const std::filesystem::path& path, const cv::Size& trackSize, double fps, models::TimePoint start)
   : capture(path.string())
   , trackSize(trackSize)
-  , period(std::chrono::duration_cast<core::Clock::duration>(std::chrono::duration<double>(1.0 / fps)))
+  , period(std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(1.0 / fps)))
   , next(start)
 {
   if (!this->capture.isOpened()) {
@@ -65,4 +65,4 @@ std::optional<Frame> VideoFileSource::read()
   return frame;
 }
 
-}  // namespace follow::vision
+}  // namespace follow::providers

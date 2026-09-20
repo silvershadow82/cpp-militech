@@ -1,20 +1,21 @@
-#include "follow/core/Core.h"
+#include "control/Core.h"
 
 #include <algorithm>
 #include <chrono>
 
-namespace follow::core {
+namespace follow::control {
 
 namespace {
 
-bool isEngaged(State state)
+bool isEngaged(models::State state)
 {
-  return state == State::Locking || state == State::Following || state == State::Lost || state == State::Hold;
+  return state == models::State::Locking || state == models::State::Following || state == models::State::Lost ||
+         state == models::State::Hold;
 }
 
 }  // namespace
 
-Core::Core(const Config& config, const CameraModel& camera, const CameraMount& mount)
+Core::Core(const models::Config& config, const models::CameraModel& camera, const models::CameraMount& mount)
   : config(config)
   , camera(camera)
   , estimator(this->config.estimator, camera, mount)
@@ -29,9 +30,9 @@ Outputs Core::step(const Inputs& inputs)
   dt = std::clamp(dt, 0.0, 0.2);
   this->lastStep = inputs.now;
 
-  State before = this->supervisor.state();
-  TargetState target = this->estimator.update(inputs.now, inputs.vehicle.attitude, inputs.target, inputs.range);
-  State after = this->supervisor.update(inputs.now, inputs.vehicle.lastHeartbeat, inputs.vehicle.customMode, target.valid);
+  models::State before = this->supervisor.state();
+  models::TargetState target = this->estimator.update(inputs.now, inputs.vehicle.attitude, inputs.target, inputs.range);
+  models::State after = this->supervisor.update(inputs.now, inputs.vehicle.lastHeartbeat, inputs.vehicle.customMode, target.valid);
 
   Outputs out{};
   out.state = after;
@@ -39,43 +40,43 @@ Outputs Core::step(const Inputs& inputs)
 
   if (after != before) {
     switch (after) {
-      case State::Locking:
+      case models::State::Locking:
         this->estimator.lock(inputs.now);
         this->controller.reset();
         out.tracker = {.kind = TrackerRequestKind::LockCenter, .hint = this->lockBox()};
         break;
-      case State::Following:
+      case models::State::Following:
         this->controller.reset();
         break;
-      case State::Lost:
-        if (std::optional<BBox> box = this->estimator.lastGoodBox()) {
+      case models::State::Lost:
+        if (std::optional<models::BBox> box = this->estimator.lastGoodBox()) {
           out.tracker = {.kind = TrackerRequestKind::Reacquire, .hint = *box};
         }
         break;
-      case State::Idle:
-      case State::NoFc:
+      case models::State::Idle:
+      case models::State::NoFc:
         if (isEngaged(before)) {
           this->estimator.reset();
           this->controller.reset();
           out.tracker = {.kind = TrackerRequestKind::Unlock};
         }
         break;
-      case State::Hold:
+      case models::State::Hold:
         break;
     }
   }
 
   switch (after) {
-    case State::Following:
+    case models::State::Following:
       out.setpoint = this->controller.update(target, dt);
       break;
-    case State::Locking:
-    case State::Lost:
-    case State::Hold:
-      out.setpoint = VelocityCmd{};
+    case models::State::Locking:
+    case models::State::Lost:
+    case models::State::Hold:
+      out.setpoint = models::VelocityCmd{};
       break;
-    case State::Idle:
-    case State::NoFc:
+    case models::State::Idle:
+    case models::State::NoFc:
       break;
   }
 
@@ -83,11 +84,11 @@ Outputs Core::step(const Inputs& inputs)
   return out;
 }
 
-BBox Core::lockBox() const
+models::BBox Core::lockBox() const
 {
-  const Intrinsics& k = this->camera.intrinsics();
+  const models::Intrinsics& k = this->camera.intrinsics();
   double side = this->config.lockBoxFrac * k.height;
   return {.x = (k.width - side) / 2.0, .y = (k.height - side) / 2.0, .w = side, .h = side};
 }
 
-}  // namespace follow::core
+}  // namespace follow::control

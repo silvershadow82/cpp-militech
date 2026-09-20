@@ -6,11 +6,11 @@
 #include <optional>
 #include <string>
 
-#include "follow/core/Core.h"
-#include "follow/core/Types.h"
-#include "follow/mavlink/ByteLink.h"
+#include "Types.h"
+#include "comms/ByteLink.h"
+#include "control/Core.h"
 
-namespace follow::mavlink {
+namespace follow::comms {
 
 struct MavlinkIds {
   uint8_t sysid{1};     // ours: same system as the FC
@@ -32,35 +32,35 @@ public:
 
   // Reads and parses everything the link has. Messages from the FC are stamped with `now`.
   // Returns the number of FC messages accepted.
-  int poll(core::TimePoint now);
+  int poll(models::TimePoint now);
 
   // Periodic duties: HEARTBEAT at 1 Hz, and while ATTITUDE or LOCAL_POSITION_NED is missing (never
   // received, or older than 1 s) after the FC has been heard, a stream request every 2 s.
-  void service(core::TimePoint now);
+  void service(models::TimePoint now);
 
   void sendHeartbeat();
   // SET_MESSAGE_INTERVAL for ATTITUDE at 20 Hz and LOCAL_POSITION_NED at 10 Hz.
   void requestStreams();
   // SET_POSITION_TARGET_LOCAL_NED in MAV_FRAME_BODY_OFFSET_NED using only vx and yaw_rate.
-  void sendSetpoint(const core::VelocityCmd& command, core::TimePoint now);
+  void sendSetpoint(const models::VelocityCmd& command, models::TimePoint now);
 
-  const core::VehicleState& vehicle() const { return this->state; }
+  const control::VehicleState& vehicle() const { return this->state; }
 
 private:
   struct Codec;  // MAVLink parser and sequence state, kept out of this header
 
-  void handle(core::TimePoint now);
+  void handle(models::TimePoint now);
   void sendMessage();
 
   ByteLink& link;
   MavlinkIds ids;
   StatusTextHandler onStatusText;
   std::unique_ptr<Codec> codec;
-  core::VehicleState state{};
-  std::optional<core::TimePoint> start{};
-  std::optional<core::TimePoint> lastHeartbeatSent{};
-  std::optional<core::TimePoint> lastStreamRequest{};
+  control::VehicleState state{};
+  std::optional<models::TimePoint> start{};
+  std::optional<models::TimePoint> lastHeartbeatSent{};
+  std::optional<models::TimePoint> lastStreamRequest{};
   bool sendFailing{false};  // reports through onStatusText once, on the transition into failure
 };
 
-}  // namespace follow::mavlink
+}  // namespace follow::comms

@@ -1,4 +1,4 @@
-#include "follow/vision/Overlay.h"
+#include "vision/Overlay.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,7 @@
 
 #include <opencv2/imgproc.hpp>
 
-#include "follow/vision/CameraTrackerSource.h"
+#include "providers/CameraTrackerSource.h"
 
 #ifdef __linux__
 #include <fcntl.h>
@@ -85,32 +85,32 @@ void requireExpectedChannelLayout(int bitsPerPixel, const ChannelOffsets& observ
 
 }  // namespace detail
 
-const char* overlayText(core::State state)
+const char* overlayText(models::State state)
 {
   switch (state) {
-    case core::State::Idle:
+    case models::State::Idle:
       return "READY";
-    case core::State::Locking:
+    case models::State::Locking:
       return "LOCK";
-    case core::State::Following:
+    case models::State::Following:
       return "FOLLOW";
-    case core::State::Lost:
+    case models::State::Lost:
       return "LOST";
-    case core::State::Hold:
+    case models::State::Hold:
       return "HOLD";
-    case core::State::NoFc:
+    case models::State::NoFc:
       return "NO FC";
   }
   return "?";
 }
 
-void drawOverlay(cv::Mat& image, const core::OverlayInfo& info)
+void drawOverlay(cv::Mat& image, const control::OverlayInfo& info)
 {
   const cv::Scalar white(255, 255, 255);
   const cv::Scalar green(0, 255, 0);
-  cv::rectangle(image, toRect(info.lockBox), white, 1);
+  cv::rectangle(image, providers::toRect(info.lockBox), white, 1);
   if (info.targetBox) {
-    cv::rectangle(image, toRect(*info.targetBox), green, 2);
+    cv::rectangle(image, providers::toRect(*info.targetBox), green, 2);
   }
   // Analog video is low resolution: a thick label with a dark outline stays readable.
   cv::putText(image, overlayText(info.state), cv::Point(12, 30), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 0), 4);

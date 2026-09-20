@@ -6,7 +6,7 @@
 #include <span>
 #include <string>
 
-namespace follow::mavlink {
+namespace follow::comms {
 
 // Byte transport under MAVLink. Implementations are not thread-safe: one thread owns a link.
 class ByteLink {
@@ -43,4 +43,4 @@ LinkSpec parseLinkSpec(const std::string& text);
 // Opens the link; throws std::runtime_error if the socket or device cannot be opened.
 std::unique_ptr<ByteLink> openLink(const LinkSpec& spec);
 
-}  // namespace follow::mavlink
+}  // namespace follow::comms

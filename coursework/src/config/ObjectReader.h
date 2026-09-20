@@ -10,8 +10,8 @@
 #include <string_view>
 #include <vector>
 
-#include "follow/config/ConfigJson.h"
-#include "follow/core/Types.h"
+#include "Types.h"
+#include "config/ConfigJson.h"
 
 namespace follow::config::detail {
 
@@ -105,7 +105,7 @@ public:
   }
 
   // Required [x, y] into a ground point (z = 0).
-  void readPoint(std::string_view key, core::Vec3& out) const
+  void readPoint(std::string_view key, models::Vec3& out) const
   {
     std::vector<double> point;
     this->readRequired(key, point);

@@ -6,15 +6,15 @@
 
 #include <opencv2/core.hpp>
 
-#include "follow/core/Core.h"
+#include "control/Core.h"
 
 namespace follow::vision {
 
 // The overlay label for each state (spec §State machine): READY, LOCK, FOLLOW, LOST, HOLD, NO FC.
-const char* overlayText(core::State state);
+const char* overlayText(models::State state);
 
 // Draws the lock box, the target box (if any) and the state label onto `image`, in place.
-void drawOverlay(cv::Mat& image, const core::OverlayInfo& info);
+void drawOverlay(cv::Mat& image, const control::OverlayInfo& info);
 
 // Pure, OS-independent arithmetic for FramebufferWriter. Kept out of the `#ifdef __linux__` guard so
 // it compiles and is unit-testable on any host, including one with no /dev/fb*.

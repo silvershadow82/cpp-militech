@@ -6,18 +6,18 @@
 #include <ostream>
 #include <vector>
 
-#include "follow/core/Types.h"
-#include "follow/sim/ScenarioRunner.h"
+#include "Types.h"
+#include "sim/ScenarioRunner.h"
 
-namespace follow::runtime {
+namespace follow::util {
 
 // One control step as written to the CSV run log.
 struct LogRow {
   double tS{0.0};
-  core::State state{core::State::Idle};
+  models::State state{models::State::Idle};
   uint32_t customMode{0};
-  core::TargetState target{};
-  std::optional<core::VelocityCmd> setpoint{};
+  models::TargetState target{};
+  std::optional<models::VelocityCmd> setpoint{};
   std::optional<double> trueBearingDeg{};  // simulation only
   std::optional<double> trueDistanceM{};   // simulation only
 };
@@ -37,4 +37,4 @@ private:
 // Throws std::runtime_error naming the line on a malformed row or a row without ground truth.
 std::vector<sim::StepRecord> readRunLog(std::istream& in);
 
-}  // namespace follow::runtime
+}  // namespace follow::util

@@ -5,10 +5,10 @@
 
 #include <opencv2/videoio.hpp>
 
-#include "follow/core/Types.h"
-#include "follow/vision/FrameSource.h"
+#include "Types.h"
+#include "providers/FrameSource.h"
 
-namespace follow::vision {
+namespace follow::providers {
 
 struct PiCameraConfig {
   int captureWidth{1640};   // IMX219 full-FOV binned mode
@@ -49,4 +49,4 @@ private:
   int consecutiveFailures{0};
 };
 
-}  // namespace follow::vision
+}  // namespace follow::providers

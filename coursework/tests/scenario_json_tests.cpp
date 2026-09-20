@@ -9,15 +9,15 @@
 #include <string>
 #include <vector>
 
-#include "follow/config/ConfigJson.h"
-#include "follow/config/ScenarioJson.h"
-#include "follow/sim/ScenarioCheck.h"
-#include "follow/sim/ScenarioRunner.h"
+#include "config/ConfigJson.h"
+#include "config/ScenarioJson.h"
+#include "sim/ScenarioCheck.h"
+#include "sim/ScenarioRunner.h"
 
 using namespace follow;
 using namespace follow::config;
 using nlohmann::json;
-using S = core::State;
+using S = models::State;
 
 namespace {
 
@@ -35,7 +35,7 @@ sim::StepRecord step(double tS, S state, double trueBearingDeg = 0.0, double tru
 {
   sim::StepRecord record{.tS = tS, .state = state, .trueBearingDeg = trueBearingDeg, .trueDistanceM = trueDistanceM};
   if (state != S::Idle && state != S::NoFc) {
-    record.setpoint = core::VelocityCmd{};
+    record.setpoint = models::VelocityCmd{};
   }
   return record;
 }
@@ -121,11 +121,11 @@ TEST(ScenarioJsonTest, PlaceRotatesTheScriptIntoTheVehicleHeading)
   sim::SimTarget placed = script.place(vehicle);
 
   // Assert: 3 m forward = east, 1 m right = south; walking forward moves east
-  core::Vec3 start = placed.positionAt(0.0);
+  models::Vec3 start = placed.positionAt(0.0);
   EXPECT_NEAR(start.x, 9.0, 1e-9);
   EXPECT_NEAR(start.y, 8.0, 1e-9);
   EXPECT_EQ(start.z, 0.0);
-  core::Vec3 walked = placed.positionAt(2.0);
+  models::Vec3 walked = placed.positionAt(2.0);
   EXPECT_NEAR(walked.x, 9.0, 1e-9);
   EXPECT_NEAR(walked.y, 10.0, 1e-9);
 }
@@ -137,7 +137,7 @@ TEST(ScenarioCheckTest, ReportsStateSequenceAndFinalStateMismatch)
   sim::ScenarioExpect expect{.states = std::vector<S>{S::Locking, S::Following}, .finalState = S::Following};
 
   // Run
-  std::vector<std::string> failures = sim::checkRun(steps, expect, core::ControlConfig{});
+  std::vector<std::string> failures = sim::checkRun(steps, expect, models::ControlConfig{});
 
   // Assert
   EXPECT_EQ(failures,
@@ -149,12 +149,12 @@ TEST(ScenarioCheckTest, ReportsCommandEnvelopeViolations)
 {
   // Setup: a setpoint in Idle, a forward speed in Lost, too much speed while following
   std::vector<sim::StepRecord> steps{step(0.0, S::Idle), step(1.0, S::Locking), step(1.05, S::Following), step(1.1, S::Lost)};
-  steps[0].setpoint = core::VelocityCmd{};
-  steps[2].setpoint = core::VelocityCmd{.vx = 2.0};
-  steps[3].setpoint = core::VelocityCmd{.vx = 0.1};
+  steps[0].setpoint = models::VelocityCmd{};
+  steps[2].setpoint = models::VelocityCmd{.vx = 2.0};
+  steps[3].setpoint = models::VelocityCmd{.vx = 0.1};
 
   // Run
-  std::vector<std::string> failures = sim::checkRun(steps, sim::ScenarioExpect{}, core::ControlConfig{});
+  std::vector<std::string> failures = sim::checkRun(steps, sim::ScenarioExpect{}, models::ControlConfig{});
 
   // Assert
   EXPECT_EQ(
@@ -169,9 +169,9 @@ TEST(ScenarioCheckTest, ToleranceScaleWidensBearingLimit)
   sim::ScenarioExpect expect{.bearingMaxDeg = 5.0};
 
   // Run + Assert
-  EXPECT_EQ(sim::checkRun(steps, expect, core::ControlConfig{}, 1.0),
+  EXPECT_EQ(sim::checkRun(steps, expect, models::ControlConfig{}, 1.0),
             (std::vector<std::string>{"bearing: max 6.00 deg while following, limit 5.00"}));
-  EXPECT_TRUE(sim::checkRun(steps, expect, core::ControlConfig{}, 1.5).empty());
+  EXPECT_TRUE(sim::checkRun(steps, expect, models::ControlConfig{}, 1.5).empty());
 }
 
 TEST(ScenarioCheckTest, StepsWithoutGroundTruthAreSkipped)
@@ -183,12 +183,12 @@ TEST(ScenarioCheckTest, StepsWithoutGroundTruthAreSkipped)
   sim::ScenarioExpect expect{.bearingMaxDeg = 5.0, .lockDistanceTolerance = 0.15, .minDistanceM = 1.5};
 
   // Run + Assert: the lock distance comes from the first step with truth, NaN never fails a check
-  EXPECT_TRUE(sim::checkRun(steps, expect, core::ControlConfig{}).empty());
+  EXPECT_TRUE(sim::checkRun(steps, expect, models::ControlConfig{}).empty());
 }
 
 TEST(ScenarioCheckTest, RunWithoutEngageFails)
 {
-  EXPECT_EQ(sim::checkRun({step(0.0, S::Idle)}, sim::ScenarioExpect{}, core::ControlConfig{}),
+  EXPECT_EQ(sim::checkRun({step(0.0, S::Idle)}, sim::ScenarioExpect{}, models::ControlConfig{}),
             (std::vector<std::string>{"never engaged: no Locking step"}));
 }
 
@@ -203,7 +203,7 @@ TEST(ScenarioJsonTest, EveryCommittedScenarioPassesInTheKinematicLoop)
   }
   std::sort(files.begin(), files.end());
   ASSERT_EQ(files.size(), 11u);
-  core::FisheyeKbModel camera{core::nominalFisheye(640, 480, 160.0)};
+  models::FisheyeKbModel camera{models::nominalFisheye(640, 480, 160.0)};
 
   for (const std::filesystem::path& file : files) {
     // Run: engage at 1 s with the vehicle 2 m up at the origin facing north
@@ -214,7 +214,7 @@ TEST(ScenarioJsonTest, EveryCommittedScenarioPassesInTheKinematicLoop)
     sim::ScenarioOptions options{};
     options.durationS = options.engageAtS + scenario.durationS;
     sim::Pose atEngage{.positionNed = {0.0, 0.0, -options.vehicleAltitudeM}};
-    sim::ScenarioResult result = sim::runScenario(config.core, camera, core::CameraMount{}, scenario.target.place(atEngage), options);
+    sim::ScenarioResult result = sim::runScenario(config.core, camera, models::CameraMount{}, scenario.target.place(atEngage), options);
 
     // Assert
     std::vector<std::string> failures = sim::checkRun(result.steps, scenario.expect, config.core.control);

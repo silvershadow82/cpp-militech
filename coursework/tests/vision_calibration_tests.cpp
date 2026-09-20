@@ -6,8 +6,8 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "follow/config/ConfigJson.h"
-#include "follow/vision/Calibration.h"
+#include "config/ConfigJson.h"
+#include "vision/Calibration.h"
 
 namespace {
 
@@ -84,16 +84,16 @@ TEST(FindBoardCorners, ReportsABlankImage)
 TEST(CameraJson, IsReadBackByParseCamera)
 {
   follow::vision::CalibrationResult result{};
-  result.intrinsics = follow::core::Intrinsics{.width = 1640,
-                                               .height = 1232,
-                                               .fx = 600.0,
-                                               .fy = 601.0,
-                                               .cx = 820.0,
-                                               .cy = 616.0,
-                                               .k1 = 0.01,
-                                               .k2 = -0.002,
-                                               .k3 = 0.0003,
-                                               .k4 = -0.00004};
+  result.intrinsics = follow::models::Intrinsics{.width = 1640,
+                                                 .height = 1232,
+                                                 .fx = 600.0,
+                                                 .fy = 601.0,
+                                                 .cx = 820.0,
+                                                 .cy = 616.0,
+                                                 .k1 = 0.01,
+                                                 .k2 = -0.002,
+                                                 .k3 = 0.0003,
+                                                 .k4 = -0.00004};
   result.rms = 0.3;
   result.views = 20;
 

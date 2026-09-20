@@ -2,8 +2,8 @@
 
 #include <optional>
 
-#include "follow/core/Types.h"
-#include "follow/sim/SyntheticCamera.h"
+#include "Types.h"
+#include "sim/SyntheticCamera.h"
 
 namespace follow::sim {
 
@@ -18,7 +18,7 @@ public:
   KinematicVehicle(const Pose& initial, const KinematicVehicleConfig& config);
 
   // nullopt behaves like a zero command (the FC holding position).
-  void step(const std::optional<core::VelocityCmd>& command, double dtSec);
+  void step(const std::optional<models::VelocityCmd>& command, double dtSec);
 
   const Pose& pose() const { return this->current; }
   double forwardSpeed() const { return this->speed; }

@@ -1,12 +1,12 @@
-#include "follow/runtime/SimVision.h"
+#include "providers/SimVision.h"
 
 #include <algorithm>
 #include <chrono>
 #include <thread>
 
-#include "follow/sim/ScenarioRunner.h"
+#include "sim/ScenarioRunner.h"
 
-namespace follow::runtime {
+namespace follow::providers {
 
 namespace {
 
@@ -14,12 +14,12 @@ constexpr auto kMaxExtrapolation = std::chrono::milliseconds{200};
 
 }  // namespace
 
-SimVision::SimVision(const core::CameraModel& camera,
-                     const core::CameraMount& mount,
+SimVision::SimVision(const models::CameraModel& camera,
+                     const models::CameraMount& mount,
                      const sim::SyntheticCameraConfig& cameraConfig,
                      const config::TargetScript& script,
                      double durationS,
-                     Channels& channels)
+                     util::Channels& channels)
   : camera(camera, mount, cameraConfig)
   , script(script)
   , durationS(durationS)
@@ -27,14 +27,14 @@ SimVision::SimVision(const core::CameraModel& camera,
 {
 }
 
-std::optional<sim::Pose> SimVision::vehiclePose(const core::VehicleState& vehicle, core::TimePoint now)
+std::optional<sim::Pose> SimVision::vehiclePose(const control::VehicleState& vehicle, models::TimePoint now)
 {
-  std::optional<core::AttitudeSample> attitude = vehicle.attitude.latest();
+  std::optional<models::AttitudeSample> attitude = vehicle.attitude.latest();
   if (!attitude || !vehicle.position) {
     return std::nullopt;
   }
-  const core::LocalPositionNed& local = *vehicle.position;
-  auto age = std::clamp(now - local.t, core::Clock::duration::zero(), core::Clock::duration(kMaxExtrapolation));
+  const models::LocalPositionNed& local = *vehicle.position;
+  auto age = std::clamp(now - local.t, models::Clock::duration::zero(), models::Clock::duration(kMaxExtrapolation));
   double dt = std::chrono::duration<double>(age).count();
   return sim::Pose{.positionNed = {local.position.x + local.velocity.x * dt,
                                    local.position.y + local.velocity.y * dt,
@@ -44,15 +44,15 @@ std::optional<sim::Pose> SimVision::vehiclePose(const core::VehicleState& vehicl
                    .yaw = attitude->yaw};
 }
 
-void SimVision::iterate(core::TimePoint now)
+void SimVision::iterate(models::TimePoint now)
 {
   std::optional<sim::Pose> pose;
   if (auto vehicle = this->channels.vehicle.read()) {
     pose = vehiclePose(vehicle->value, now);
   }
 
-  for (const core::TrackerRequest& request : this->channels.trackerRequests.drain()) {
-    if (request.kind == core::TrackerRequestKind::LockCenter && !this->target) {
+  for (const control::TrackerRequest& request : this->channels.trackerRequests.drain()) {
+    if (request.kind == control::TrackerRequestKind::LockCenter && !this->target) {
       this->lockPending = true;
     }
     this->camera.handle(request, now);
@@ -68,7 +68,7 @@ void SimVision::iterate(core::TimePoint now)
   }
 
   double targetTimeS = std::chrono::duration<double>(now - this->engagedAt).count();
-  if (std::optional<core::TargetObservation> observation = this->camera.step(now, *pose, *this->target, targetTimeS)) {
+  if (std::optional<models::TargetObservation> observation = this->camera.step(now, *pose, *this->target, targetTimeS)) {
     this->channels.observation.write(*observation, now);
   }
   sim::GroundTruth truth = sim::groundTruth(*pose, *this->target, targetTimeS);
@@ -80,13 +80,13 @@ void SimVision::iterate(core::TimePoint now)
 
 void SimVision::run(const std::atomic<bool>& stop, double rateHz)
 {
-  const auto period = std::chrono::duration_cast<core::Clock::duration>(std::chrono::duration<double>(1.0 / rateHz));
-  core::TimePoint next = core::Clock::now();
+  const auto period = std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(1.0 / rateHz));
+  models::TimePoint next = models::Clock::now();
   while (!stop) {
-    this->iterate(core::Clock::now());
-    next = std::max(next + period, core::Clock::now());
+    this->iterate(models::Clock::now());
+    next = std::max(next + period, models::Clock::now());
     std::this_thread::sleep_until(next);
   }
 }
 
-}  // namespace follow::runtime
+}  // namespace follow::providers

@@ -8,11 +8,11 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
-#include "follow/core/Types.h"
-#include "follow/vision/CameraTrackerSource.h"
-#include "follow/vision/FrameSource.h"
-#include "follow/vision/Overlay.h"
-#include "follow/vision/Tracker.h"
+#include "Types.h"
+#include "providers/CameraTrackerSource.h"
+#include "providers/FrameSource.h"
+#include "vision/Overlay.h"
+#include "vision/Tracker.h"
 
 namespace {
 
@@ -86,11 +86,11 @@ int main(int argc, char** argv)
   }
 
   try {
-    follow::vision::VideoFileSource frames(video, track, 20.0, follow::core::Clock::now());
+    follow::providers::VideoFileSource frames(video, track, 20.0, follow::models::Clock::now());
     auto tracker = follow::vision::makeTracker(trackerName);
     cv::VideoWriter writer;
 
-    std::optional<follow::vision::Frame> frame = frames.read();
+    std::optional<follow::providers::Frame> frame = frames.read();
     if (!frame) {
       throw std::runtime_error("video has no frames");
     }
@@ -118,9 +118,9 @@ int main(int argc, char** argv)
       }
       tracking = box.has_value();
       if (writer.isOpened()) {
-        follow::core::OverlayInfo info{.state = box ? follow::core::State::Following : follow::core::State::Lost,
-                                       .lockBox = follow::vision::toBBox(lockBox),
-                                       .targetBox = box ? std::optional(follow::vision::toBBox(*box)) : std::nullopt};
+        follow::control::OverlayInfo info{.state = box ? follow::models::State::Following : follow::models::State::Lost,
+                                          .lockBox = follow::providers::toBBox(lockBox),
+                                          .targetBox = box ? std::optional(follow::providers::toBBox(*box)) : std::nullopt};
         follow::vision::drawOverlay(frame->image, info);
         writer.write(frame->image);
       }

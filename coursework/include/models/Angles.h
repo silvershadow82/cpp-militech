@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace follow::core {
+namespace follow::models {
 
 constexpr double degToRad(double deg)
 {
@@ -22,4 +22,4 @@ inline double wrapPi(double rad)
   return wrapped <= -std::numbers::pi ? wrapped + 2.0 * std::numbers::pi : wrapped;
 }
 
-}  // namespace follow::core
+}  // namespace follow::models

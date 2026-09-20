@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
 
 #include "TestTime.h"
-#include "follow/core/Core.h"
+#include "control/Core.h"
 
-using namespace follow::core;
+using namespace follow::control;
+using namespace follow::models;
 using follow::test::at;
 
 namespace {

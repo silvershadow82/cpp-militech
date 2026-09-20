@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "follow/config/ConfigJson.h"
-#include "follow/config/ScenarioJson.h"
-#include "follow/runtime/RunLog.h"
-#include "follow/sim/ScenarioCheck.h"
+#include "StatCollector.h"
+#include "config/ConfigJson.h"
+#include "config/ScenarioJson.h"
+#include "sim/ScenarioCheck.h"
 
 namespace {
 
@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     if (!log) {
       throw std::runtime_error("cannot open " + logPath);
     }
-    std::vector<follow::sim::StepRecord> steps = follow::runtime::readRunLog(log);
+    std::vector<follow::sim::StepRecord> steps = follow::util::readRunLog(log);
     std::vector<std::string> failures = follow::sim::checkRun(steps, scenario.expect, config.core.control, toleranceScale);
 
     std::cout << (failures.empty() ? "PASS " : "FAIL ") << scenario.name << " (" << steps.size() << " steps, tolerance x" << toleranceScale

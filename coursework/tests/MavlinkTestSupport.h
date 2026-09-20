@@ -9,12 +9,12 @@
 #include <span>
 #include <vector>
 
-#include "follow/mavlink/ByteLink.h"
+#include "comms/ByteLink.h"
 
 namespace follow::test {
 
 // In-memory link: tests append inbound bytes and inspect what was sent.
-class FakeLink : public mavlink::ByteLink {
+class FakeLink : public comms::ByteLink {
 public:
   int send(std::span<const uint8_t> bytes) override
   {

@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include <string>
 
-#include "follow/core/CameraModel.h"
-#include "follow/core/Config.h"
-#include "follow/core/Frames.h"
+#include "models/CameraModel.h"
+#include "models/Config.h"
+#include "models/Frames.h"
 
 namespace follow::config {
 
@@ -28,8 +28,8 @@ enum class CameraKind { Pinhole, Fisheye };
 
 struct CameraSettings {
   CameraKind kind{CameraKind::Fisheye};
-  core::Intrinsics intrinsics{core::nominalFisheye(640, 480, 160.0)};  // at the tracking resolution
-  core::CameraMount mount{};
+  models::Intrinsics intrinsics{models::nominalFisheye(640, 480, 160.0)};  // at the tracking resolution
+  models::CameraMount mount{};
 };
 
 struct VisionSettings {
@@ -48,7 +48,7 @@ struct VisionSettings {
 };
 
 struct AppConfig {
-  core::Config core{};
+  models::Config core{};
   MavlinkSettings mavlink{};
   VisionSettings vision{};
   CameraSettings camera{};
@@ -69,6 +69,6 @@ AppConfig loadAppConfig(const std::filesystem::path& path);
 // Same, with `overrides` applied to follow.json as a JSON merge patch (RFC 7386) before parsing.
 AppConfig loadAppConfig(const std::filesystem::path& path, const nlohmann::json& overrides);
 
-std::unique_ptr<core::CameraModel> makeCameraModel(const CameraSettings& settings);
+std::unique_ptr<models::CameraModel> makeCameraModel(const CameraSettings& settings);
 
 }  // namespace follow::config

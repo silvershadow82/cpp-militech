@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "follow/runtime/RunLog.h"
+#include "StatCollector.h"
 
 using namespace follow;
-using namespace follow::runtime;
-using S = core::State;
+using namespace follow::util;
+using S = models::State;
 
 TEST(RunLogTest, WritesHeaderAndOneLinePerRow)
 {
@@ -23,8 +23,8 @@ TEST(RunLogTest, WritesHeaderAndOneLinePerRow)
   writer.write({.tS = 1.5,
                 .state = S::Following,
                 .customMode = 4,
-                .target = {.valid = true, .bearingRad = 0.1, .ratio = 1.05, .distanceM = 3.15, .source = core::DistanceSource::KnownSize},
-                .setpoint = core::VelocityCmd{.vx = 0.25, .yawRate = -0.125},
+                .target = {.valid = true, .bearingRad = 0.1, .ratio = 1.05, .distanceM = 3.15, .source = models::DistanceSource::KnownSize},
+                .setpoint = models::VelocityCmd{.vx = 0.25, .yawRate = -0.125},
                 .trueBearingDeg = 5.5,
                 .trueDistanceM = 3.1234});
 
@@ -41,12 +41,12 @@ TEST(RunLogTest, ReaderReturnsStepsWrittenByWriter)
   std::stringstream log;
   RunLogWriter writer(log);
   writer.write(
-    {.tS = 1.0, .state = S::Locking, .customMode = 4, .setpoint = core::VelocityCmd{}, .trueBearingDeg = -1.5, .trueDistanceM = 3.0});
+    {.tS = 1.0, .state = S::Locking, .customMode = 4, .setpoint = models::VelocityCmd{}, .trueBearingDeg = -1.5, .trueDistanceM = 3.0});
   writer.write({.tS = 1.05,
                 .state = S::Following,
                 .customMode = 4,
                 .target = {.valid = true},
-                .setpoint = core::VelocityCmd{.vx = 0.5, .yawRate = 0.785398},
+                .setpoint = models::VelocityCmd{.vx = 0.5, .yawRate = 0.785398},
                 .trueBearingDeg = 2.0,
                 .trueDistanceM = 2.9});
 

@@ -1,11 +1,11 @@
-#include "follow/core/AttitudeHistory.h"
+#include "models/AttitudeHistory.h"
 
 #include <algorithm>
 #include <iterator>
 
-#include "follow/core/Angles.h"
+#include "models/Angles.h"
 
-namespace follow::core {
+namespace follow::models {
 
 void AttitudeHistory::push(const AttitudeSample& sample)
 {
@@ -51,4 +51,4 @@ std::optional<AttitudeSample> AttitudeHistory::at(TimePoint t) const
   };
 }
 
-}  // namespace follow::core
+}  // namespace follow::models

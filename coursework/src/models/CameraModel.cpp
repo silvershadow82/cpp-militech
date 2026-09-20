@@ -1,12 +1,12 @@
-#include "follow/core/CameraModel.h"
+#include "models/CameraModel.h"
 
 #include <cmath>
 #include <numbers>
 
-#include "follow/core/Angles.h"
-#include "follow/core/Frames.h"
+#include "models/Angles.h"
+#include "models/Frames.h"
 
-namespace follow::core {
+namespace follow::models {
 
 namespace {
 
@@ -91,4 +91,4 @@ Intrinsics nominalFisheye(int width, int height, double diagonalFovDeg)
   return Intrinsics{.width = width, .height = height, .fx = focal, .fy = focal, .cx = width / 2.0, .cy = height / 2.0};
 }
 
-}  // namespace follow::core
+}  // namespace follow::models

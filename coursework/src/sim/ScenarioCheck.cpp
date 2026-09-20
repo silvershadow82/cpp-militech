@@ -1,4 +1,4 @@
-#include "follow/sim/ScenarioCheck.h"
+#include "sim/ScenarioCheck.h"
 
 #include <algorithm>
 #include <array>
@@ -6,14 +6,14 @@
 #include <iomanip>
 #include <sstream>
 
-#include "follow/core/Angles.h"
+#include "models/Angles.h"
 
 namespace follow::sim {
 
 namespace {
 
 constexpr std::array kAllStates{
-  core::State::Idle, core::State::Locking, core::State::Following, core::State::Lost, core::State::Hold, core::State::NoFc};
+  models::State::Idle, models::State::Locking, models::State::Following, models::State::Lost, models::State::Hold, models::State::NoFc};
 
 std::string number(double value)
 {
@@ -22,19 +22,19 @@ std::string number(double value)
   return out.str();
 }
 
-std::string sequenceText(const std::vector<core::State>& states)
+std::string sequenceText(const std::vector<models::State>& states)
 {
   std::string text;
-  for (core::State state : states) {
+  for (models::State state : states) {
     text += (text.empty() ? "" : " -> ") + std::string(stateName(state));
   }
   return text.empty() ? "<none>" : text;
 }
 
-bool containsInOrder(const std::vector<core::State>& sequence, const std::vector<core::State>& wanted)
+bool containsInOrder(const std::vector<models::State>& sequence, const std::vector<models::State>& wanted)
 {
   auto next = sequence.begin();
-  for (core::State state : wanted) {
+  for (models::State state : wanted) {
     next = std::find(next, sequence.end(), state);
     if (next == sequence.end()) {
       return false;
@@ -69,28 +69,28 @@ private:
 
 }  // namespace
 
-const char* stateName(core::State state)
+const char* stateName(models::State state)
 {
   switch (state) {
-    case core::State::Idle:
+    case models::State::Idle:
       return "Idle";
-    case core::State::Locking:
+    case models::State::Locking:
       return "Locking";
-    case core::State::Following:
+    case models::State::Following:
       return "Following";
-    case core::State::Lost:
+    case models::State::Lost:
       return "Lost";
-    case core::State::Hold:
+    case models::State::Hold:
       return "Hold";
-    case core::State::NoFc:
+    case models::State::NoFc:
       return "NoFc";
   }
   return "?";
 }
 
-std::optional<core::State> stateFromName(const std::string& name)
+std::optional<models::State> stateFromName(const std::string& name)
 {
-  for (core::State state : kAllStates) {
+  for (models::State state : kAllStates) {
     if (name == stateName(state)) {
       return state;
     }
@@ -100,16 +100,16 @@ std::optional<core::State> stateFromName(const std::string& name)
 
 std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
                                   const ScenarioExpect& expect,
-                                  const core::ControlConfig& control,
+                                  const models::ControlConfig& control,
                                   double toleranceScale)
 {
   Failures failures;
-  const double yawRateMax = core::degToRad(control.yawRateMaxDps);
+  const double yawRateMax = models::degToRad(control.yawRateMaxDps);
 
   // Command envelope over the whole run.
   for (const StepRecord& step : steps) {
     std::string at = "t=" + number(step.tS) + ": ";
-    bool silent = step.state == core::State::Idle || step.state == core::State::NoFc;
+    bool silent = step.state == models::State::Idle || step.state == models::State::NoFc;
     if (silent && step.setpoint) {
       failures.add("silent", at + "setpoint sent in " + stateName(step.state));
     }
@@ -125,7 +125,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
     if (std::abs(step.setpoint->yawRate) > yawRateMax + 1e-6) {
       failures.add("yaw_rate_max", at + "yaw rate " + number(step.setpoint->yawRate) + " rad/s exceeds the limit");
     }
-    if (step.state != core::State::Following && (step.setpoint->vx != 0.0 || step.setpoint->yawRate != 0.0)) {
+    if (step.state != models::State::Following && (step.setpoint->vx != 0.0 || step.setpoint->yawRate != 0.0)) {
       failures.add("zero", at + "non-zero setpoint in " + stateName(step.state));
     }
     if (expect.noForwardSpeed && step.setpoint->vx != 0.0) {
@@ -133,7 +133,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
     }
   }
 
-  auto engage = std::find_if(steps.begin(), steps.end(), [](const StepRecord& s) { return s.state == core::State::Locking; });
+  auto engage = std::find_if(steps.begin(), steps.end(), [](const StepRecord& s) { return s.state == models::State::Locking; });
   if (engage == steps.end()) {
     failures.add("engage", "never engaged: no Locking step");
     return failures.messages;
@@ -141,7 +141,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
   const double engageS = engage->tS;
   std::vector<StepRecord> run(engage, steps.end());
 
-  std::vector<core::State> sequence;
+  std::vector<models::State> sequence;
   for (const StepRecord& step : run) {
     if (sequence.empty() || sequence.back() != step.state) {
       sequence.push_back(step.state);
@@ -160,7 +160,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
 
   // The lock distance is the true distance at the first Following step with ground truth.
   auto following =
-    std::find_if(run.begin(), run.end(), [](const StepRecord& s) { return s.state == core::State::Following && hasTruth(s); });
+    std::find_if(run.begin(), run.end(), [](const StepRecord& s) { return s.state == models::State::Following && hasTruth(s); });
   bool needsFollowing = expect.bearingMaxDeg || expect.lockDistanceTolerance || expect.lag ||
                         (expect.finalDistanceTolerance && expect.finalDistanceReference == ScenarioExpect::DistanceReference::Lock);
   if (following == run.end()) {
@@ -176,7 +176,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
     double limit = *expect.bearingMaxDeg * toleranceScale;
     double worst = 0.0;
     for (const StepRecord& step : run) {
-      if (step.state == core::State::Following && hasTruth(step) && step.tS >= followingS + expect.bearingSettleS) {
+      if (step.state == models::State::Following && hasTruth(step) && step.tS >= followingS + expect.bearingSettleS) {
         worst = std::max(worst, std::abs(step.trueBearingDeg));
       }
     }
@@ -188,7 +188,7 @@ std::vector<std::string> checkRun(const std::vector<StepRecord>& steps,
   if (expect.lockDistanceTolerance) {
     double allowed = *expect.lockDistanceTolerance * toleranceScale * lockDistance;
     for (const StepRecord& step : run) {
-      if (step.state == core::State::Following && hasTruth(step) && std::abs(step.trueDistanceM - lockDistance) > allowed) {
+      if (step.state == models::State::Following && hasTruth(step) && std::abs(step.trueDistanceM - lockDistance) > allowed) {
         failures.add("lock_distance",
                      "t=" + number(step.tS) + ": distance " + number(step.trueDistanceM) + " m, lock distance " + number(lockDistance) +
                        " m +/- " + number(allowed));

@@ -20,14 +20,14 @@
 #include <vector>
 
 #include "FakeAutopilot.h"
-#include "follow/config/ConfigJson.h"
-#include "follow/core/Angles.h"
-#include "follow/core/CameraModel.h"
-#include "follow/core/Frames.h"
-#include "follow/core/Types.h"
-#include "follow/runtime/RunLog.h"
-#include "follow/vision/FrameSource.h"
-#include "follow/vision/HwApp.h"
+#include "HwMissionProcessor.h"
+#include "StatCollector.h"
+#include "Types.h"
+#include "config/ConfigJson.h"
+#include "models/Angles.h"
+#include "models/CameraModel.h"
+#include "models/Frames.h"
+#include "providers/FrameSource.h"
 
 namespace {
 
@@ -90,20 +90,20 @@ private:
 // every observation is rejected, the run can never leave Locking, and the test fails on a machine
 // slow or busy enough to overrun a handful of frames -- which is what the Pi 4B does. Re-stamp with
 // the clock the estimator actually compares against. Nothing in production has this problem:
-// PiCameraSource already stamps with core::Clock::now(). Keeping it out of SyntheticFrameSource
+// PiCameraSource already stamps with models::Clock::now(). Keeping it out of SyntheticFrameSource
 // preserves the fixed-cadence determinism that vision_frame_source_tests pins.
-class RealTimeFrames final : public follow::vision::IFrameSource {
+class RealTimeFrames final : public follow::providers::IFrameSource {
 public:
-  explicit RealTimeFrames(follow::vision::IFrameSource& inner)
+  explicit RealTimeFrames(follow::providers::IFrameSource& inner)
     : inner(inner)
   {
   }
 
-  std::optional<follow::vision::Frame> read() override
+  std::optional<follow::providers::Frame> read() override
   {
-    std::optional<follow::vision::Frame> frame = this->inner.read();
+    std::optional<follow::providers::Frame> frame = this->inner.read();
     if (frame) {
-      frame->t = follow::core::Clock::now();
+      frame->t = follow::models::Clock::now();
     }
     return frame;
   }
@@ -111,23 +111,23 @@ public:
   bool ended() const override { return this->inner.ended(); }
 
 private:
-  follow::vision::IFrameSource& inner;
+  follow::providers::IFrameSource& inner;
 };
 
 // A camera that stops answering, the way a stalled libcamerasrc does: read() blocks inside
 // gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
 // never counts, ended() never fires and the vision thread can never be joined. Everything the
 // fail-safe depends on must therefore happen before that join is attempted.
-class StallingFrames final : public follow::vision::IFrameSource {
+class StallingFrames final : public follow::providers::IFrameSource {
 public:
-  explicit StallingFrames(follow::vision::IFrameSource& inner)
+  explicit StallingFrames(follow::providers::IFrameSource& inner)
     : inner(inner)
   {
   }
 
   ~StallingFrames() override { this->release(); }
 
-  std::optional<follow::vision::Frame> read() override
+  std::optional<follow::providers::Frame> read() override
   {
     std::unique_lock<std::mutex> lock(this->mutex);
     if (this->stalling) {
@@ -161,7 +161,7 @@ public:
   }
 
 private:
-  follow::vision::IFrameSource& inner;
+  follow::providers::IFrameSource& inner;
   mutable std::mutex mutex;
   std::condition_variable released;
   bool stalling{false};
@@ -171,15 +171,15 @@ private:
 // A camera that dies mid-run the way OpenCV does: cv::Exception derives from std::exception and is
 // thrown for, among other things, a frame whose size or type no longer matches what the tracker was
 // initialized with -- exactly what a mid-run caps renegotiation on libcamerasrc produces.
-class ThrowingFrames final : public follow::vision::IFrameSource {
+class ThrowingFrames final : public follow::providers::IFrameSource {
 public:
-  ThrowingFrames(follow::vision::IFrameSource& inner, int throwAfter)
+  ThrowingFrames(follow::providers::IFrameSource& inner, int throwAfter)
     : inner(inner)
     , throwAfter(throwAfter)
   {
   }
 
-  std::optional<follow::vision::Frame> read() override
+  std::optional<follow::providers::Frame> read() override
   {
     if (++this->reads > this->throwAfter) {
       throw std::runtime_error("the camera exploded");
@@ -188,18 +188,18 @@ public:
   }
 
 private:
-  follow::vision::IFrameSource& inner;
+  follow::providers::IFrameSource& inner;
   int throwAfter;
   int reads{0};
 };
 
 // Bearing of a box center through the camera the app was configured with, in the level frame the
 // estimator reports. The fake vehicle hovers wings-level, so roll and pitch are zero.
-double bearingOfDeg(const follow::core::CameraModel& camera, const follow::core::CameraMount& mount, const cv::Rect& box)
+double bearingOfDeg(const follow::models::CameraModel& camera, const follow::models::CameraMount& mount, const cv::Rect& box)
 {
-  follow::core::Pixel center{box.x + box.width / 2.0, box.y + box.height / 2.0};
-  follow::core::Vec3 level = follow::core::bodyToLevel(follow::core::cameraToBody(camera.pixelToRay(center), mount), 0.0, 0.0);
-  return follow::core::radToDeg(std::atan2(level.y, level.x));
+  follow::models::Pixel center{box.x + box.width / 2.0, box.y + box.height / 2.0};
+  follow::models::Vec3 level = follow::models::bodyToLevel(follow::models::cameraToBody(camera.pixelToRay(center), mount), 0.0, 0.0);
+  return follow::models::radToDeg(std::atan2(level.y, level.x));
 }
 
 // Every bearing the estimator reported while the target was valid, in order. Read straight out of
@@ -244,14 +244,14 @@ std::filesystem::path writeTestConfig(const std::filesystem::path& dir)
 // reach the configured rate.
 TEST(ShouldDrawOverlay, AccumulatesToTheConfiguredRateInsteadOfHalvingIt)
 {
-  const auto framePeriod = std::chrono::duration_cast<follow::core::Clock::duration>(std::chrono::duration<double>(1.0 / 20.0));
-  const auto overlayPeriod = std::chrono::duration_cast<follow::core::Clock::duration>(std::chrono::duration<double>(1.0 / 15.0));
-  follow::core::TimePoint now = follow::core::Clock::now();
-  follow::core::TimePoint nextOverlay = now;
+  const auto framePeriod = std::chrono::duration_cast<follow::models::Clock::duration>(std::chrono::duration<double>(1.0 / 20.0));
+  const auto overlayPeriod = std::chrono::duration_cast<follow::models::Clock::duration>(std::chrono::duration<double>(1.0 / 15.0));
+  follow::models::TimePoint now = follow::models::Clock::now();
+  follow::models::TimePoint nextOverlay = now;
   int draws = 0;
   const int ticks = 100;  // 5 s of frames at 20 fps
   for (int i = 0; i < ticks; ++i) {
-    if (follow::vision::detail::shouldDrawOverlay(now, nextOverlay, overlayPeriod)) {
+    if (follow::app::detail::shouldDrawOverlay(now, nextOverlay, overlayPeriod)) {
       ++draws;
     }
     now += framePeriod;
@@ -265,8 +265,8 @@ TEST(ShouldDrawOverlay, AccumulatesToTheConfiguredRateInsteadOfHalvingIt)
 TEST(ShouldDrawOverlay, DoesNotDrawBeforeItsScheduledInstant)
 {
   auto period = std::chrono::milliseconds{60};
-  follow::core::TimePoint nextOverlay = follow::core::Clock::now();
-  EXPECT_FALSE(follow::vision::detail::shouldDrawOverlay(nextOverlay - std::chrono::milliseconds{1}, nextOverlay, period));
+  follow::models::TimePoint nextOverlay = follow::models::Clock::now();
+  EXPECT_FALSE(follow::app::detail::shouldDrawOverlay(nextOverlay - std::chrono::milliseconds{1}, nextOverlay, period));
 }
 
 // After a long stall (a blocked framebuffer write, a slow machine), the schedule must catch up to
@@ -275,20 +275,20 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
 {
   const auto period = std::chrono::milliseconds{60};
   const auto tick = std::chrono::milliseconds{10};
-  follow::core::TimePoint now = follow::core::Clock::now();
-  follow::core::TimePoint nextOverlay = now;
-  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));  // nextOverlay = now + 60ms
-  now += std::chrono::milliseconds{500};                                             // long stall: nextOverlay is now far behind `now`
+  follow::models::TimePoint now = follow::models::Clock::now();
+  follow::models::TimePoint nextOverlay = now;
+  ASSERT_TRUE(follow::app::detail::shouldDrawOverlay(now, nextOverlay, period));  // nextOverlay = now + 60ms
+  now += std::chrono::milliseconds{500};                                          // long stall: nextOverlay is now far behind `now`
   // Catches up and clamps to `now + period` (t+560ms), not `now` (t+500ms) -- clamping to `now` alone
   // would make the very next tick immediately eligible again, a back-to-back double draw.
-  ASSERT_TRUE(follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period));
+  ASSERT_TRUE(follow::app::detail::shouldDrawOverlay(now, nextOverlay, period));
 
   // 12 ticks of 10 ms from t+500ms reach t+620ms. With nextOverlay clamped to t+560ms, draws land
   // exactly at t+560ms (tick 5) and t+620ms (tick 11): exactly 2, one period apart, not back-to-back.
   int draws = 0;
   for (int i = 0; i < 12; ++i) {
     now += tick;
-    if (follow::vision::detail::shouldDrawOverlay(now, nextOverlay, period)) {
+    if (follow::app::detail::shouldDrawOverlay(now, nextOverlay, period)) {
       ++draws;
     }
   }
@@ -300,18 +300,18 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
 // `source.missedFrames() != reportedMisses` gated by `!missing`/`missing`), and the helper is asked
 // only on an edge. Returns the (0-based) frame index of every simulated print.
 std::vector<int> simulateMissReportPrints(const std::vector<bool>& missedPerFrame,
-                                          follow::core::Clock::duration frameSpacing,
-                                          follow::core::Clock::duration minInterval)
+                                          follow::models::Clock::duration frameSpacing,
+                                          follow::models::Clock::duration minInterval)
 {
-  follow::core::TimePoint now = follow::core::Clock::now();
-  std::optional<follow::core::TimePoint> lastReport;
+  follow::models::TimePoint now = follow::models::Clock::now();
+  std::optional<follow::models::TimePoint> lastReport;
   bool missing = false;
   std::vector<int> printedAtFrame;
   for (std::size_t i = 0; i < missedPerFrame.size(); ++i) {
     bool edge = missedPerFrame[i] != missing;
     if (edge) {
       missing = missedPerFrame[i];
-      if (follow::vision::detail::shouldReportMissEdge(now, lastReport, minInterval)) {
+      if (follow::app::detail::shouldReportMissEdge(now, lastReport, minInterval)) {
         lastReport = now;
         printedAtFrame.push_back(static_cast<int>(i));
       }
@@ -380,21 +380,21 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   // the background the target has already left -- which is what this test used to do.
   follow::test::FakeAutopilot fc(0.3);
   fc.start();
-  follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
+  follow::providers::SyntheticFrameSource frames(640, 480, follow::models::Clock::now());
   RealTimeFrames realTime(frames);
-  follow::vision::HwAppOptions options{
+  follow::app::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{4});
   std::ostringstream out;
 
-  follow::vision::runHwApp(options, realTime, stop, out);
+  follow::app::runHwApp(options, realTime, stop, out);
 
   // The fail-safe: ArduPilot holds the last velocity target until its guided timeout (3 s, the rule
   // FakeAutopilot encodes), so an app that just stops leaves the vehicle coasting at its following
   // speed. runHwApp must command zero before it returns. The datagram may still be in the socket
   // when runHwApp returns, so wait for the FC's receive loop to pick it up.
-  std::optional<follow::core::VelocityCmd> last;
+  std::optional<follow::models::VelocityCmd> last;
   for (int i = 0; i < 100 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds{5});
     last = fc.lastSetpoint();
@@ -405,13 +405,13 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   EXPECT_DOUBLE_EQ(last->yawRate, 0.0) << out.str();
 
   std::ifstream log(options.logPath);
-  std::vector<follow::sim::StepRecord> steps = follow::runtime::readRunLog(log);
-  auto hasState = [&steps](follow::core::State state) {
+  std::vector<follow::sim::StepRecord> steps = follow::util::readRunLog(log);
+  auto hasState = [&steps](follow::models::State state) {
     return std::any_of(steps.begin(), steps.end(), [state](const follow::sim::StepRecord& step) { return step.state == state; });
   };
   EXPECT_FALSE(steps.empty()) << out.str();
-  EXPECT_TRUE(hasState(follow::core::State::Locking)) << out.str();
-  EXPECT_TRUE(hasState(follow::core::State::Following)) << out.str();
+  EXPECT_TRUE(hasState(follow::models::State::Locking)) << out.str();
+  EXPECT_TRUE(hasState(follow::models::State::Following)) << out.str();
   EXPECT_NE(out.str().find("follow_app --hw: tracker kcf"), std::string::npos) << out.str();
 
   // ... and that it really follows, which reaching Following does not by itself prove: Following is
@@ -420,7 +420,7 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   // The target crosses the frame at 3 px per frame, so a tracker that is on it sweeps the bearing by
   // tens of degrees while one on the background holds a constant bearing.
   follow::config::AppConfig app = follow::config::loadAppConfig(configPath);
-  std::unique_ptr<follow::core::CameraModel> camera = follow::config::makeCameraModel(app.camera);
+  std::unique_ptr<follow::models::CameraModel> camera = follow::config::makeCameraModel(app.camera);
   std::vector<double> bearings = validBearingsDeg(options.logPath);
   double truth = bearingOfDeg(*camera, app.camera.mount, frames.groundTruth());
   ASSERT_FALSE(bearings.empty()) << out.str();
@@ -448,13 +448,13 @@ TEST(HwAppTest, ReportsAnUnreadableConfigInsteadOfAborting)
   std::filesystem::create_directories(dir);
   TempDirGuard guard(dir);
 
-  follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
-  follow::vision::HwAppOptions options{.configPath = dir / "does_not_exist.json", .link = "udp:0", .logPath = dir / "run.csv"};
+  follow::providers::SyntheticFrameSource frames(640, 480, follow::models::Clock::now());
+  follow::app::HwAppOptions options{.configPath = dir / "does_not_exist.json", .link = "udp:0", .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{5});
   std::ostringstream out;
 
-  EXPECT_THROW(follow::vision::runHwApp(options, frames, stop, out), follow::config::ConfigError);
+  EXPECT_THROW(follow::app::runHwApp(options, frames, stop, out), follow::config::ConfigError);
 }
 
 // An exception escaping a worker thread calls std::terminate(): the process dies instantly, no
@@ -470,23 +470,23 @@ TEST(HwAppTest, ReportsAFailedWorkerThreadAfterCommandingZero)
 
   follow::test::FakeAutopilot fc(0.0);
   fc.start();
-  follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
+  follow::providers::SyntheticFrameSource frames(640, 480, follow::models::Clock::now());
   ThrowingFrames throwing(frames, 20);  // 1 s of frames, long enough to have commanded something
-  follow::vision::HwAppOptions options{
+  follow::app::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   Stopper stopper(stop, std::chrono::seconds{10});  // must never fire: the throw ends the run
   std::ostringstream out;
 
   try {
-    follow::vision::runHwApp(options, throwing, stop, out);
+    follow::app::runHwApp(options, throwing, stop, out);
     ADD_FAILURE() << "runHwApp returned normally: " << out.str();
   }
   catch (const std::runtime_error& e) {
     EXPECT_NE(std::string(e.what()).find("the camera exploded"), std::string::npos);
   }
 
-  std::optional<follow::core::VelocityCmd> last;
+  std::optional<follow::models::VelocityCmd> last;
   for (int i = 0; i < 100 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds{5});
     last = fc.lastSetpoint();
@@ -511,17 +511,17 @@ TEST(HwAppTest, SendsTheFailSafeEvenWhenTheCameraThreadIsStuck)
 
   follow::test::FakeAutopilot fc(0.3);
   fc.start();
-  follow::vision::SyntheticFrameSource frames(640, 480, follow::core::Clock::now());
+  follow::providers::SyntheticFrameSource frames(640, 480, follow::models::Clock::now());
   RealTimeFrames realTime(frames);
   StallingFrames stalling(realTime);
-  follow::vision::HwAppOptions options{
+  follow::app::HwAppOptions options{
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   std::ostringstream out;
-  std::thread app([&] { follow::vision::runHwApp(options, stalling, stop, out); });
+  std::thread app([&] { follow::app::runHwApp(options, stalling, stop, out); });
 
   auto moving = [&fc] {
-    std::optional<follow::core::VelocityCmd> last = fc.lastSetpoint();
+    std::optional<follow::models::VelocityCmd> last = fc.lastSetpoint();
     return last && (last->vx != 0.0 || last->yawRate != 0.0);
   };
   for (int i = 0; i < 600 && !moving(); ++i) {
@@ -533,7 +533,7 @@ TEST(HwAppTest, SendsTheFailSafeEvenWhenTheCameraThreadIsStuck)
   stalling.stall();
   stop = true;
 
-  std::optional<follow::core::VelocityCmd> last;
+  std::optional<follow::models::VelocityCmd> last;
   for (int i = 0; i < 400 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds{5});
     last = fc.lastSetpoint();

@@ -1,4 +1,4 @@
-#include "follow/config/ConfigJson.h"
+#include "config/ConfigJson.h"
 
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -14,7 +14,7 @@ using nlohmann::json;
 AppConfig parseAppConfig(const json& doc)
 {
   AppConfig config;
-  core::Config& core = config.core;
+  models::Config& core = config.core;
   ObjectReader root(doc, "", {"mavlink", "camera", "vision", "target", "estimator", "supervisor", "control"});
 
   ObjectReader mavlink = root.child("mavlink", {"link", "sysid", "compid", "fc_timeout_ms"});
@@ -133,7 +133,7 @@ CameraSettings parseCamera(const json& doc, int trackWidth, int trackHeight)
   require(model == "fisheye" || model == "pinhole", "camera.model: expected \"fisheye\" or \"pinhole\"");
   settings.kind = model == "fisheye" ? CameraKind::Fisheye : CameraKind::Pinhole;
 
-  core::Intrinsics k{};
+  models::Intrinsics k{};
   camera.readRequired("width", k.width);
   camera.readRequired("height", k.height);
   camera.readRequired("fx", k.fx);
@@ -195,12 +195,12 @@ AppConfig loadAppConfig(const std::filesystem::path& path)
   return loadAppConfig(path, json::object());
 }
 
-std::unique_ptr<core::CameraModel> makeCameraModel(const CameraSettings& settings)
+std::unique_ptr<models::CameraModel> makeCameraModel(const CameraSettings& settings)
 {
   if (settings.kind == CameraKind::Pinhole) {
-    return std::make_unique<core::PinholeModel>(settings.intrinsics);
+    return std::make_unique<models::PinholeModel>(settings.intrinsics);
   }
-  return std::make_unique<core::FisheyeKbModel>(settings.intrinsics);
+  return std::make_unique<models::FisheyeKbModel>(settings.intrinsics);
 }
 
 }  // namespace follow::config

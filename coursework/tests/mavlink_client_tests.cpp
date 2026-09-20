@@ -6,11 +6,11 @@
 
 #include "MavlinkTestSupport.h"
 #include "TestTime.h"
-#include "follow/core/Types.h"
-#include "follow/mavlink/MavlinkClient.h"
+#include "Types.h"
+#include "comms/MavlinkClient.h"
 
 using namespace follow;
-using namespace follow::mavlink;
+using namespace follow::comms;
 using follow::test::at;
 using follow::test::decodeFrames;
 using follow::test::FakeLink;
@@ -30,7 +30,7 @@ protected:
 TEST_F(MavlinkClientTest, HeartbeatFromAutopilotSetsModeArmedAndTime)
 {
   // Setup
-  link.feed(fc.heartbeat(core::kModeGuided, true));
+  link.feed(fc.heartbeat(models::kModeGuided, true));
 
   // Run
   int accepted = client.poll(at(2.0));
@@ -38,7 +38,7 @@ TEST_F(MavlinkClientTest, HeartbeatFromAutopilotSetsModeArmedAndTime)
   // Assert
   EXPECT_EQ(accepted, 1);
   EXPECT_EQ(client.vehicle().lastHeartbeat, at(2.0));
-  EXPECT_EQ(client.vehicle().customMode, core::kModeGuided);
+  EXPECT_EQ(client.vehicle().customMode, models::kModeGuided);
   EXPECT_TRUE(client.vehicle().armed);
 }
 
@@ -47,8 +47,8 @@ TEST_F(MavlinkClientTest, MessagesFromOtherSystemsAndComponentsAreIgnored)
   // Setup: a GCS (sysid 255) and another onboard component of the vehicle (1/100)
   Peer gcs(255, 190);
   Peer camera(1, 100);
-  link.feed(gcs.heartbeat(core::kModeGuided, true));
-  link.feed(camera.heartbeat(core::kModeGuided, true));
+  link.feed(gcs.heartbeat(models::kModeGuided, true));
+  link.feed(camera.heartbeat(models::kModeGuided, true));
   link.feed(camera.attitude(0.1F, 0.2F, 0.3F));
 
   // Run
@@ -118,7 +118,7 @@ TEST_F(MavlinkClientTest, FramesSplitAcrossReadsAndNoiseAreParsed)
   // Setup: garbage, then a heartbeat delivered 3 bytes per read, then a corrupted attitude
   link.maxChunk = 3;
   link.feed({0x00, 0xFD, 0x42, 0x13});
-  link.feed(fc.heartbeat(core::kModeLoiter, false));
+  link.feed(fc.heartbeat(models::kModeLoiter, false));
   std::vector<uint8_t> corrupted = fc.attitude(0.0F, 0.0F, 1.0F);
   corrupted[12] ^= 0xFF;
   link.feed(corrupted);
@@ -129,7 +129,7 @@ TEST_F(MavlinkClientTest, FramesSplitAcrossReadsAndNoiseAreParsed)
 
   // Assert
   EXPECT_EQ(accepted, 2);
-  EXPECT_EQ(client.vehicle().customMode, core::kModeLoiter);
+  EXPECT_EQ(client.vehicle().customMode, models::kModeLoiter);
   EXPECT_FLOAT_EQ(client.vehicle().attitude.latest()->yaw, 2.0F);
 }
 
@@ -195,7 +195,7 @@ TEST_F(MavlinkClientTest, StreamsAreRequestedUntilAttitudeArrives)
   EXPECT_EQ(streamRequests(), 0);
 
   // FC heard, no attitude: ATTITUDE and LOCAL_POSITION_NED requested, then again only after 2 s
-  link.feed(fc.heartbeat(core::kModeLoiter, false));
+  link.feed(fc.heartbeat(models::kModeLoiter, false));
   client.poll(at(0.5));
   client.service(at(0.5));
   EXPECT_EQ(streamRequests(), 2);
@@ -227,7 +227,7 @@ TEST_F(MavlinkClientTest, StreamsAreRequestedUntilPositionArrives)
   };
 
   // FC heard, and attitude flows from the start, but LOCAL_POSITION_NED never arrives.
-  link.feed(fc.heartbeat(core::kModeLoiter, false));
+  link.feed(fc.heartbeat(models::kModeLoiter, false));
   link.feed(fc.attitude(0.0F, 0.0F, 0.0F));
   client.poll(at(0.5));
   client.service(at(0.5));

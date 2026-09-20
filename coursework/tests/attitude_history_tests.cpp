@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
 #include "TestTime.h"
-#include "follow/core/AttitudeHistory.h"
+#include "models/AttitudeHistory.h"
 
-using namespace follow::core;
+using namespace follow::models;
 using follow::test::at;
 
 TEST(AttitudeHistory, EmptyHistoryHasNoAttitude)

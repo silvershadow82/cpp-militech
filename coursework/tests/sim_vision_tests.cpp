@@ -4,11 +4,12 @@
 #include <numbers>
 
 #include "TestTime.h"
-#include "follow/runtime/Channels.h"
-#include "follow/runtime/SimVision.h"
+#include "providers/SimVision.h"
+#include "util/Channels.h"
 
 using namespace follow;
-using namespace follow::runtime;
+using namespace follow::providers;
+using namespace follow::util;
 using follow::test::at;
 
 namespace {
@@ -16,24 +17,27 @@ namespace {
 class SimVisionTest : public ::testing::Test {
 protected:
   // Publishes the vehicle state the MAVLink thread would: heartbeat, attitude and (optionally) position.
-  void publishVehicle(double tSec, const core::Vec3& positionNed, double yaw, bool withPosition = true)
+  void publishVehicle(double tSec, const models::Vec3& positionNed, double yaw, bool withPosition = true)
   {
-    core::VehicleState vehicle;
+    control::VehicleState vehicle;
     vehicle.lastHeartbeat = at(tSec);
-    vehicle.customMode = core::kModeGuided;
+    vehicle.customMode = models::kModeGuided;
     vehicle.attitude.push({.t = at(tSec), .yaw = yaw});
     if (withPosition) {
-      vehicle.position = core::LocalPositionNed{.t = at(tSec), .position = positionNed};
+      vehicle.position = models::LocalPositionNed{.t = at(tSec), .position = positionNed};
     }
     channels.vehicle.write(vehicle, at(tSec));
   }
 
-  void lockCenter() { channels.trackerRequests.push({.kind = core::TrackerRequestKind::LockCenter, .hint = {272.0, 192.0, 96.0, 96.0}}); }
+  void lockCenter()
+  {
+    channels.trackerRequests.push({.kind = control::TrackerRequestKind::LockCenter, .hint = {272.0, 192.0, 96.0, 96.0}});
+  }
 
-  core::FisheyeKbModel camera{core::nominalFisheye(640, 480, 160.0)};
+  models::FisheyeKbModel camera{models::nominalFisheye(640, 480, 160.0)};
   Channels channels;
   config::TargetScript script{.start = {3.0, 0.0, 0.0}, .motions = {sim::TargetHold{30.0}}};
-  SimVision vision{camera, core::CameraMount{}, sim::SyntheticCameraConfig{.pixelNoiseSigma = 0.0}, script, 5.0, channels};
+  SimVision vision{camera, models::CameraMount{}, sim::SyntheticCameraConfig{.pixelNoiseSigma = 0.0}, script, 5.0, channels};
 };
 
 }  // namespace
@@ -127,9 +131,9 @@ TEST_F(SimVisionTest, FinishesScenarioDurationAfterEngage)
 TEST(SimVisionPoseTest, PositionIsExtrapolatedAtMost200Ms)
 {
   // Setup
-  core::VehicleState vehicle;
+  control::VehicleState vehicle;
   vehicle.attitude.push({.t = at(1.0), .roll = 0.1, .pitch = 0.2, .yaw = 0.3});
-  vehicle.position = core::LocalPositionNed{.t = at(1.0), .position = {1.0, 2.0, -2.0}, .velocity = {1.0, 0.0, 0.0}};
+  vehicle.position = models::LocalPositionNed{.t = at(1.0), .position = {1.0, 2.0, -2.0}, .velocity = {1.0, 0.0, 0.0}};
 
   // Run
   auto soon = SimVision::vehiclePose(vehicle, at(1.1));
@@ -141,5 +145,5 @@ TEST(SimVisionPoseTest, PositionIsExtrapolatedAtMost200Ms)
   EXPECT_EQ(soon->yaw, 0.3);
   ASSERT_TRUE(late);
   EXPECT_NEAR(late->positionNed.x, 1.2, 1e-9);
-  EXPECT_FALSE(SimVision::vehiclePose(core::VehicleState{}, at(1.0)));
+  EXPECT_FALSE(SimVision::vehiclePose(control::VehicleState{}, at(1.0)));
 }

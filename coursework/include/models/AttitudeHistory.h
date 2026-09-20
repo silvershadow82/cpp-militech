@@ -4,9 +4,9 @@
 #include <deque>
 #include <optional>
 
-#include "follow/core/Types.h"
+#include "Types.h"
 
-namespace follow::core {
+namespace follow::models {
 
 // Recent attitude samples, used to look up the attitude at a camera frame's capture time.
 class AttitudeHistory {
@@ -30,4 +30,4 @@ private:
   std::deque<AttitudeSample> samples;
 };
 
-}  // namespace follow::core
+}  // namespace follow::models

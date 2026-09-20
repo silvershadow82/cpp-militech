@@ -1,9 +1,9 @@
-#include "follow/runtime/ControlLoop.h"
+#include "control/ControlLoop.h"
 
 #include <chrono>
 #include <thread>
 
-namespace follow::runtime {
+namespace follow::control {
 
 namespace {
 
@@ -12,12 +12,12 @@ constexpr auto kTruthMaxAge = std::chrono::milliseconds{200};
 
 }  // namespace
 
-ControlLoop::ControlLoop(const core::Config& config,
-                         const core::CameraModel& camera,
-                         const core::CameraMount& mount,
-                         Channels& channels,
-                         RunLogWriter* log,
-                         core::TimePoint start)
+ControlLoop::ControlLoop(const models::Config& config,
+                         const models::CameraModel& camera,
+                         const models::CameraMount& mount,
+                         util::Channels& channels,
+                         util::RunLogWriter* log,
+                         models::TimePoint start)
   : config(config)
   , core(config, camera, mount)
   , channels(channels)
@@ -26,9 +26,9 @@ ControlLoop::ControlLoop(const core::Config& config,
 {
 }
 
-core::Outputs ControlLoop::tick(core::TimePoint now)
+control::Outputs ControlLoop::tick(models::TimePoint now)
 {
-  core::Inputs inputs{.now = now};
+  control::Inputs inputs{.now = now};
   if (auto vehicle = this->channels.vehicle.read()) {
     inputs.vehicle = vehicle->value;
   }
@@ -36,21 +36,21 @@ core::Outputs ControlLoop::tick(core::TimePoint now)
     inputs.target = observation->value;
   }
 
-  core::Outputs out = this->core.step(inputs);
+  control::Outputs out = this->core.step(inputs);
   this->channels.overlay.write(out.overlay, now);
 
   if (out.setpoint) {
     this->channels.setpoint.write(*out.setpoint, now);
   }
-  if (out.tracker.kind != core::TrackerRequestKind::None) {
+  if (out.tracker.kind != control::TrackerRequestKind::None) {
     this->channels.trackerRequests.push(out.tracker);
   }
   if (this->log) {
-    LogRow row{.tS = std::chrono::duration<double>(now - this->start).count(),
-               .state = out.state,
-               .customMode = inputs.vehicle.customMode,
-               .target = out.target,
-               .setpoint = out.setpoint};
+    util::LogRow row{.tS = std::chrono::duration<double>(now - this->start).count(),
+                     .state = out.state,
+                     .customMode = inputs.vehicle.customMode,
+                     .target = out.target,
+                     .setpoint = out.setpoint};
     if (auto truth = this->channels.truth.readFresh(now, kTruthMaxAge)) {
       row.trueBearingDeg = truth->bearingDeg;
       row.trueDistanceM = truth->distanceM;
@@ -62,12 +62,12 @@ core::Outputs ControlLoop::tick(core::TimePoint now)
 
 void ControlLoop::run(const std::atomic<bool>& stop)
 {
-  const auto period = std::chrono::duration_cast<core::Clock::duration>(std::chrono::duration<double>(1.0 / this->config.rateHz));
-  core::TimePoint next = core::Clock::now();
+  const auto period = std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(1.0 / this->config.rateHz));
+  models::TimePoint next = models::Clock::now();
   while (!stop) {
-    this->tick(core::Clock::now());
+    this->tick(models::Clock::now());
     next += period;
-    core::TimePoint now = core::Clock::now();
+    models::TimePoint now = models::Clock::now();
     if (next < now) {
       next = now;  // overran: skip ahead instead of bursting to catch up
     }
@@ -75,4 +75,4 @@ void ControlLoop::run(const std::atomic<bool>& stop)
   }
 }
 
-}  // namespace follow::runtime
+}  // namespace follow::control

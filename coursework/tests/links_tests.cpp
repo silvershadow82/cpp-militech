@@ -13,10 +13,10 @@
 #include <stdexcept>
 #include <string>
 
-#include "follow/mavlink/ByteLink.h"
-#include "follow/mavlink/Links.h"
+#include "comms/ByteLink.h"
+#include "comms/Links.h"
 
-using namespace follow::mavlink;
+using namespace follow::comms;
 using namespace std::chrono_literals;
 
 namespace {

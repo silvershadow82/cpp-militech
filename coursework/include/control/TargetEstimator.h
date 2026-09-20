@@ -2,49 +2,49 @@
 
 #include <optional>
 
-#include "follow/core/AttitudeHistory.h"
-#include "follow/core/CameraModel.h"
-#include "follow/core/Config.h"
-#include "follow/core/Frames.h"
-#include "follow/core/Types.h"
+#include "Types.h"
+#include "models/AttitudeHistory.h"
+#include "models/CameraModel.h"
+#include "models/Config.h"
+#include "models/Frames.h"
 
-namespace follow::core {
+namespace follow::control {
 
 // Turns tracker observations (plus attitude and optional range) into a TargetState.
 class TargetEstimator {
 public:
-  TargetEstimator(const EstimatorConfig& config, const CameraModel& camera, const CameraMount& mount);
+  TargetEstimator(const models::EstimatorConfig& config, const models::CameraModel& camera, const models::CameraMount& mount);
 
   // Starts a new lock at `now`: frames captured earlier are ignored, and the first valid
   // observation after this becomes the size reference for TargetState::ratio.
-  void lock(TimePoint now);
+  void lock(models::TimePoint now);
   // Forgets the lock, smoothing, last good box and held range.
   void reset();
 
-  TargetState update(TimePoint now,
-                     const AttitudeHistory& attitude,
-                     const std::optional<TargetObservation>& observation,
-                     const std::optional<RangeMeasurement>& range);
+  models::TargetState update(models::TimePoint now,
+                             const models::AttitudeHistory& attitude,
+                             const std::optional<models::TargetObservation>& observation,
+                             const std::optional<models::RangeMeasurement>& range);
 
-  std::optional<BBox> lastGoodBox() const { return this->lastGood; }
+  std::optional<models::BBox> lastGoodBox() const { return this->lastGood; }
 
 private:
-  bool touchesBorder(const BBox& box) const;
+  bool touchesBorder(const models::BBox& box) const;
   double smooth(const std::optional<double>& previous, double sample) const;
 
-  EstimatorConfig config;
-  const CameraModel& camera;
-  CameraMount mount;
+  models::EstimatorConfig config;
+  const models::CameraModel& camera;
+  models::CameraMount mount;
 
-  std::optional<TimePoint> lockTime{};
-  std::optional<TimePoint> lastFrame{};
+  std::optional<models::TimePoint> lockTime{};
+  std::optional<models::TimePoint> lastFrame{};
   std::optional<double> previousArea{};
   bool lastFrameJumped{false};
   std::optional<double> smoothedSize{};  // angular height, rad
   std::optional<double> referenceSize{};
   std::optional<double> heldRange{};
-  TimePoint heldRangeTime{};
-  std::optional<BBox> lastGood{};
+  models::TimePoint heldRangeTime{};
+  std::optional<models::BBox> lastGood{};
 };
 
-}  // namespace follow::core
+}  // namespace follow::control

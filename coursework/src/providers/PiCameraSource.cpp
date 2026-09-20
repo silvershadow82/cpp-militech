@@ -96,7 +96,7 @@ PiCameraSource::PiCameraSource(const PiCameraConfig& config)
   }
 }
 
-std::optional<Frame> PiCameraSource::read()
+std::optional<interfaces::Frame> PiCameraSource::read()
 {
   cv::Mat image;
   if (!this->capture.read(image) || image.empty()) {
@@ -108,7 +108,7 @@ std::optional<Frame> PiCameraSource::read()
   }
   this->consecutiveFailures = 0;
   // Stamp after the grab returns: this is as close to the capture instant as this API allows.
-  return Frame{.image = image, .t = models::Clock::now()};
+  return interfaces::Frame{.image = image, .t = models::Clock::now()};
 }
 
 }  // namespace follow::providers

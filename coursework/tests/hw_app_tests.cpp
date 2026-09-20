@@ -27,6 +27,7 @@
 #include "models/Angles.h"
 #include "models/CameraModel.h"
 #include "models/Frames.h"
+#include "interfaces/IFrameSource.h"
 #include "providers/FrameSource.h"
 
 namespace {
@@ -92,16 +93,16 @@ private:
 // the clock the estimator actually compares against. Nothing in production has this problem:
 // PiCameraSource already stamps with models::Clock::now(). Keeping it out of SyntheticFrameSource
 // preserves the fixed-cadence determinism that vision_frame_source_tests pins.
-class RealTimeFrames final : public follow::providers::IFrameSource {
+class RealTimeFrames final : public follow::interfaces::IFrameSource {
 public:
-  explicit RealTimeFrames(follow::providers::IFrameSource& inner)
+  explicit RealTimeFrames(follow::interfaces::IFrameSource& inner)
     : inner(inner)
   {
   }
 
-  std::optional<follow::providers::Frame> read() override
+  std::optional<follow::interfaces::Frame> read() override
   {
-    std::optional<follow::providers::Frame> frame = this->inner.read();
+    std::optional<follow::interfaces::Frame> frame = this->inner.read();
     if (frame) {
       frame->t = follow::models::Clock::now();
     }
@@ -111,23 +112,23 @@ public:
   bool ended() const override { return this->inner.ended(); }
 
 private:
-  follow::providers::IFrameSource& inner;
+  follow::interfaces::IFrameSource& inner;
 };
 
 // A camera that stops answering, the way a stalled libcamerasrc does: read() blocks inside
 // gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
 // never counts, ended() never fires and the vision thread can never be joined. Everything the
 // fail-safe depends on must therefore happen before that join is attempted.
-class StallingFrames final : public follow::providers::IFrameSource {
+class StallingFrames final : public follow::interfaces::IFrameSource {
 public:
-  explicit StallingFrames(follow::providers::IFrameSource& inner)
+  explicit StallingFrames(follow::interfaces::IFrameSource& inner)
     : inner(inner)
   {
   }
 
   ~StallingFrames() override { this->release(); }
 
-  std::optional<follow::providers::Frame> read() override
+  std::optional<follow::interfaces::Frame> read() override
   {
     std::unique_lock<std::mutex> lock(this->mutex);
     if (this->stalling) {
@@ -161,7 +162,7 @@ public:
   }
 
 private:
-  follow::providers::IFrameSource& inner;
+  follow::interfaces::IFrameSource& inner;
   mutable std::mutex mutex;
   std::condition_variable released;
   bool stalling{false};
@@ -171,15 +172,15 @@ private:
 // A camera that dies mid-run the way OpenCV does: cv::Exception derives from std::exception and is
 // thrown for, among other things, a frame whose size or type no longer matches what the tracker was
 // initialized with -- exactly what a mid-run caps renegotiation on libcamerasrc produces.
-class ThrowingFrames final : public follow::providers::IFrameSource {
+class ThrowingFrames final : public follow::interfaces::IFrameSource {
 public:
-  ThrowingFrames(follow::providers::IFrameSource& inner, int throwAfter)
+  ThrowingFrames(follow::interfaces::IFrameSource& inner, int throwAfter)
     : inner(inner)
     , throwAfter(throwAfter)
   {
   }
 
-  std::optional<follow::providers::Frame> read() override
+  std::optional<follow::interfaces::Frame> read() override
   {
     if (++this->reads > this->throwAfter) {
       throw std::runtime_error("the camera exploded");
@@ -188,7 +189,7 @@ public:
   }
 
 private:
-  follow::providers::IFrameSource& inner;
+  follow::interfaces::IFrameSource& inner;
   int throwAfter;
   int reads{0};
 };

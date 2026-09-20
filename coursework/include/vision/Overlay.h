@@ -78,6 +78,9 @@ public:
   void write(const cv::Mat& bgr);
 
 private:
+  // The mapping only exists on Linux: everywhere else the constructor throws, so these members
+  // would be unused (and -Wunused-private-field) rather than merely idle.
+#ifdef __linux__
   int fd{-1};
   unsigned char* pixels{nullptr};
   std::size_t length{0};
@@ -88,6 +91,7 @@ private:
   // Byte offset of (xoffset, yoffset) in the mapping; see detail::framebufferWriteOffset. Computed
   // once in the constructor -- a console that pans or changes mode afterwards is not re-read.
   std::size_t writeOffset{0};
+#endif
   cv::Mat canvas{};     // panel-sized BGR buffer; recleared by write() whenever the letterbox rect changes
   cv::Rect lastRect{};  // the letterbox rect canvas was last cleared for; see write()
 };

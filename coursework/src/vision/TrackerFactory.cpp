@@ -1,4 +1,4 @@
-#include "vision/Tracker.h"
+#include "vision/TrackerFactory.h"
 
 // OpenCV moved KCF and CSRT between modules: the contrib "tracking" module carries them on both
 // 4.6 (Pi OS, libopencv-contrib-dev) and 5.0 (Homebrew). Fall back to the main video module, which
@@ -16,7 +16,7 @@ namespace follow::vision {
 namespace {
 
 // Both OpenCV trackers share this shape: create() on init, update() returning success plus a box.
-class OpenCvTracker final : public ITracker {
+class OpenCvTracker final : public interfaces::ITracker {
 public:
   using Factory = cv::Ptr<cv::Tracker> (*)();
 
@@ -50,7 +50,7 @@ private:
 
 }  // namespace
 
-std::unique_ptr<ITracker> makeTracker(const std::string& name)
+std::unique_ptr<interfaces::ITracker> makeTracker(const std::string& name)
 {
   if (name == "kcf") {
     return std::make_unique<OpenCvTracker>([]() -> cv::Ptr<cv::Tracker> { return cv::TrackerKCF::create(); });

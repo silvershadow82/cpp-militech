@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
+#include "interfaces/IFrameSource.h"
 #include "providers/FrameSource.h"
 
 TEST(SyntheticFrameSource, StampsFramesOnAFixedCadence)
@@ -13,13 +14,13 @@ TEST(SyntheticFrameSource, StampsFramesOnAFixedCadence)
   follow::models::TimePoint start = follow::models::Clock::now();
   follow::providers::SyntheticFrameSource source(640, 480, start);
 
-  std::optional<follow::providers::Frame> first = source.read();
+  std::optional<follow::interfaces::Frame> first = source.read();
   ASSERT_TRUE(first.has_value());
   EXPECT_EQ(first->t, start);
   EXPECT_EQ(first->image.cols, 640);
   EXPECT_EQ(first->image.rows, 480);
 
-  std::optional<follow::providers::Frame> second = source.read();
+  std::optional<follow::interfaces::Frame> second = source.read();
   ASSERT_TRUE(second.has_value());
   EXPECT_EQ(second->t - first->t, std::chrono::milliseconds{50});
 }
@@ -49,7 +50,7 @@ TEST(VideoFileSource, ReadsEveryFrameAndResizesToTheTrackingSize)
 
   follow::providers::VideoFileSource source(clip, cv::Size(640, 480), 20.0, follow::models::Clock::now());
   int count = 0;
-  std::optional<follow::providers::Frame> frame;
+  std::optional<follow::interfaces::Frame> frame;
   while ((frame = source.read())) {
     EXPECT_EQ(frame->image.cols, 640);
     EXPECT_EQ(frame->image.rows, 480);

@@ -102,7 +102,7 @@ if(FOLLOW_WITH_OPENCV)
   find_package(OpenCV CONFIG REQUIRED)
   message(STATUS "follow: OpenCV ${OpenCV_VERSION} from ${OpenCV_INSTALL_PATH}")
 
-  add_library(follow_vision STATIC src/vision/Tracker.cpp src/providers/FrameSource.cpp src/providers/PiCameraSource.cpp
+  add_library(follow_vision STATIC src/vision/TrackerFactory.cpp src/providers/FrameSource.cpp src/providers/PiCameraSource.cpp
                                     src/providers/CameraTrackerSource.cpp src/vision/Overlay.cpp src/HwMissionProcessor.cpp
                                     src/vision/Calibration.cpp)
   target_link_libraries(follow_vision PUBLIC follow_runtime ${OpenCV_LIBS})

@@ -9,9 +9,9 @@
 
 #include "Types.h"
 #include "control/Core.h"
-#include "providers/FrameSource.h"
+#include "interfaces/IFrameSource.h"
 #include "util/Channels.h"
-#include "vision/Tracker.h"
+#include "interfaces/ITracker.h"
 
 namespace follow::providers {
 
@@ -30,8 +30,8 @@ cv::Rect expandBox(const cv::Rect& box, double factor, const cv::Size& bounds);
 // decision about what the observation means belongs to TargetEstimator.
 class CameraTrackerSource {
 public:
-  CameraTrackerSource(IFrameSource& frames,
-                      std::unique_ptr<vision::ITracker> tracker,
+  CameraTrackerSource(interfaces::IFrameSource& frames,
+                      std::unique_ptr<interfaces::ITracker> tracker,
                       const CameraTrackerConfig& config,
                       util::Channels& channels);
 
@@ -44,21 +44,21 @@ public:
 
   // The most recent frame, for the overlay. Frames are kept even while unlocked, and a missed
   // frame leaves the previous one in place rather than blanking the pilot's overlay.
-  const std::optional<Frame>& lastFrame() const { return this->frame; }
+  const std::optional<interfaces::Frame>& lastFrame() const { return this->frame; }
   bool locked() const { return this->isLocked; }
   // Frames the source failed to deliver since construction, for the caller to report.
   uint64_t missedFrames() const { return this->missed; }
 
 private:
-  void handle(const control::TrackerRequest& request, const Frame& frame);
+  void handle(const control::TrackerRequest& request, const interfaces::Frame& frame);
   // Re-initializes the tracker on the latched hint, at most once per reacquirePeriod.
-  void reseed(const Frame& frame);
+  void reseed(const interfaces::Frame& frame);
 
-  IFrameSource& frames;
-  std::unique_ptr<vision::ITracker> tracker;
+  interfaces::IFrameSource& frames;
+  std::unique_ptr<interfaces::ITracker> tracker;
   CameraTrackerConfig config;
   util::Channels& channels;
-  std::optional<Frame> frame{};
+  std::optional<interfaces::Frame> frame{};
   bool isLocked{false};
   uint64_t missed{0};
   bool lastUpdateOk{false};      // the last tracker->update() result: Reacquire is a no-op while true

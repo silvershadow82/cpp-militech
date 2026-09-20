@@ -12,7 +12,7 @@
 #include "providers/CameraTrackerSource.h"
 #include "providers/FrameSource.h"
 #include "vision/Overlay.h"
-#include "vision/Tracker.h"
+#include "vision/TrackerFactory.h"
 
 namespace {
 
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
     auto tracker = follow::vision::makeTracker(trackerName);
     cv::VideoWriter writer;
 
-    std::optional<follow::providers::Frame> frame = frames.read();
+    std::optional<follow::interfaces::Frame> frame = frames.read();
     if (!frame) {
       throw std::runtime_error("video has no frames");
     }

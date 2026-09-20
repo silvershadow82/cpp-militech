@@ -29,8 +29,8 @@ cv::Rect expandBox(const cv::Rect& box, double factor, const cv::Size& bounds)
   return grown & cv::Rect(0, 0, bounds.width, bounds.height);
 }
 
-CameraTrackerSource::CameraTrackerSource(IFrameSource& frames,
-                                         std::unique_ptr<vision::ITracker> tracker,
+CameraTrackerSource::CameraTrackerSource(interfaces::IFrameSource& frames,
+                                         std::unique_ptr<interfaces::ITracker> tracker,
                                          const CameraTrackerConfig& config,
                                          util::Channels& channels)
   : frames(frames)
@@ -42,7 +42,7 @@ CameraTrackerSource::CameraTrackerSource(IFrameSource& frames,
 
 bool CameraTrackerSource::iterate()
 {
-  std::optional<Frame> next = this->frames.read();
+  std::optional<interfaces::Frame> next = this->frames.read();
   if (!next) {
     // A dropped frame is not the end of the stream, and ending the app on one would leave the FC
     // holding the last velocity target for its whole guided timeout. Keep the previous frame for
@@ -86,7 +86,7 @@ bool CameraTrackerSource::iterate()
   return true;
 }
 
-void CameraTrackerSource::handle(const control::TrackerRequest& request, const Frame& frame)
+void CameraTrackerSource::handle(const control::TrackerRequest& request, const interfaces::Frame& frame)
 {
   cv::Rect hint = toRect(request.hint) & cv::Rect(0, 0, frame.image.cols, frame.image.rows);
   switch (request.kind) {
@@ -128,7 +128,7 @@ void CameraTrackerSource::handle(const control::TrackerRequest& request, const F
   }
 }
 
-void CameraTrackerSource::reseed(const Frame& frame)
+void CameraTrackerSource::reseed(const interfaces::Frame& frame)
 {
   if (this->lastReacquire && frame.t - *this->lastReacquire < this->config.reacquirePeriod) {
     return;

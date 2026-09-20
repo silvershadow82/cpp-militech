@@ -3,9 +3,10 @@
 #include <memory>
 
 #include "providers/CameraTrackerSource.h"
+#include "interfaces/IFrameSource.h"
 #include "providers/FrameSource.h"
 #include "util/Channels.h"
-#include "vision/Tracker.h"
+#include "vision/TrackerFactory.h"
 
 namespace {
 
@@ -24,14 +25,14 @@ struct Fixture {
 
 // A source the test drives: `miss` makes one read() fail the way a live camera drops a buffer,
 // `exhausted` reports the end of the stream the way a clip does at EOF.
-class ScriptedFrames final : public follow::providers::IFrameSource {
+class ScriptedFrames final : public follow::interfaces::IFrameSource {
 public:
-  explicit ScriptedFrames(follow::providers::IFrameSource& inner)
+  explicit ScriptedFrames(follow::interfaces::IFrameSource& inner)
     : inner(inner)
   {
   }
 
-  std::optional<follow::providers::Frame> read() override
+  std::optional<follow::interfaces::Frame> read() override
   {
     if (this->miss) {
       this->miss = false;
@@ -49,12 +50,12 @@ public:
   bool exhausted{false};
 
 private:
-  follow::providers::IFrameSource& inner;
+  follow::interfaces::IFrameSource& inner;
 };
 
 // Counts init() calls and reports whatever the test tells it to. A real KCF hides both: it never
 // says how often it was re-seeded, and it succeeds on almost any patch it is given.
-class CountingTracker final : public follow::vision::ITracker {
+class CountingTracker final : public follow::interfaces::ITracker {
 public:
   void init(const cv::Mat&, const cv::Rect& box) override
   {
@@ -73,7 +74,7 @@ public:
 struct CountingFixture {
   CountingFixture()
     : tracker(new CountingTracker)
-    , source(frames, std::unique_ptr<follow::vision::ITracker>(tracker), follow::providers::CameraTrackerConfig{}, channels)
+    , source(frames, std::unique_ptr<follow::interfaces::ITracker>(tracker), follow::providers::CameraTrackerConfig{}, channels)
   {
   }
 

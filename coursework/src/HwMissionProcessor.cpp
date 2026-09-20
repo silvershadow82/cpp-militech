@@ -19,7 +19,7 @@
 #include "providers/CameraTrackerSource.h"
 #include "util/Channels.h"
 #include "vision/Overlay.h"
-#include "vision/Tracker.h"
+#include "vision/TrackerFactory.h"
 
 namespace follow::app {
 
@@ -62,7 +62,7 @@ constexpr auto kMissReportInterval = std::chrono::seconds{1};
 
 }  // namespace
 
-void runHwApp(const HwAppOptions& options, providers::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
+void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
 {
   config::AppConfig app = config::loadAppConfig(options.configPath);
   std::string linkSpec = options.link.value_or(app.mavlink.link);

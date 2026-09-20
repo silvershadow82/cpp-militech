@@ -6,7 +6,7 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "vision/Tracker.h"
+#include "vision/TrackerFactory.h"
 
 namespace {
 

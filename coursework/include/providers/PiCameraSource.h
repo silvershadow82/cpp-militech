@@ -6,7 +6,7 @@
 #include <opencv2/videoio.hpp>
 
 #include "Types.h"
-#include "providers/FrameSource.h"
+#include "interfaces/IFrameSource.h"
 
 namespace follow::providers {
 
@@ -32,14 +32,14 @@ int piCameraFailureBudget(int fps);
 
 // The Pi camera behind libcamerasrc. Throws std::runtime_error if the pipeline cannot be opened,
 // which is what happens when OpenCV was built without GStreamer or no camera is attached.
-class PiCameraSource final : public IFrameSource {
+class PiCameraSource final : public interfaces::IFrameSource {
 public:
   explicit PiCameraSource(const PiCameraConfig& config);
 
   // Stamped with the steady clock when the frame was grabbed. A failed grab returns nullopt and is
   // treated as a transient miss -- appsink drop=true max-buffers=1 drops buffers by design -- until
   // piCameraFailureBudget(fps) of them arrive in a row.
-  std::optional<Frame> read() override;
+  std::optional<interfaces::Frame> read() override;
 
   bool ended() const override { return this->consecutiveFailures >= this->failureBudget; }
 

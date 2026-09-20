@@ -6,7 +6,7 @@
 #include <ostream>
 #include <string>
 
-#include "providers/FrameSource.h"
+#include "interfaces/IFrameSource.h"
 
 namespace follow::app {
 
@@ -42,6 +42,6 @@ struct HwAppOptions {
 // until `stop` is set or the frame source ends. The overlay goes to vision.framebuffer when it opens;
 // a missing framebuffer is reported on `out` and the app runs without an overlay.
 // Throws config::ConfigError or std::runtime_error for bad files, links or log paths.
-void runHwApp(const HwAppOptions& options, providers::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out);
+void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out);
 
 }  // namespace follow::app

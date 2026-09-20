@@ -14,7 +14,7 @@ SyntheticFrameSource::SyntheticFrameSource(int width, int height, models::TimePo
 {
 }
 
-std::optional<Frame> SyntheticFrameSource::read()
+std::optional<interfaces::Frame> SyntheticFrameSource::read()
 {
   if (this->background.empty()) {
     this->background = cv::Mat(this->height, this->width, CV_8UC3, cv::Scalar(40, 45, 50));
@@ -30,7 +30,7 @@ std::optional<Frame> SyntheticFrameSource::read()
   cv::rectangle(image, this->truth, cv::Scalar(220, 210, 200), -1);
   cv::circle(image, cv::Point(this->truth.x + 19, this->truth.y + 12), 12, cv::Scalar(180, 160, 150), -1);
 
-  Frame frame{.image = image, .t = this->next};
+  interfaces::Frame frame{.image = image, .t = this->next};
   ++this->index;
   this->next += std::chrono::milliseconds{50};
   return frame;
@@ -47,14 +47,14 @@ VideoFileSource::VideoFileSource(const std::filesystem::path& path, const cv::Si
   }
 }
 
-std::optional<Frame> VideoFileSource::read()
+std::optional<interfaces::Frame> VideoFileSource::read()
 {
   cv::Mat raw;
   if (!this->capture.read(raw) || raw.empty()) {
     this->atEnd = true;
     return std::nullopt;
   }
-  Frame frame{.image = {}, .t = this->next};
+  interfaces::Frame frame{.image = {}, .t = this->next};
   if (raw.size() == this->trackSize) {
     frame.image = raw;
   }

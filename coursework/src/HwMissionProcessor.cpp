@@ -10,16 +10,15 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 
-#include "StatCollector.h"
-#include "comms/LinkSpec.h"
-#include "comms/MavlinkIo.h"
-#include "config/ConfigJson.h"
 #include "ControlLoop.h"
+#include "StatCollector.h"
+#include "comms/MavlinkIo.h"
+#include "config/FileConfigLoader.h"
 #include "providers/CameraTrackerSource.h"
 #include "util/Channels.h"
 #include "vision/Overlay.h"
-#include "vision/TrackerFactory.h"
 
 namespace follow::app {
 
@@ -62,16 +61,31 @@ constexpr auto kMissReportInterval = std::chrono::seconds{1};
 
 }  // namespace
 
-void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out)
+HwMissionProcessor::HwMissionProcessor(HwAppOptions options,
+                                       std::unique_ptr<interfaces::IConfigLoader> configLoader,
+                                       std::unique_ptr<interfaces::IByteLink> link,
+                                       std::unique_ptr<interfaces::ICameraModel> camera,
+                                       std::unique_ptr<interfaces::ITracker> tracker,
+                                       interfaces::IFrameSource& frames)
+  : options(std::move(options))
+  , configLoader(std::move(configLoader))
+  , link(std::move(link))
+  , camera(std::move(camera))
+  , tracker(std::move(tracker))
+  , frames(frames)
 {
-  config::AppConfig app = config::loadAppConfig(options.configPath);
-  std::string linkSpec = options.link.value_or(app.mavlink.link);
-  // Owned here so it outlives the Core inside ControlLoop, which keeps a reference.
-  std::unique_ptr<interfaces::ICameraModel> camera = config::makeCameraModel(app.camera);
-  std::unique_ptr<interfaces::IByteLink> link = comms::openLink(comms::parseLinkSpec(linkSpec));
-  std::ofstream logFile(options.logPath);
+}
+
+HwMissionProcessor::~HwMissionProcessor() = default;
+
+// Runs once: the tracker is handed to CameraTrackerSource below and is gone afterwards.
+void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
+{
+  config::AppConfig app = this->configLoader->getConfig();
+  std::string linkSpec = this->options.link.value_or(app.mavlink.link);
+  std::ofstream logFile(this->options.logPath);
   if (!logFile) {
-    throw std::runtime_error("cannot write run log " + options.logPath.string());
+    throw std::runtime_error("cannot write run log " + this->options.logPath.string());
   }
 
   std::mutex outMutex;
@@ -93,16 +107,16 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   util::Channels channels;
   util::StatCollector log(logFile);
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
-  comms::MavlinkIo io(*link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
+  comms::MavlinkIo io(*this->link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
   providers::CameraTrackerSource source(
-    frames,
-    vision::makeTracker(app.vision.tracker),
+    this->frames,
+    std::move(this->tracker),
     providers::CameraTrackerConfig{.reacquirePeriod = std::chrono::milliseconds{app.vision.reacquirePeriodMs},
                                    .reacquireExpand = app.vision.reacquireExpand},
     channels);
-  ControlLoop control(app.core, *camera, app.camera.mount, channels, &log, models::Clock::now());
+  ControlLoop control(app.core, *this->camera, app.camera.mount, channels, &log, models::Clock::now());
 
-  print("follow_app --hw: tracker " + app.vision.tracker + ", link " + linkSpec + ", log " + options.logPath.string());
+  print("follow_app --hw: tracker " + app.vision.tracker + ", link " + linkSpec + ", log " + this->options.logPath.string());
   // Two stop flags, not one: the I/O thread outlives the other two so the fail-safe setpoint below
   // can still be put on the wire after the control loop has stopped writing setpoints.
   std::atomic<bool> threadsStop{false};
@@ -166,7 +180,7 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   // destructor runs, no zero setpoint is sent and the run log is truncated at the last flush. The
   // vision thread makes that reachable because it calls into OpenCV on every frame -- tracker
   // update, overlay drawing, the framebuffer's resize and colour conversion -- and OpenCV reports
-  // every error by throwing. Record the first failure, stop the others, and let runHwApp rethrow it
+  // every error by throwing. Record the first failure, stop the others, and let run() rethrow it
   // below, after the fail-safe setpoint has gone out.
   std::mutex failureMutex;
   std::optional<std::string> failure;
@@ -211,7 +225,7 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   // that can block: a stalled libcamerasrc leaves capture.read() parked inside
   // gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
   // never counts, ended() never fires and that thread can never be joined. Nothing has touched the
-  // capture object here either -- cv::VideoCapture::release() runs in the caller, after runHwApp
+  // capture object here either -- cv::VideoCapture::release() runs in the caller, after run()
   // returns, and an end-of-stream can hang on this build.
   auto sendFailsafe = [&] {
     // Nothing to do if the I/O thread never started at all -- there is no run loop for the zero
@@ -271,7 +285,7 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
     controlThread = std::thread(guarded("control", [&] { control.run(threadsStop); }));
   }
   catch (...) {
-    // Same reason as runSimApp: a joinable std::thread destructing calls std::terminate().
+    // Same reason as MissionProcessor: a joinable std::thread destructing calls std::terminate().
     shutdown();
     throw;
   }
@@ -286,8 +300,8 @@ void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, con
   }
   // The miss total goes here because the rate limit can suppress every "recovered" line: a flight of
   // isolated drops each recovering inside kMissReportInterval prints one "missing frames" line and no
-  // count at all, and the run log has no miss column either (RunLog.cpp), so this is the only place
-  // the operator ever learns how bad the camera was.
+  // count at all, and the run log has no miss column either (StatCollector.cpp), so this is the only
+  // place the operator ever learns how bad the camera was.
   std::string ending = framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped";
   uint64_t missed = source.missedFrames();
   if (missed > 0) {

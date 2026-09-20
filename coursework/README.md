@@ -30,7 +30,8 @@ class, `I`-prefixed interfaces, and includes with no project prefix (`#include "
 ```
 include/
   Types.h  ControlLoop.h  MissionProcessor.h  HwMissionProcessor.h  StatCollector.h
-  interfaces/ the four abstract types: IFrameSource, ITracker, IByteLink, ICameraModel
+  interfaces/ the five abstract types: IFrameSource, ITracker, IByteLink, ICameraModel,
+              IConfigLoader
   models/     data and pure math: Angles, Frames, AttitudeHistory, Config, Intrinsics,
               PinholeModel, FisheyeKbModel
   control/    the decision stack: Core, FollowController, TargetEstimator, Supervisor
@@ -38,7 +39,8 @@ include/
   providers/  observation sources: SyntheticFrameSource, VideoFileSource, PiCameraSource,
               CameraTrackerSource, SimVision
   vision/     OpenCV-only: TrackerFactory, Overlay, Calibration
-  config/  util/  sim/
+  config/     loaders and wiring: FileConfigLoader, ScenarioLoader, ComponentFactory
+  util/  sim/
 ```
 
 Each class gets its own PascalCase file: `models/PinholeModel.h` and `models/FisheyeKbModel.h`
@@ -64,10 +66,13 @@ and the `MissionProcessor`s at include root own the threads, `comms/` owns the s
 owns the file parsing, `providers/` owns the cameras.
 
 The rule follows the dependency, so it reaches into `interfaces/` too, but only as far as
-`follow_core` reaches. **`interfaces/ICameraModel.h` and `interfaces/IByteLink.h` are equally
-OpenCV-free**: `control/TargetEstimator` and `control/Core` hold an `ICameraModel&`, so an OpenCV
-include landing in that header is an OpenCV include in `follow_core`. `interfaces/IFrameSource.h`
-and `interfaces/ITracker.h` are the other half of the split and do include `<opencv2/core.hpp>` —
+`follow_core` reaches. **`interfaces/ICameraModel.h`, `interfaces/IByteLink.h` and
+`interfaces/IConfigLoader.h` are equally OpenCV-free**: `control/TargetEstimator` and
+`control/Core` hold an `ICameraModel&`, so an OpenCV include landing in that header is an OpenCV
+include in `follow_core`. `IConfigLoader` is the same story one level up: it is what
+`ComponentFactory` and the `MissionProcessor`s hold, so it includes nothing at all -- not even
+`AppConfig`'s own header, which is forward-declared instead. `interfaces/IFrameSource.h` and
+`interfaces/ITracker.h` are the other half of the split and do include `<opencv2/core.hpp>` —
 `Frame` holds a `cv::Mat` and `ITracker` works in `cv::Rect` — which is fine, because only the
 `follow_vision` targets include them. `struct Frame` therefore lives beside `IFrameSource` rather
 than in `models/`.
@@ -76,7 +81,8 @@ So `interfaces/` is deliberately mixed, and the check is per file, not per direc
 
 ```
 grep -rl opencv coursework/include/models coursework/include/control \
-     coursework/include/interfaces/ICameraModel.h coursework/include/interfaces/IByteLink.h
+     coursework/include/interfaces/ICameraModel.h coursework/include/interfaces/IByteLink.h \
+     coursework/include/interfaces/IConfigLoader.h
 ```
 
 must print nothing.
@@ -84,8 +90,9 @@ must print nothing.
 Two practical consequences:
 
 - `FOLLOW_WITH_OPENCV=OFF` is the default and must keep building. If an OpenCV include reaches
-  `models/`, `control/`, `interfaces/ICameraModel.h` or `interfaces/IByteLink.h`, the default
-  build, the devcontainer gcc-13 build and the aarch64 cross-build all break at once.
+  `models/`, `control/`, `interfaces/ICameraModel.h`, `interfaces/IByteLink.h` or
+  `interfaces/IConfigLoader.h`, the default build, the devcontainer gcc-13 build and the aarch64
+  cross-build all break at once.
 - `include/control/Core.h` is hand-formatted and is the one file never passed to clang-format.
   Everything else is clang-format clean under `--style=file:.devcontainer/.clang-format`.
 

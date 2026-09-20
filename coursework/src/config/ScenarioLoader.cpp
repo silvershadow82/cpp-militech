@@ -1,4 +1,4 @@
-#include "config/ScenarioJson.h"
+#include "config/ScenarioLoader.h"
 
 #include <cmath>
 #include <cstddef>
@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "ObjectReader.h"
-#include "config/ConfigJson.h"
+#include "config/FileConfigLoader.h"
 
 namespace follow::config {
 
@@ -181,6 +181,24 @@ Scenario loadScenario(const std::filesystem::path& path)
   catch (const ConfigError& e) {
     throw ConfigError(path.string() + ": " + e.what());
   }
+}
+
+ScenarioLoader::ScenarioLoader(std::filesystem::path path)
+  : path(std::move(path))
+{
+}
+
+void ScenarioLoader::load()
+{
+  this->scenario = loadScenario(this->path);
+}
+
+Scenario ScenarioLoader::getScenario() const
+{
+  if (!this->scenario) {
+    throw ConfigError(this->path.string() + ": load() has not been called");
+  }
+  return *this->scenario;
 }
 
 }  // namespace follow::config

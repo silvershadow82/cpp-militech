@@ -6,7 +6,7 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "config/ConfigJson.h"
+#include "config/FileConfigLoader.h"
 #include "vision/Calibration.h"
 
 namespace {

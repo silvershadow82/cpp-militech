@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "Types.h"
-#include "config/ConfigJson.h"
+#include "config/FileConfigLoader.h"
 
 namespace follow::config::detail {
 

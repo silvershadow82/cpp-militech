@@ -2,15 +2,20 @@
 #include <csignal>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "MissionProcessor.h"
+#include "config/ComponentFactory.h"
+#include "config/FileConfigLoader.h"
+#include "config/ScenarioLoader.h"
 
 #ifdef FOLLOW_WITH_OPENCV
 #include "HwMissionProcessor.h"
-#include "config/ConfigJson.h"
+#include "interfaces/IFrameSource.h"
 #include "providers/PiCameraSource.h"
 #endif
 
@@ -97,6 +102,8 @@ int main(int argc, char** argv)
 
   std::signal(SIGINT, onSignal);
   std::signal(SIGTERM, onSignal);
+  // One factory builds every component; nothing below this point names a concrete class.
+  follow::config::ComponentFactory factory;
   try {
     if (sim) {
       follow::app::SimAppOptions options;
@@ -104,20 +111,47 @@ int main(int argc, char** argv)
       options.scenarioPath = scenarioPath;
       options.link = link.value_or(options.link);
       options.logPath = logPath;
-      follow::app::runSimApp(options, stopRequested, std::cout);
+
+      // The scenario comes first: follow.json is parsed with the scenario's config_overrides
+      // applied as a merge patch, and the camera model is built from the result.
+      std::unique_ptr<follow::config::ScenarioLoader> scenarioLoader = factory.createScenarioLoader(options.scenarioPath);
+      scenarioLoader->load();
+      std::unique_ptr<follow::interfaces::IConfigLoader> configLoader =
+        factory.createConfigLoader(options.configPath, scenarioLoader->getScenario().configOverrides);
+      configLoader->load();
+      follow::config::AppConfig app = configLoader->getConfig();
+
+      follow::app::MissionProcessor mission(options,
+                                            std::move(configLoader),
+                                            std::move(scenarioLoader),
+                                            factory.createLink(options.link),
+                                            factory.createCameraModel(app.camera));
+      mission.run(stopRequested, std::cout);
     }
 #ifdef FOLLOW_WITH_OPENCV
     else {
-      follow::config::AppConfig app = follow::config::loadAppConfig(configPath);
-      follow::providers::PiCameraSource camera(follow::providers::PiCameraConfig{.captureWidth = app.vision.captureWidth,
-                                                                                 .captureHeight = app.vision.captureHeight,
-                                                                                 .trackWidth = app.vision.trackWidth,
-                                                                                 .trackHeight = app.vision.trackHeight,
-                                                                                 .fps = app.vision.fps,
-                                                                                 .hflip = app.vision.hflip,
-                                                                                 .vflip = app.vision.vflip});
       follow::app::HwAppOptions options{.configPath = configPath, .link = link, .logPath = logPath};
-      follow::app::runHwApp(options, camera, stopRequested, std::cout);
+      std::unique_ptr<follow::interfaces::IConfigLoader> configLoader = factory.createConfigLoader(options.configPath);
+      configLoader->load();
+      follow::config::AppConfig app = configLoader->getConfig();
+
+      // Declared before the processor, so cv::VideoCapture::release() runs after run() returns --
+      // an end-of-stream release can hang, and HwMissionProcessor's fail-safe must not wait on it.
+      std::unique_ptr<follow::interfaces::IFrameSource> frames =
+        factory.createFrameSource(follow::providers::PiCameraConfig{.captureWidth = app.vision.captureWidth,
+                                                                    .captureHeight = app.vision.captureHeight,
+                                                                    .trackWidth = app.vision.trackWidth,
+                                                                    .trackHeight = app.vision.trackHeight,
+                                                                    .fps = app.vision.fps,
+                                                                    .hflip = app.vision.hflip,
+                                                                    .vflip = app.vision.vflip});
+      follow::app::HwMissionProcessor mission(options,
+                                              std::move(configLoader),
+                                              factory.createLink(options.link.value_or(app.mavlink.link)),
+                                              factory.createCameraModel(app.camera),
+                                              factory.createTracker(app.vision.tracker),
+                                              *frames);
+      mission.run(stopRequested, std::cout);
     }
 #endif
   }

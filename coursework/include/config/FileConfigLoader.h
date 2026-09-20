@@ -2,11 +2,13 @@
 
 #include <filesystem>
 #include <memory>
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
 #include "interfaces/ICameraModel.h"
+#include "interfaces/IConfigLoader.h"
 #include "models/Intrinsics.h"
 #include "models/Config.h"
 #include "models/Frames.h"
@@ -71,5 +73,25 @@ AppConfig loadAppConfig(const std::filesystem::path& path);
 AppConfig loadAppConfig(const std::filesystem::path& path, const nlohmann::json& overrides);
 
 std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings& settings);
+
+// IConfigLoader over follow.json: a thin object face on loadAppConfig, which keeps doing all the
+// parsing. `overrides` is a JSON merge patch (RFC 7386) applied before parsing -- a scenario's
+// config_overrides in --sim, and an empty object in --hw.
+class FileConfigLoader final : public interfaces::IConfigLoader {
+public:
+  explicit FileConfigLoader(std::filesystem::path path, nlohmann::json overrides = nlohmann::json::object());
+
+  // Reads follow.json and the camera file it names. Throws ConfigError; the previously loaded
+  // config is then left untouched.
+  void load() override;
+  // ConfigError if load() has not run: an unloaded config would otherwise read as all-defaults,
+  // which is a flyable configuration pointed at the wrong link.
+  AppConfig getConfig() override;
+
+private:
+  std::filesystem::path path;
+  nlohmann::json overrides;
+  std::optional<AppConfig> config{};
+};
 
 }  // namespace follow::config

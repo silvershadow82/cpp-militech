@@ -1,7 +1,8 @@
-#include "config/ConfigJson.h"
+#include "config/FileConfigLoader.h"
 
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <utility>
 
 #include "ObjectReader.h"
 #include "models/FisheyeKbModel.h"
@@ -203,6 +204,27 @@ std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings& 
     return std::make_unique<models::PinholeModel>(settings.intrinsics);
   }
   return std::make_unique<models::FisheyeKbModel>(settings.intrinsics);
+}
+
+FileConfigLoader::FileConfigLoader(std::filesystem::path path, nlohmann::json overrides)
+  : path(std::move(path))
+  , overrides(std::move(overrides))
+{
+}
+
+void FileConfigLoader::load()
+{
+  // Assigned only after loadAppConfig returns: a failed reload leaves the last good config in place
+  // rather than a half-parsed one.
+  this->config = loadAppConfig(this->path, this->overrides);
+}
+
+AppConfig FileConfigLoader::getConfig()
+{
+  if (!this->config) {
+    throw ConfigError(this->path.string() + ": load() has not been called");
+  }
+  return *this->config;
 }
 
 }  // namespace follow::config

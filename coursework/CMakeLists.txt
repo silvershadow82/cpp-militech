@@ -69,7 +69,7 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
                               DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(json)
 
-add_library(follow_config STATIC src/config/ConfigJson.cpp src/config/ScenarioJson.cpp)
+add_library(follow_config STATIC src/config/FileConfigLoader.cpp src/config/ScenarioLoader.cpp)
 target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_json)
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
@@ -87,6 +87,7 @@ add_library(
   src/StatCollector.cpp
   src/ControlLoop.cpp
   src/comms/MavlinkIo.cpp
+  src/config/ComponentFactory.cpp
   src/providers/SimVision.cpp
   src/MissionProcessor.cpp)
 target_link_libraries(follow_app_lib PUBLIC follow_config follow_comms Threads::Threads)
@@ -109,6 +110,7 @@ if(FOLLOW_WITH_OPENCV)
   add_library(follow_vision STATIC src/vision/TrackerFactory.cpp src/providers/SyntheticFrameSource.cpp
                                     src/providers/VideoFileSource.cpp src/providers/PiCameraSource.cpp
                                     src/providers/CameraTrackerSource.cpp src/vision/Overlay.cpp src/HwMissionProcessor.cpp
+                                    src/config/ComponentFactoryVision.cpp
                                     src/vision/Calibration.cpp)
   target_link_libraries(follow_vision PUBLIC follow_app_lib ${OpenCV_LIBS})
   target_compile_options(follow_vision PRIVATE -Wall -Wextra)

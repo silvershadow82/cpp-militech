@@ -2,11 +2,16 @@
 
 #include <atomic>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
 
+#include "interfaces/IByteLink.h"
+#include "interfaces/ICameraModel.h"
+#include "interfaces/IConfigLoader.h"
 #include "interfaces/IFrameSource.h"
+#include "interfaces/ITracker.h"
 
 namespace follow::app {
 
@@ -38,10 +43,35 @@ struct HwAppOptions {
   std::filesystem::path logPath{"follow_run.csv"};
 };
 
-// follow_app --hw: loads follow.json and runs the MAVLink I/O, camera + tracker and control threads
-// until `stop` is set or the frame source ends. The overlay goes to vision.framebuffer when it opens;
-// a missing framebuffer is reported on `out` and the app runs without an overlay.
-// Throws config::ConfigError or std::runtime_error for bad files, links or log paths.
-void runHwApp(const HwAppOptions& options, interfaces::IFrameSource& frames, const std::atomic<bool>& stop, std::ostream& out);
+// follow_app --hw: runs the MAVLink I/O, camera + tracker and control threads until `stop` is set or
+// the frame source ends. The overlay goes to vision.framebuffer when it opens; a missing framebuffer
+// is reported on `out` and the app runs without an overlay.
+//
+// The dependencies are built by config::ComponentFactory and injected here; the config loader must
+// already have been load()ed, because the link and the camera model are derived from what it read.
+// `frames` must outlive this object. run() throws std::runtime_error for an unwritable log path or
+// a worker thread that failed -- and in the latter case only after the fail-safe has gone out.
+class HwMissionProcessor {
+public:
+  HwMissionProcessor(HwAppOptions options,
+                     std::unique_ptr<interfaces::IConfigLoader> configLoader,
+                     std::unique_ptr<interfaces::IByteLink> link,
+                     std::unique_ptr<interfaces::ICameraModel> camera,
+                     std::unique_ptr<interfaces::ITracker> tracker,
+                     interfaces::IFrameSource& frames);
+  ~HwMissionProcessor();
+
+  void run(const std::atomic<bool>& stop, std::ostream& out);
+
+private:
+  HwAppOptions options;
+  std::unique_ptr<interfaces::IConfigLoader> configLoader;
+  std::unique_ptr<interfaces::IByteLink> link;
+  // Outlives the Core inside ControlLoop, which keeps a reference.
+  std::unique_ptr<interfaces::ICameraModel> camera;
+  // Moved into CameraTrackerSource by run(), which owns it for the rest of the run.
+  std::unique_ptr<interfaces::ITracker> tracker;
+  interfaces::IFrameSource& frames;
+};
 
 }  // namespace follow::app

@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "config/ConfigJson.h"
-#include "config/ScenarioJson.h"
+#include "config/FileConfigLoader.h"
+#include "config/ScenarioLoader.h"
 #include "models/FisheyeKbModel.h"
 #include "sim/ScenarioCheck.h"
 #include "sim/ScenarioRunner.h"

@@ -23,7 +23,8 @@
 #include "HwMissionProcessor.h"
 #include "StatCollector.h"
 #include "Types.h"
-#include "config/ConfigJson.h"
+#include "config/ComponentFactory.h"
+#include "config/FileConfigLoader.h"
 #include "models/Angles.h"
 #include "interfaces/ICameraModel.h"
 #include "models/Frames.h"
@@ -49,7 +50,7 @@ struct TempDirGuard {
   std::filesystem::path dir;
 };
 
-// Sets `stop` after `after`, or as soon as it is destroyed. runHwApp throws for a bad config, an
+// Sets `stop` after `after`, or as soon as it is destroyed. HwMissionProcessor::run throws for a bad config, an
 // unopenable link, an unwritable log and now a failing worker thread, and the stack then unwinds
 // through this object: a std::thread destructing while still joinable calls std::terminate(), which
 // aborts the whole binary before googletest can attribute the failure to a test. Waiting on a
@@ -225,6 +226,23 @@ std::vector<double> validBearingsDeg(const std::filesystem::path& logPath)
   return bearings;
 }
 
+// The wiring main() does for --hw: the factory builds every dependency from the loaded config, and
+// the processor is constructed with them. Throws whatever the config loader throws, which is why
+// ReportsAnUnreadableConfigInsteadOfAborting asserts on this call rather than on run().
+follow::app::HwMissionProcessor makeHwProcessor(const follow::app::HwAppOptions& options, follow::interfaces::IFrameSource& frames)
+{
+  follow::config::ComponentFactory factory;
+  std::unique_ptr<follow::interfaces::IConfigLoader> configLoader = factory.createConfigLoader(options.configPath);
+  configLoader->load();
+  follow::config::AppConfig app = configLoader->getConfig();
+  return follow::app::HwMissionProcessor(options,
+                                         std::move(configLoader),
+                                         factory.createLink(options.link.value_or(app.mavlink.link)),
+                                         factory.createCameraModel(app.camera),
+                                         factory.createTracker(app.vision.tracker),
+                                         frames);
+}
+
 // follow.json with the test's overrides, written into `dir`.
 std::filesystem::path writeTestConfig(const std::filesystem::path& dir)
 {
@@ -296,7 +314,7 @@ TEST(ShouldDrawOverlay, RecoversAfterAStallWithoutBurstingThroughMissedSlots)
   EXPECT_EQ(draws, 2);
 }
 
-// Simulates exactly how runHwApp's visionLoop drives shouldReportMissEdge: an edge is a transition of
+// Simulates exactly how HwMissionProcessor::run.s visionLoop drives shouldReportMissEdge: an edge is a transition of
 // the "currently missing" state (whether this frame's read failed, mirroring
 // `source.missedFrames() != reportedMisses` gated by `!missing`/`missing`), and the helper is asked
 // only on an edge. Returns the (0-based) frame index of every simulated print.
@@ -389,12 +407,13 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   Stopper stopper(stop, std::chrono::seconds{4});
   std::ostringstream out;
 
-  follow::app::runHwApp(options, realTime, stop, out);
+  follow::app::HwMissionProcessor mission = makeHwProcessor(options, realTime);
+  mission.run(stop, out);
 
   // The fail-safe: ArduPilot holds the last velocity target until its guided timeout (3 s, the rule
   // FakeAutopilot encodes), so an app that just stops leaves the vehicle coasting at its following
-  // speed. runHwApp must command zero before it returns. The datagram may still be in the socket
-  // when runHwApp returns, so wait for the FC's receive loop to pick it up.
+  // speed. run() must command zero before it returns. The datagram may still be in the socket
+  // when run() returns, so wait for the FC's receive loop to pick it up.
   std::optional<follow::models::VelocityCmd> last;
   for (int i = 0; i < 100 && !(last && last->vx == 0.0 && last->yawRate == 0.0); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds{5});
@@ -441,7 +460,7 @@ TEST(HwAppTest, EngagesAndFollowsASyntheticTarget)
   EXPECT_NEAR(bearings.back(), truth, 30.0) << out.str();
 }
 
-// A bad config must produce one red test, not an aborted binary: everything runHwApp throws unwinds
+// A bad config must produce one red test, not an aborted binary: everything the wiring and run() throw unwinds
 // through the stopper thread on its way out.
 TEST(HwAppTest, ReportsAnUnreadableConfigInsteadOfAborting)
 {
@@ -455,7 +474,7 @@ TEST(HwAppTest, ReportsAnUnreadableConfigInsteadOfAborting)
   Stopper stopper(stop, std::chrono::seconds{5});
   std::ostringstream out;
 
-  EXPECT_THROW(follow::app::runHwApp(options, frames, stop, out), follow::config::ConfigError);
+  EXPECT_THROW(makeHwProcessor(options, frames), follow::config::ConfigError);
 }
 
 // An exception escaping a worker thread calls std::terminate(): the process dies instantly, no
@@ -480,8 +499,9 @@ TEST(HwAppTest, ReportsAFailedWorkerThreadAfterCommandingZero)
   std::ostringstream out;
 
   try {
-    follow::app::runHwApp(options, throwing, stop, out);
-    ADD_FAILURE() << "runHwApp returned normally: " << out.str();
+    follow::app::HwMissionProcessor mission = makeHwProcessor(options, throwing);
+    mission.run(stop, out);
+    ADD_FAILURE() << "HwMissionProcessor::run returned normally: " << out.str();
   }
   catch (const std::runtime_error& e) {
     EXPECT_NE(std::string(e.what()).find("the camera exploded"), std::string::npos);
@@ -493,7 +513,7 @@ TEST(HwAppTest, ReportsAFailedWorkerThreadAfterCommandingZero)
     last = fc.lastSetpoint();
   }
   fc.stop();
-  // The fail-safe goes out even on the failure path, and before runHwApp rethrows.
+  // The fail-safe goes out even on the failure path, and before run() rethrows.
   ASSERT_TRUE(last.has_value()) << out.str();
   EXPECT_DOUBLE_EQ(last->vx, 0.0) << out.str();
   EXPECT_DOUBLE_EQ(last->yawRate, 0.0) << out.str();
@@ -519,7 +539,8 @@ TEST(HwAppTest, SendsTheFailSafeEvenWhenTheCameraThreadIsStuck)
     .configPath = configPath, .link = "udp:0:127.0.0.1:" + std::to_string(fc.port()), .logPath = dir / "run.csv"};
   std::atomic<bool> stop{false};
   std::ostringstream out;
-  std::thread app([&] { follow::app::runHwApp(options, stalling, stop, out); });
+  follow::app::HwMissionProcessor mission = makeHwProcessor(options, stalling);
+  std::thread app([&] { mission.run(stop, out); });
 
   auto moving = [&fc] {
     std::optional<follow::models::VelocityCmd> last = fc.lastSetpoint();
@@ -530,7 +551,7 @@ TEST(HwAppTest, SendsTheFailSafeEvenWhenTheCameraThreadIsStuck)
   }
   bool wasMoving = moving();
   // Stall the camera and stop the app in the same breath, so the estimator's 300 ms staleness rule
-  // cannot be what commands zero: this has to be runHwApp's own fail-safe.
+  // cannot be what commands zero: this has to be HwMissionProcessor::run.s own fail-safe.
   stalling.stall();
   stop = true;
 

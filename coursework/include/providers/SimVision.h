@@ -3,7 +3,7 @@
 #include <atomic>
 #include <optional>
 
-#include "config/ScenarioJson.h"
+#include "config/ScenarioLoader.h"
 #include "control/Core.h"
 #include "interfaces/ICameraModel.h"
 #include "models/Frames.h"

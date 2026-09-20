@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,5 +38,23 @@ struct Scenario {
 // Throws ConfigError naming the offending key, e.g. "expect.final_state".
 Scenario parseScenario(const nlohmann::json& doc);
 Scenario loadScenario(const std::filesystem::path& path);
+
+// The scenario file as an object, shaped like FileConfigLoader: load() reads, getScenario() hands
+// back what was read. loadScenario keeps doing the parsing. There is no IScenarioLoader -- only
+// follow_app --sim reads a scenario at all, so an interface here would have exactly one
+// implementation and no second caller.
+class ScenarioLoader {
+public:
+  explicit ScenarioLoader(std::filesystem::path path);
+
+  // Throws ConfigError; the previously loaded scenario is then left untouched.
+  void load();
+  // ConfigError if load() has not run.
+  Scenario getScenario() const;
+
+private:
+  std::filesystem::path path;
+  std::optional<Scenario> scenario{};
+};
 
 }  // namespace follow::config

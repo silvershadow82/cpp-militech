@@ -5,16 +5,19 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "FakeAutopilot.h"
 #include "MissionProcessor.h"
 #include "StatCollector.h"
-#include "config/ConfigJson.h"
-#include "config/ScenarioJson.h"
+#include "config/ComponentFactory.h"
+#include "config/FileConfigLoader.h"
+#include "config/ScenarioLoader.h"
 #include "sim/ScenarioCheck.h"
 
 using namespace follow;
@@ -59,8 +62,21 @@ TEST(SimAppTest, StationaryScenarioPassesAgainstFakeAutopilot)
   });
   std::ostringstream out;
 
-  // Run
-  app::runSimApp(options, stop, out);
+  // Run: the same wiring main() does -- the factory builds every dependency from the loaded
+  // scenario and config, and MissionProcessor runs them.
+  config::ComponentFactory factory;
+  std::unique_ptr<config::ScenarioLoader> scenarioLoader = factory.createScenarioLoader(options.scenarioPath);
+  scenarioLoader->load();
+  std::unique_ptr<interfaces::IConfigLoader> configLoader =
+    factory.createConfigLoader(options.configPath, scenarioLoader->getScenario().configOverrides);
+  configLoader->load();
+  config::CameraSettings cameraSettings = configLoader->getConfig().camera;
+  app::MissionProcessor mission(options,
+                                std::move(configLoader),
+                                std::move(scenarioLoader),
+                                factory.createLink(options.link),
+                                factory.createCameraModel(cameraSettings));
+  mission.run(stop, out);
   finished = true;
   watchdog.join();
   fc.stop();

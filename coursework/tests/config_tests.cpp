@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "config/ConfigJson.h"
+#include "config/FileConfigLoader.h"
 #include "models/FisheyeKbModel.h"
 #include "models/PinholeModel.h"
 

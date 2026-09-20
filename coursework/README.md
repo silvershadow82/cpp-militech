@@ -80,7 +80,7 @@ validates the run log against the scenario's expectations.
 
 Output is one line:
 
-```
+```text
 PASS stationary (1361 steps, tolerance x1.5)
 ```
 
@@ -131,10 +131,18 @@ The scenario runner does not expose a link for a ground station: `follow_app` us
 pilot stand-in holds SERIAL0's TCP port. To watch a run, start SITL by hand with an extra MAVLink
 serial pointed at QGroundControl's default UDP port.
 
+> **SITL will print `Waiting for connection ....` and appear to hang.** That is normal: it does not
+> start running until something connects to TCP 5760, which is the pilot stand-in in the next step.
+> Do not start SITL a second time — the second instance fails with
+> `bind failed on port 5760 - Address already in use` and overwrites the first one's log.
+
 ```bash
 export AP=/path/to/ardupilot
 export REPO=$PWD                                  # repository root
 export PYTHON=$REPO/build/sitl-venv/bin/python
+
+# Nothing should be holding SITL's port from an earlier run.
+lsof -nP -iTCP:5760 -sTCP:LISTEN || echo "port 5760 free"
 
 mkdir -p /tmp/qgc-run
 printf 'SERIAL5_PROTOCOL 2\n' > /tmp/qgc-run/qgc.param
@@ -151,8 +159,7 @@ a subshell in `/tmp/qgc-run` rather than in the repository.
 
 `SERIAL5_PROTOCOL 2` is required — without it SITL opens the port but speaks no MAVLink on it.
 
-SITL then prints `Waiting for connection ....` and **does not start running** until something
-connects to TCP 5760. The pilot stand-in does that, so start it (back in the repository root):
+Now start the pilot stand-in, which connects to TCP 5760 and lets SITL proceed, and then the app:
 
 ```bash
 cd $REPO
@@ -189,7 +196,7 @@ build/coursework/follow_check_run \
 
 The runner script is a convenience. The app itself:
 
-```
+```text
 follow_app --sim --scenario FILE [--config FILE] [--link SPEC] [--log FILE]
   --scenario  scenario JSON (coursework/config/scenarios/*.json)
   --config    follow.json (default config/follow.json)
@@ -201,3 +208,36 @@ With no autopilot on the link the app reports `FC: mavlink link wait failed` and
 writing no setpoint at all — the run log's `vx` and `yaw_rate` columns stay empty. That is the safe
 default rather than an error: it waits for a flight controller instead of commanding a vehicle it
 cannot see.
+
+## Troubleshooting
+
+**`bind failed on port 5760 - Address already in use`** — a SITL instance from an earlier run is
+still alive. SITL prints `Waiting for connection ....` and sits there until the pilot stand-in
+connects, so a healthy instance looks hung and is easy to start twice. Find and stop the old one:
+
+```bash
+lsof -nP -iTCP:5760 -sTCP:LISTEN     # shows the PID holding the port
+pkill -f 'build/sitl/bin/arducopter' # or kill <PID> for just the one
+```
+
+Note that the second instance overwrites the first one's `sitl.log` before it exits, so the log may
+show the bind failure while the working instance is the one still running.
+
+**`<python> cannot import pymavlink`** — `PYTHON` is not pointing at the virtualenv. Use an absolute
+path: `export PYTHON=$PWD/build/sitl-venv/bin/python`.
+
+**`no SITL binary at ...`** — `ARDUPILOT_DIR` is unset or SITL is not built. See Prerequisites.
+
+**`sitl_operator.py exited early`** — check `operator.log` in the run directory. The usual cause is
+arming being refused because SITL has not got a GPS fix yet; the operator waits up to 120 s
+(`--arm-timeout`).
+
+**The vehicle arms and hovers but never follows** — follow engages only in GUIDED. Check
+`operator.log` for the mode switch, and `run.csv`'s `state` column: `NoFc` means no MAVLink from the
+autopilot at all, `Idle` means it is connected but has not entered GUIDED.
+
+**It stays in `Idle` even though the vehicle is already in GUIDED** — engagement is triggered by the
+*transition* into GUIDED, not by being in it (`Supervisor.cpp`: `becameGuided`). If you switch to
+GUIDED in QGroundControl before starting `follow_app`, the app never sees the edge. Switch to LOITER
+and back to GUIDED with the app running. This is deliberate: it means restarting the app next to an
+already-armed vehicle cannot make it take off after a target on its own.

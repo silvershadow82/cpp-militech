@@ -4,7 +4,7 @@
 
 #include "providers/CameraTrackerSource.h"
 #include "interfaces/IFrameSource.h"
-#include "providers/FrameSource.h"
+#include "providers/SyntheticFrameSource.h"
 #include "util/Channels.h"
 #include "vision/TrackerFactory.h"
 

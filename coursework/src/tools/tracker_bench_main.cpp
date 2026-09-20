@@ -10,7 +10,7 @@
 
 #include "Types.h"
 #include "providers/CameraTrackerSource.h"
-#include "providers/FrameSource.h"
+#include "providers/VideoFileSource.h"
 #include "vision/Overlay.h"
 #include "vision/TrackerFactory.h"
 

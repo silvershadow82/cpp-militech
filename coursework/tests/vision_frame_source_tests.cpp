@@ -7,7 +7,8 @@
 #include <opencv2/videoio.hpp>
 
 #include "interfaces/IFrameSource.h"
-#include "providers/FrameSource.h"
+#include "providers/SyntheticFrameSource.h"
+#include "providers/VideoFileSource.h"
 
 TEST(SyntheticFrameSource, StampsFramesOnAFixedCadence)
 {

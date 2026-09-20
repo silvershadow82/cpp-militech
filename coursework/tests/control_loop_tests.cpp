@@ -6,7 +6,7 @@
 
 #include "TestTime.h"
 #include "ControlLoop.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 #include "util/Channels.h"
 
 using namespace follow;

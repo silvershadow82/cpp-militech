@@ -1,9 +1,7 @@
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 
 #include <cmath>
 #include <numbers>
-
-#include "models/Frames.h"
 
 namespace follow::models {
 
@@ -25,19 +23,6 @@ double distortThetaDerivative(const Intrinsics& k, double theta)
 }
 
 }  // namespace
-
-Vec3 PinholeModel::pixelToRay(const Pixel& p) const
-{
-  return normalized({(p.u - this->intr.cx) / this->intr.fx, (p.v - this->intr.cy) / this->intr.fy, 1.0});
-}
-
-std::optional<Pixel> PinholeModel::rayToPixel(const Vec3& ray) const
-{
-  if (ray.z <= kEpsilon) {
-    return std::nullopt;
-  }
-  return Pixel{this->intr.fx * ray.x / ray.z + this->intr.cx, this->intr.fy * ray.y / ray.z + this->intr.cy};
-}
 
 Vec3 FisheyeKbModel::pixelToRay(const Pixel& p) const
 {

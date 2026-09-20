@@ -2,7 +2,7 @@
 
 #include "TestTime.h"
 #include "control/Core.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 
 using namespace follow::control;
 using namespace follow::models;

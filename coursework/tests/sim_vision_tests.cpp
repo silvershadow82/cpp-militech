@@ -4,7 +4,7 @@
 #include <numbers>
 
 #include "TestTime.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 #include "providers/SimVision.h"
 #include "util/Channels.h"
 

@@ -26,10 +26,9 @@
 #include "config/ConfigJson.h"
 #include "models/Angles.h"
 #include "interfaces/ICameraModel.h"
-#include "models/CameraModel.h"
 #include "models/Frames.h"
 #include "interfaces/IFrameSource.h"
-#include "providers/FrameSource.h"
+#include "providers/SyntheticFrameSource.h"
 
 namespace {
 

@@ -5,7 +5,7 @@
 #include "TestTime.h"
 #include "control/TargetEstimator.h"
 #include "models/Angles.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 #include "models/Frames.h"
 
 using namespace follow::control;

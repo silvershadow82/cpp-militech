@@ -4,7 +4,8 @@
 #include <nlohmann/json.hpp>
 
 #include "ObjectReader.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
+#include "models/PinholeModel.h"
 
 namespace follow::config {
 

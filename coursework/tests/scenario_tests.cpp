@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "models/Angles.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
 #include "sim/ScenarioRunner.h"
 
 using namespace follow;

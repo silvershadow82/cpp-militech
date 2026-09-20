@@ -3,7 +3,8 @@
 #include <array>
 
 #include "models/Angles.h"
-#include "models/CameraModel.h"
+#include "models/FisheyeKbModel.h"
+#include "models/PinholeModel.h"
 #include "models/Frames.h"
 
 using namespace follow::models;

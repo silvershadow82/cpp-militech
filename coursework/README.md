@@ -30,13 +30,22 @@ class, `I`-prefixed interfaces, and includes with no project prefix (`#include "
 ```
 include/
   Types.h  ControlLoop.h  MissionProcessor.h  HwMissionProcessor.h  StatCollector.h
-  models/     data and pure math: Angles, Frames, AttitudeHistory, Config, CameraModel
+  interfaces/ the four abstract types: IFrameSource, ITracker, IByteLink, ICameraModel
+  models/     data and pure math: Angles, Frames, AttitudeHistory, Config, Intrinsics,
+              PinholeModel, FisheyeKbModel
   control/    the decision stack: Core, FollowController, TargetEstimator, Supervisor
-  comms/      links and protocol: ByteLink, Links, MavlinkClient, MavlinkIo
-  providers/  observation sources: FrameSource, PiCameraSource, CameraTrackerSource, SimVision
-  vision/     OpenCV-only: Tracker, Overlay, Calibration
+  comms/      links and protocol: LinkSpec, Links, MavlinkClient, MavlinkIo
+  providers/  observation sources: SyntheticFrameSource, VideoFileSource, PiCameraSource,
+              CameraTrackerSource, SimVision
+  vision/     OpenCV-only: TrackerFactory, Overlay, Calibration
   config/  util/  sim/
 ```
+
+Each class gets its own PascalCase file: `models/PinholeModel.h` and `models/FisheyeKbModel.h`
+rather than one `CameraModel.h` holding both. The factories and the plain data the interfaces
+travel with stay in their role directory, not in `interfaces/`: `makeTracker` is
+`vision/TrackerFactory.h`, `LinkSpec`/`parseLinkSpec`/`openLink` are `comms/LinkSpec.h`, and
+`struct Intrinsics` is `models/Intrinsics.h`.
 
 Namespaces mirror the directories under a `follow::` root (`follow::models`, `follow::control`,
 `follow::comms`, ...). The root is kept deliberately: the top-level `CMakeLists.txt` builds
@@ -54,11 +63,29 @@ Anything that needs a thread, a socket, a file or the clock belongs outside them
 and the `MissionProcessor`s at include root own the threads, `comms/` owns the sockets, `config/`
 owns the file parsing, `providers/` owns the cameras.
 
+The rule follows the dependency, so it reaches into `interfaces/` too, but only as far as
+`follow_core` reaches. **`interfaces/ICameraModel.h` and `interfaces/IByteLink.h` are equally
+OpenCV-free**: `control/TargetEstimator` and `control/Core` hold an `ICameraModel&`, so an OpenCV
+include landing in that header is an OpenCV include in `follow_core`. `interfaces/IFrameSource.h`
+and `interfaces/ITracker.h` are the other half of the split and do include `<opencv2/core.hpp>` —
+`Frame` holds a `cv::Mat` and `ITracker` works in `cv::Rect` — which is fine, because only the
+`follow_vision` targets include them. `struct Frame` therefore lives beside `IFrameSource` rather
+than in `models/`.
+
+So `interfaces/` is deliberately mixed, and the check is per file, not per directory:
+
+```
+grep -rl opencv coursework/include/models coursework/include/control \
+     coursework/include/interfaces/ICameraModel.h coursework/include/interfaces/IByteLink.h
+```
+
+must print nothing.
+
 Two practical consequences:
 
 - `FOLLOW_WITH_OPENCV=OFF` is the default and must keep building. If an OpenCV include reaches
-  `models/` or `control/`, the default build, the devcontainer gcc-13 build and the aarch64
-  cross-build all break at once.
+  `models/`, `control/`, `interfaces/ICameraModel.h` or `interfaces/IByteLink.h`, the default
+  build, the devcontainer gcc-13 build and the aarch64 cross-build all break at once.
 - `include/control/Core.h` is hand-formatted and is the one file never passed to clang-format.
   Everything else is clang-format clean under `--style=file:.devcontainer/.clang-format`.
 

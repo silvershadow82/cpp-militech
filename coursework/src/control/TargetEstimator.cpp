@@ -6,9 +6,9 @@
 
 namespace follow::control {
 
-TargetEstimator::TargetEstimator(const models::EstimatorConfig& config,
-                                 const interfaces::ICameraModel& camera,
-                                 const models::CameraMount& mount)
+TargetEstimator::TargetEstimator(const models::EstimatorConfig &config,
+                                 const interfaces::ICameraModel &camera,
+                                 const models::CameraMount &mount)
   : config(config)
   , camera(camera)
   , mount(mount)
@@ -34,15 +34,15 @@ void TargetEstimator::reset()
 }
 
 models::TargetState TargetEstimator::update(models::TimePoint now,
-                                            const models::AttitudeHistory& attitude,
-                                            const std::optional<models::TargetObservation>& observation,
-                                            const std::optional<models::RangeMeasurement>& range)
+                                            const models::AttitudeHistory &attitude,
+                                            const std::optional<models::TargetObservation> &observation,
+                                            const std::optional<models::RangeMeasurement> &range)
 {
   const models::TargetState invalid{};
   if (!observation || !observation->ok || observation->confidence < this->config.minConfidence) {
     return invalid;
   }
-  const models::TargetObservation& obs = *observation;
+  const models::TargetObservation &obs = *observation;
   if (this->lockTime && obs.tFrame < *this->lockTime) {
     return invalid;
   }
@@ -62,8 +62,6 @@ models::TargetState TargetEstimator::update(models::TimePoint now,
   double bearingAtFrame = std::atan2(level.y, level.x);
   double bearingNow = models::wrapPi(bearingAtFrame - models::wrapPi(atNow->yaw - atFrame->yaw));
 
-  // Size is the angular height: it stays within ~2% for an upright target up to 45 deg off-center in the
-  // fisheye image, while pixel size and angular width grow because the target appears slanted there.
   double angularHeight =
     models::angleBetween(this->camera.pixelToRay({center.u, obs.box.y}), this->camera.pixelToRay({center.u, obs.box.y + obs.box.h}));
 
@@ -111,14 +109,14 @@ models::TargetState TargetEstimator::update(models::TimePoint now,
   return state;
 }
 
-bool TargetEstimator::touchesBorder(const models::BBox& box) const
+bool TargetEstimator::touchesBorder(const models::BBox &box) const
 {
-  const models::Intrinsics& k = this->camera.intrinsics();
+  const models::Intrinsics &k = this->camera.intrinsics();
   double margin = this->config.borderMarginPx;
   return box.x < margin || box.y < margin || box.x + box.w > k.width - margin || box.y + box.h > k.height - margin;
 }
 
-double TargetEstimator::smooth(const std::optional<double>& previous, double sample) const
+double TargetEstimator::smooth(const std::optional<double> &previous, double sample) const
 {
   return previous ? this->config.emaAlpha * sample + (1.0 - this->config.emaAlpha) * *previous : sample;
 }

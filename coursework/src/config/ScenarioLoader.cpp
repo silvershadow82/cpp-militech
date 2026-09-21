@@ -1,12 +1,11 @@
 #include "config/ScenarioLoader.h"
+#include "config/ObjectReader.h"
+#include "config/FileConfigLoader.h"
 
 #include <cmath>
 #include <cstddef>
 #include <utility>
 #include <variant>
-
-#include "ObjectReader.h"
-#include "config/FileConfigLoader.h"
 
 namespace follow::config {
 
@@ -22,11 +21,11 @@ std::pair<double, double> toNorthEast(double forward, double right, double yaw)
   return {std::cos(yaw) * forward - std::sin(yaw) * right, std::sin(yaw) * forward + std::cos(yaw) * right};
 }
 
-sim::TargetMotion parseMotion(const json& item, const std::string& path)
+sim::TargetMotion parseMotion(const json &item, const std::string &path)
 {
   require(item.is_object() && item.size() == 1, path + ": expected {\"hold\": ...}, {\"line\": ...} or {\"circle\": ...}");
-  const std::string& kind = item.begin().key();
-  const json& body = item.begin().value();
+  const std::string &kind = item.begin().key();
+  const json &body = item.begin().value();
   const std::string bodyPath = path + "." + kind;
   if (kind == "hold") {
     ObjectReader reader(body, bodyPath, {"duration_s"});
@@ -53,12 +52,12 @@ sim::TargetMotion parseMotion(const json& item, const std::string& path)
   throw ConfigError(path + ": unknown motion '" + kind + "'");
 }
 
-std::vector<models::State> parseStates(const ObjectReader& reader, std::string_view key)
+std::vector<models::State> parseStates(const ObjectReader &reader, std::string_view key)
 {
   std::vector<std::string> names;
   reader.read(key, names);
   std::vector<models::State> states;
-  for (const std::string& name : names) {
+  for (const std::string &name : names) {
     std::optional<models::State> state = sim::stateFromName(name);
     require(state.has_value(), reader.label(key) + ": unknown state '" + name + "'");
     states.push_back(*state);
@@ -68,20 +67,20 @@ std::vector<models::State> parseStates(const ObjectReader& reader, std::string_v
 
 }  // namespace
 
-sim::SimTarget TargetScript::place(const sim::Pose& atEngage) const
+sim::SimTarget TargetScript::place(const sim::Pose &atEngage) const
 {
-  auto groundPoint = [&atEngage](const models::Vec3& engageFrame) {
+  auto groundPoint = [&atEngage](const models::Vec3 &engageFrame) {
     auto [north, east] = toNorthEast(engageFrame.x, engageFrame.y, atEngage.yaw);
     return models::Vec3{atEngage.positionNed.x + north, atEngage.positionNed.y + east, 0.0};
   };
 
   std::vector<sim::TargetMotion> motions;
-  for (const sim::TargetMotion& motion : this->motions) {
-    if (const auto* line = std::get_if<sim::TargetLine>(&motion)) {
+  for (const sim::TargetMotion &motion : this->motions) {
+    if (const auto *line = std::get_if<sim::TargetLine>(&motion)) {
       auto [north, east] = toNorthEast(line->velNorth, line->velEast, atEngage.yaw);
       motions.push_back(sim::TargetLine{.durationS = line->durationS, .velNorth = north, .velEast = east});
     }
-    else if (const auto* circle = std::get_if<sim::TargetCircle>(&motion)) {
+    else if (const auto *circle = std::get_if<sim::TargetCircle>(&motion)) {
       motions.push_back(
         sim::TargetCircle{.durationS = circle->durationS, .centerNed = groundPoint(circle->centerNed), .speed = circle->speed});
     }
@@ -92,7 +91,7 @@ sim::SimTarget TargetScript::place(const sim::Pose& atEngage) const
   return sim::SimTarget(groundPoint(this->start), motions, this->occlusions, this->heightM, this->widthM);
 }
 
-Scenario parseScenario(const json& doc)
+Scenario parseScenario(const json &doc)
 {
   Scenario scenario;
   ObjectReader root(doc, "", {"name", "description", "duration_s", "target", "config", "expect"});
@@ -105,24 +104,24 @@ Scenario parseScenario(const json& doc)
   target.readPoint("start", scenario.target.start);
   target.read("height_m", scenario.target.heightM);
   target.read("width_m", scenario.target.widthM);
-  const json* motions = target.raw("motions");
+  const json *motions = target.raw("motions");
   require(motions && motions->is_array() && !motions->empty(), target.label("motions") + ": expected a non-empty array");
   for (size_t i = 0; i < motions->size(); ++i) {
     scenario.target.motions.push_back(parseMotion((*motions)[i], target.label("motions") + "[" + std::to_string(i) + "]"));
   }
   std::vector<std::vector<double>> occlusions;
   target.read("occlusions", occlusions);
-  for (const std::vector<double>& window : occlusions) {
+  for (const std::vector<double> &window : occlusions) {
     require(window.size() == 2 && window[0] < window[1], target.label("occlusions") + ": expected [start_s, end_s] with start < end");
     scenario.target.occlusions.push_back({.startS = window[0], .endS = window[1]});
   }
 
-  if (const json* config = root.raw("config")) {
+  if (const json *config = root.raw("config")) {
     require(config->is_object(), "config: expected an object");
     scenario.configOverrides = *config;
   }
 
-  sim::ScenarioExpect& expect = scenario.expect;
+  sim::ScenarioExpect &expect = scenario.expect;
   ObjectReader reader = root.child("expect",
                                    {"states",
                                     "states_in_order",
@@ -172,13 +171,13 @@ Scenario parseScenario(const json& doc)
   return scenario;
 }
 
-Scenario loadScenario(const std::filesystem::path& path)
+Scenario loadScenario(const std::filesystem::path &path)
 {
   json doc = readJsonFile(path);
   try {
     return parseScenario(doc);
   }
-  catch (const ConfigError& e) {
+  catch (const ConfigError &e) {
     throw ConfigError(path.string() + ": " + e.what());
   }
 }

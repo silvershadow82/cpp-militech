@@ -1,13 +1,12 @@
 #include "providers/VideoFileSource.h"
 
+#include <opencv2/imgproc.hpp>
 #include <chrono>
 #include <stdexcept>
 
-#include <opencv2/imgproc.hpp>
-
 namespace follow::providers {
 
-VideoFileSource::VideoFileSource(const std::filesystem::path& path, const cv::Size& trackSize, double fps, models::TimePoint start)
+VideoFileSource::VideoFileSource(const std::filesystem::path &path, const cv::Size &trackSize, double fps, models::TimePoint start)
   : capture(path.string())
   , trackSize(trackSize)
   , period(std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(1.0 / fps)))

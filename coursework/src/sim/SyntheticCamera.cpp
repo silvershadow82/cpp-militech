@@ -52,6 +52,7 @@ std::optional<models::BBox> SyntheticCamera::project(const Pose& vehicle,
   double minV = std::numeric_limits<double>::max();
   double maxU = std::numeric_limits<double>::lowest();
   double maxV = std::numeric_limits<double>::lowest();
+
   for (double lateral : std::array{-widthM / 2.0, 0.0, widthM / 2.0}) {
     for (double up : std::array{0.0, heightM / 2.0, heightM}) {
       models::Vec3 relative{targetGroundNed.x + perpNorth * lateral - vehicle.positionNed.x,

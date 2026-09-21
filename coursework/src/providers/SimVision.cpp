@@ -1,10 +1,9 @@
 #include "providers/SimVision.h"
+#include "sim/ScenarioRunner.h"
 
 #include <algorithm>
 #include <chrono>
 #include <thread>
-
-#include "sim/ScenarioRunner.h"
 
 namespace follow::providers {
 
@@ -14,12 +13,12 @@ constexpr auto kMaxExtrapolation = std::chrono::milliseconds{200};
 
 }  // namespace
 
-SimVision::SimVision(const interfaces::ICameraModel& camera,
-                     const models::CameraMount& mount,
-                     const sim::SyntheticCameraConfig& cameraConfig,
-                     const config::TargetScript& script,
+SimVision::SimVision(const interfaces::ICameraModel &camera,
+                     const models::CameraMount &mount,
+                     const sim::SyntheticCameraConfig &cameraConfig,
+                     const config::TargetScript &script,
                      double durationS,
-                     util::Channels& channels)
+                     util::Channels &channels)
   : camera(camera, mount, cameraConfig)
   , script(script)
   , durationS(durationS)
@@ -27,13 +26,13 @@ SimVision::SimVision(const interfaces::ICameraModel& camera,
 {
 }
 
-std::optional<sim::Pose> SimVision::vehiclePose(const control::VehicleState& vehicle, models::TimePoint now)
+std::optional<sim::Pose> SimVision::vehiclePose(const control::VehicleState &vehicle, models::TimePoint now)
 {
   std::optional<models::AttitudeSample> attitude = vehicle.attitude.latest();
   if (!attitude || !vehicle.position) {
     return std::nullopt;
   }
-  const models::LocalPositionNed& local = *vehicle.position;
+  const models::LocalPositionNed &local = *vehicle.position;
   auto age = std::clamp(now - local.t, models::Clock::duration::zero(), models::Clock::duration(kMaxExtrapolation));
   double dt = std::chrono::duration<double>(age).count();
   return sim::Pose{.positionNed = {local.position.x + local.velocity.x * dt,
@@ -51,7 +50,7 @@ void SimVision::iterate(models::TimePoint now)
     pose = vehiclePose(vehicle->value, now);
   }
 
-  for (const control::TrackerRequest& request : this->channels.trackerRequests.drain()) {
+  for (const control::TrackerRequest &request : this->channels.trackerRequests.drain()) {
     if (request.kind == control::TrackerRequestKind::LockCenter && !this->target) {
       this->lockPending = true;
     }
@@ -78,7 +77,7 @@ void SimVision::iterate(models::TimePoint now)
   }
 }
 
-void SimVision::run(const std::atomic<bool>& stop, double rateHz)
+void SimVision::run(const std::atomic<bool> &stop, double rateHz)
 {
   const auto period = std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(1.0 / rateHz));
   models::TimePoint next = models::Clock::now();

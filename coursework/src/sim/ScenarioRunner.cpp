@@ -1,15 +1,14 @@
 #include "sim/ScenarioRunner.h"
+#include "control/Core.h"
+#include "models/Angles.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 
-#include "control/Core.h"
-#include "models/Angles.h"
-
 namespace follow::sim {
 
-GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double targetTimeS)
+GroundTruth groundTruth(const Pose &vehicle, const SimTarget &target, double targetTimeS)
 {
   models::Vec3 ground = target.positionAt(targetTimeS);
   models::Vec3 toCenter{ground.x - vehicle.positionNed.x, ground.y - vehicle.positionNed.y, -target.height() / 2.0 - vehicle.positionNed.z};
@@ -17,11 +16,11 @@ GroundTruth groundTruth(const Pose& vehicle, const SimTarget& target, double tar
           .distanceM = models::norm(toCenter)};
 }
 
-ScenarioResult runScenario(const models::Config& config,
-                           const interfaces::ICameraModel& camera,
-                           const models::CameraMount& mount,
-                           const SimTarget& target,
-                           const ScenarioOptions& options)
+ScenarioResult runScenario(const models::Config &config,
+                           const interfaces::ICameraModel &camera,
+                           const models::CameraMount &mount,
+                           const SimTarget &target,
+                           const ScenarioOptions &options)
 {
   const models::TimePoint start = models::TimePoint{} + std::chrono::hours{1};
   control::Core followCore(config, camera, mount);
@@ -37,7 +36,7 @@ ScenarioResult runScenario(const models::Config& config,
     if (i % options.controlEvery == 0) {
       models::TimePoint now = start + std::chrono::duration_cast<models::Clock::duration>(std::chrono::duration<double>(t));
       double targetTime = std::max(0.0, t - options.engageAtS);
-      const Pose& pose = vehicle.pose();
+      const Pose &pose = vehicle.pose();
 
       vehicleState.lastHeartbeat = now;
       vehicleState.customMode = t >= options.engageAtS ? models::kModeGuided : models::kModeLoiter;

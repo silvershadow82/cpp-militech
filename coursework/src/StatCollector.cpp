@@ -1,4 +1,6 @@
 #include "StatCollector.h"
+#include "models/Angles.h"
+#include "sim/ScenarioCheck.h"
 
 #include <cstdio>
 #include <limits>
@@ -6,14 +8,11 @@
 #include <stdexcept>
 #include <string>
 
-#include "models/Angles.h"
-#include "sim/ScenarioCheck.h"
-
 namespace follow::util {
 
 namespace {
 
-constexpr const char* kHeader = "t,state,mode,valid,bearing_deg,ratio,distance_m,source,vx,yaw_rate,true_bearing_deg,true_distance_m";
+constexpr const char *kHeader = "t,state,mode,valid,bearing_deg,ratio,distance_m,source,vx,yaw_rate,true_bearing_deg,true_distance_m";
 
 std::string fixed(double value, int decimals)
 {
@@ -22,12 +21,12 @@ std::string fixed(double value, int decimals)
   return buffer;
 }
 
-std::string optionalFixed(const std::optional<double>& value, int decimals)
+std::string optionalFixed(const std::optional<double> &value, int decimals)
 {
   return value ? fixed(*value, decimals) : std::string();
 }
 
-const char* sourceName(models::DistanceSource source)
+const char *sourceName(models::DistanceSource source)
 {
   switch (source) {
     case models::DistanceSource::Relative:
@@ -40,7 +39,7 @@ const char* sourceName(models::DistanceSource source)
   return "?";
 }
 
-std::vector<std::string> splitFields(const std::string& line)
+std::vector<std::string> splitFields(const std::string &line)
 {
   std::vector<std::string> fields;
   std::string field;
@@ -54,7 +53,7 @@ std::vector<std::string> splitFields(const std::string& line)
   return fields;
 }
 
-double toDouble(const std::string& text, size_t lineNumber, const char* column)
+double toDouble(const std::string &text, size_t lineNumber, const char *column)
 {
   try {
     size_t used = 0;
@@ -63,22 +62,22 @@ double toDouble(const std::string& text, size_t lineNumber, const char* column)
       return value;
     }
   }
-  catch (const std::exception&) {
+  catch (const std::exception &) {
   }
   throw std::runtime_error("run log line " + std::to_string(lineNumber) + ": bad " + column + " '" + text + "'");
 }
 
 }  // namespace
 
-StatCollector::StatCollector(std::ostream& out)
+StatCollector::StatCollector(std::ostream &out)
   : out(out)
 {
   this->out << kHeader << '\n';
 }
 
-void StatCollector::write(const LogRow& row)
+void StatCollector::write(const LogRow &row)
 {
-  const models::TargetState& target = row.target;
+  const models::TargetState &target = row.target;
   this->out << fixed(row.tS, 3) << ',' << sim::stateName(row.state) << ',' << row.customMode << ',' << (target.valid ? 1 : 0) << ','
             << (target.valid ? fixed(models::radToDeg(target.bearingRad), 2) : "") << ',' << (target.valid ? fixed(target.ratio, 3) : "")
             << ',' << optionalFixed(target.distanceM, 2) << ',' << (target.valid ? sourceName(target.source) : "") << ','
@@ -87,7 +86,7 @@ void StatCollector::write(const LogRow& row)
   this->out.flush();
 }
 
-std::vector<sim::StepRecord> readRunLog(std::istream& in)
+std::vector<sim::StepRecord> readRunLog(std::istream &in)
 {
   std::string line;
   if (!std::getline(in, line) || line != kHeader) {

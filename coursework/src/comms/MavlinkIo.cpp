@@ -12,9 +12,9 @@ constexpr auto kWaitFailureBackoff = std::chrono::milliseconds{50};
 
 }  // namespace
 
-MavlinkIo::MavlinkIo(interfaces::IByteLink& link,
-                     const comms::MavlinkIds& ids,
-                     util::Channels& channels,
+MavlinkIo::MavlinkIo(interfaces::IByteLink &link,
+                     const comms::MavlinkIds &ids,
+                     util::Channels &channels,
                      comms::MavLink::StatusTextHandler onStatusText)
   : link(link)
   , client(link, ids, onStatusText)
@@ -35,19 +35,18 @@ void MavlinkIo::iterate(models::TimePoint now)
   }
 }
 
-void MavlinkIo::run(const std::atomic<bool>& stop)
+void MavlinkIo::run(const std::atomic<bool> &stop)
 {
   while (!stop) {
     interfaces::IByteLink::WaitStatus status = this->link.waitReadable(std::chrono::milliseconds{5});
     if (status == interfaces::IByteLink::WaitStatus::Error) {
-      // Report only on the transition into the failing state, so a broken fd does not spam the log.
       if (!this->waitFailing) {
         this->waitFailing = true;
         if (this->onStatusText) {
           this->onStatusText("mavlink link wait failed");
         }
       }
-      // Back off instead of busy-spinning on a descriptor that keeps failing poll().
+
       std::this_thread::sleep_for(kWaitFailureBackoff);
     }
     else {

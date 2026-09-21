@@ -28,7 +28,7 @@ void onSignal(int)
   stopRequested = true;
 }
 
-constexpr const char* kUsage =
+constexpr const char *kUsage =
   "usage: follow_app --sim --scenario FILE [--config FILE] [--link SPEC] [--log FILE]\n"
   "       follow_app --hw [--config FILE] [--link SPEC] [--log FILE]\n"
   "  --sim       simulated camera against ArduPilot SITL or a fake autopilot\n"
@@ -40,7 +40,7 @@ constexpr const char* kUsage =
 
 }  // namespace
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   bool sim = false;
   bool hw = false;
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
     }
 #endif
   }
-  catch (const std::invalid_argument& e) {
+  catch (const std::invalid_argument &e) {
     std::cerr << "follow_app: " << e.what() << '\n' << kUsage;
     return 2;
   }
@@ -112,8 +112,6 @@ int main(int argc, char** argv)
       options.link = link.value_or(options.link);
       options.logPath = logPath;
 
-      // The scenario comes first: follow.json is parsed with the scenario's config_overrides
-      // applied as a merge patch, and the camera model is built from the result.
       std::unique_ptr<follow::config::ScenarioLoader> scenarioLoader = factory.createScenarioLoader(options.scenarioPath);
       scenarioLoader->load();
       std::unique_ptr<follow::interfaces::IConfigLoader> configLoader =
@@ -135,8 +133,6 @@ int main(int argc, char** argv)
       configLoader->load();
       follow::config::AppConfig app = configLoader->getConfig();
 
-      // Declared before the processor, so cv::VideoCapture::release() runs after run() returns --
-      // an end-of-stream release can hang, and HwMissionProcessor's fail-safe must not wait on it.
       std::unique_ptr<follow::interfaces::IFrameSource> frames =
         factory.createFrameSource(follow::providers::PiCameraConfig{.captureWidth = app.vision.captureWidth,
                                                                     .captureHeight = app.vision.captureHeight,
@@ -155,7 +151,7 @@ int main(int argc, char** argv)
     }
 #endif
   }
-  catch (const std::exception& e) {
+  catch (const std::exception &e) {
     std::cerr << "follow_app: " << e.what() << '\n';
     return 1;
   }

@@ -1,4 +1,11 @@
 #include "HwMissionProcessor.h"
+#include "ControlLoop.h"
+#include "StatCollector.h"
+#include "comms/MavlinkIo.h"
+#include "config/FileConfigLoader.h"
+#include "providers/CameraTrackerSource.h"
+#include "util/Channels.h"
+#include "vision/Overlay.h"
 
 #include <algorithm>
 #include <chrono>
@@ -12,19 +19,11 @@
 #include <thread>
 #include <utility>
 
-#include "ControlLoop.h"
-#include "StatCollector.h"
-#include "comms/MavlinkIo.h"
-#include "config/FileConfigLoader.h"
-#include "providers/CameraTrackerSource.h"
-#include "util/Channels.h"
-#include "vision/Overlay.h"
-
 namespace follow::app {
 
 namespace detail {
 
-bool shouldDrawOverlay(models::TimePoint now, models::TimePoint& nextOverlay, models::Clock::duration period)
+bool shouldDrawOverlay(models::TimePoint now, models::TimePoint &nextOverlay, models::Clock::duration period)
 {
   if (now < nextOverlay) {
     return false;
@@ -66,7 +65,7 @@ HwMissionProcessor::HwMissionProcessor(HwAppOptions options,
                                        std::unique_ptr<interfaces::IByteLink> link,
                                        std::unique_ptr<interfaces::ICameraModel> camera,
                                        std::unique_ptr<interfaces::ITracker> tracker,
-                                       interfaces::IFrameSource& frames)
+                                       interfaces::IFrameSource &frames)
   : options(std::move(options))
   , configLoader(std::move(configLoader))
   , link(std::move(link))
@@ -79,7 +78,7 @@ HwMissionProcessor::HwMissionProcessor(HwAppOptions options,
 HwMissionProcessor::~HwMissionProcessor() = default;
 
 // Runs once: the tracker is handed to CameraTrackerSource below and is gone afterwards.
-void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
+void HwMissionProcessor::run(const std::atomic<bool> &stop, std::ostream &out)
 {
   config::AppConfig app = this->configLoader->getConfig();
   std::string linkSpec = this->options.link.value_or(app.mavlink.link);
@@ -89,7 +88,7 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   }
 
   std::mutex outMutex;
-  auto print = [&out, &outMutex](const std::string& line) {
+  auto print = [&out, &outMutex](const std::string &line) {
     std::lock_guard<std::mutex> lock(outMutex);
     out << line << std::endl;
   };
@@ -99,7 +98,7 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
     try {
       framebuffer = std::make_unique<vision::FramebufferWriter>(app.vision.framebuffer);
     }
-    catch (const std::runtime_error& e) {
+    catch (const std::runtime_error &e) {
       print(std::string("follow_app: no overlay: ") + e.what());
     }
   }
@@ -107,7 +106,7 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   util::Channels channels;
   util::StatCollector log(logFile);
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
-  comms::MavlinkIo io(*this->link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
+  comms::MavlinkIo io(*this->link, ids, channels, [&print](const std::string &text) { print("FC: " + text); });
   providers::CameraTrackerSource source(
     this->frames,
     std::move(this->tracker),
@@ -176,20 +175,14 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
     }
   };
 
-  // An exception escaping a thread function calls std::terminate(): the process dies instantly, no
-  // destructor runs, no zero setpoint is sent and the run log is truncated at the last flush. The
-  // vision thread makes that reachable because it calls into OpenCV on every frame -- tracker
-  // update, overlay drawing, the framebuffer's resize and colour conversion -- and OpenCV reports
-  // every error by throwing. Record the first failure, stop the others, and let run() rethrow it
-  // below, after the fail-safe setpoint has gone out.
   std::mutex failureMutex;
   std::optional<std::string> failure;
-  auto guarded = [&failureMutex, &failure, &threadsStop](const char* name, auto body) {
+  auto guarded = [&failureMutex, &failure, &threadsStop](const char *name, auto body) {
     return [&failureMutex, &failure, &threadsStop, name, body] {
       try {
         body();
       }
-      catch (const std::exception& e) {
+      catch (const std::exception &e) {
         {
           std::lock_guard<std::mutex> lock(failureMutex);
           if (!failure) {
@@ -217,32 +210,15 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   std::thread controlThread;
   std::atomic<bool> ioRunning{true};  // cleared however the I/O thread leaves, so the fail-safe never waits on a dead one
 
-  // ArduPilot holds the last velocity target until its guided timeout (3 s), so an app that simply
-  // stops leaves the vehicle flying at whatever it was last commanded. Command zero and wait for the
-  // I/O thread to put it on the wire.
-  //
-  // This must be able to run while the vision thread is still alive, and must not wait on anything
-  // that can block: a stalled libcamerasrc leaves capture.read() parked inside
-  // gst_app_sink_pull_sample with no frame, no failure and no end of stream, so the failure budget
-  // never counts, ended() never fires and that thread can never be joined. Nothing has touched the
-  // capture object here either -- cv::VideoCapture::release() runs in the caller, after run()
-  // returns, and an end-of-stream can hang on this build.
   auto sendFailsafe = [&] {
-    // Nothing to do if the I/O thread never started at all -- there is no run loop for the zero
-    // setpoint to reach either way.
     if (!ioThread.joinable()) {
       return;
     }
     if (!ioRunning) {
-      // The thread has already gone (it threw, most likely) before this ran: waiting on it would
-      // just burn the whole timeout against a dead thread, and channels.setpoint would be written
-      // with nothing left to send it. The zero setpoint is unconditionally unconfirmed in this case
-      // -- the same warning the timeout below prints, not silence.
       print("follow_app: WARNING the zero setpoint was not confirmed sent; the vehicle may hold its last command");
       return;
     }
-    // The control loop is the only other writer of channels.setpoint (Channels.h), and it has been
-    // joined by now, so this is still the last write to the slot.
+
     channels.setpoint.write(models::VelocityCmd{}, models::Clock::now());
     std::optional<util::Stamped<models::VelocityCmd>> zero = channels.setpoint.read();
     models::TimePoint deadline = models::Clock::now() + kFailsafeSendTimeout;
@@ -250,8 +226,6 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
       std::this_thread::sleep_for(std::chrono::milliseconds{1});
     }
     if (zero && io.sentSetpointSequence() < zero->sequence) {
-      // Silence here would mean the operator and the run log have no record that the vehicle was
-      // never told to stop -- the one thing they most need to know after an unexpected exit.
       print("follow_app: WARNING the zero setpoint was not confirmed sent; the vehicle may hold its last command");
     }
   };
@@ -274,9 +248,8 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
 
   try {
     ioThread = std::thread(guarded("mavlink", [&] {
-      // Runs on the way out whether run() returns or throws, and before guarded's catch.
       struct ClearOnExit {
-        std::atomic<bool>& flag;
+        std::atomic<bool> &flag;
         ~ClearOnExit() { this->flag = false; }
       } clearOnExit{ioRunning};
       io.run(ioStop);
@@ -285,7 +258,6 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
     controlThread = std::thread(guarded("control", [&] { control.run(threadsStop); }));
   }
   catch (...) {
-    // Same reason as MissionProcessor: a joinable std::thread destructing calls std::terminate().
     shutdown();
     throw;
   }
@@ -298,10 +270,6 @@ void HwMissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   if (failure) {
     throw std::runtime_error(*failure);
   }
-  // The miss total goes here because the rate limit can suppress every "recovered" line: a flight of
-  // isolated drops each recovering inside kMissReportInterval prints one "missing frames" line and no
-  // count at all, and the run log has no miss column either (StatCollector.cpp), so this is the only
-  // place the operator ever learns how bad the camera was.
   std::string ending = framesEnded ? "follow_app: camera stopped delivering frames" : "follow_app: stopped";
   uint64_t missed = source.missedFrames();
   if (missed > 0) {

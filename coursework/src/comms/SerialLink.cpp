@@ -1,4 +1,6 @@
 #include "comms/SerialLink.h"
+#include "comms/PosixLink.h"
+#include "interfaces/IByteLink.h"
 
 #include <fcntl.h>
 #include <poll.h>
@@ -9,12 +11,9 @@
 #include <stdexcept>
 #include <string>
 
-#include "PosixLink.h"
-#include "interfaces/IByteLink.h"
-
 namespace follow::comms {
 
-SerialLink::SerialLink(const std::string& device, int baud)
+SerialLink::SerialLink(const std::string &device, int baud)
 {
   this->fd = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (this->fd < 0) {

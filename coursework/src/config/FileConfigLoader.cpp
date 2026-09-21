@@ -1,12 +1,11 @@
 #include "config/FileConfigLoader.h"
+#include "config/ObjectReader.h"
+#include "models/FisheyeKbModel.h"
+#include "models/PinholeModel.h"
 
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <utility>
-
-#include "ObjectReader.h"
-#include "models/FisheyeKbModel.h"
-#include "models/PinholeModel.h"
 
 namespace follow::config {
 
@@ -14,10 +13,10 @@ using detail::ObjectReader;
 using detail::require;
 using nlohmann::json;
 
-AppConfig parseAppConfig(const json& doc)
+AppConfig parseAppConfig(const json &doc)
 {
   AppConfig config;
-  models::Config& core = config.core;
+  models::Config &core = config.core;
   ObjectReader root(doc, "", {"mavlink", "camera", "vision", "target", "estimator", "supervisor", "control"});
 
   ObjectReader mavlink = root.child("mavlink", {"link", "sysid", "compid", "fc_timeout_ms"});
@@ -59,9 +58,7 @@ AppConfig parseAppConfig(const json& doc)
   require(config.vision.reacquirePeriodMs >= 0, "vision.reacquire_period_ms: must not be negative");
   require(config.vision.reacquireExpand >= 1.0, "vision.reacquire_expand: must be at least 1");
   require(core.lockBoxFrac > 0.0 && core.lockBoxFrac <= 1.0, "vision.lock_box_frac: must be in (0, 1]");
-  // No physical mount can mirror an image: a single flip reverses handedness, so pixelToRay returns
-  // the wrong sign on that axis and FollowController drives yaw the wrong way. Reject the asymmetric
-  // case here rather than let it reach the capture pipeline.
+
   require(config.vision.hflip == config.vision.vflip,
           "vision.hflip/vision.vflip: a camera mount can only be rotated, not mirrored; set both or neither");
 
@@ -105,6 +102,7 @@ AppConfig parseAppConfig(const json& doc)
   control.read("dist_deadband_m", core.control.distDeadbandM);
   control.read("heading_gate_deg", core.control.headingGateDeg);
   control.read("enable_vx", core.control.enableVx);
+
   require(core.rateHz > 0.0, "control.rate_hz: must be positive");
   require(core.control.kYaw >= 0.0, "control.k_yaw: must not be negative");
   require(core.control.yawRateMaxDps > 0.0, "control.yaw_rate_max_dps: must be positive");
@@ -126,7 +124,7 @@ AppConfig parseAppConfig(const json& doc)
   return config;
 }
 
-CameraSettings parseCamera(const json& doc, int trackWidth, int trackHeight)
+CameraSettings parseCamera(const json &doc, int trackWidth, int trackHeight)
 {
   ObjectReader camera(doc, "camera", {"model", "width", "height", "fx", "fy", "cx", "cy", "k1", "k2", "k3", "k4", "tilt_deg"});
   CameraSettings settings;
@@ -163,19 +161,19 @@ CameraSettings parseCamera(const json& doc, int trackWidth, int trackHeight)
   return settings;
 }
 
-json readJsonFile(const std::filesystem::path& path)
+json readJsonFile(const std::filesystem::path &path)
 {
   std::ifstream in(path);
   require(static_cast<bool>(in), path.string() + ": cannot open");
   try {
     return json::parse(in);
   }
-  catch (const json::parse_error& e) {
+  catch (const json::parse_error &e) {
     throw ConfigError(path.string() + ": " + e.what());
   }
 }
 
-AppConfig loadAppConfig(const std::filesystem::path& path, const json& overrides)
+AppConfig loadAppConfig(const std::filesystem::path &path, const json &overrides)
 {
   json doc = readJsonFile(path);
   doc.merge_patch(overrides);
@@ -188,17 +186,17 @@ AppConfig loadAppConfig(const std::filesystem::path& path, const json& overrides
     }
     return config;
   }
-  catch (const ConfigError& e) {
+  catch (const ConfigError &e) {
     throw ConfigError(path.string() + ": " + e.what());
   }
 }
 
-AppConfig loadAppConfig(const std::filesystem::path& path)
+AppConfig loadAppConfig(const std::filesystem::path &path)
 {
   return loadAppConfig(path, json::object());
 }
 
-std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings& settings)
+std::unique_ptr<interfaces::ICameraModel> makeCameraModel(const CameraSettings &settings)
 {
   if (settings.kind == CameraKind::Pinhole) {
     return std::make_unique<models::PinholeModel>(settings.intrinsics);

@@ -18,9 +18,7 @@ constexpr float kLocalPositionIntervalUs = 100000.0F;          // 10 Hz
 // Ignore position (bits 0-2), acceleration (6-8) and yaw (10): use velocity and yaw_rate.
 constexpr uint16_t kVelocityYawRateMask = 0x05C7;
 
-// strnlen is POSIX, not ISO C++; <cstring> is not guaranteed to declare it (notably on libstdc++), so
-// the bounded length is computed by hand instead of relying on it.
-size_t boundedLength(const char* text, size_t maxLength)
+size_t boundedLength(const char *text, size_t maxLength)
 {
   size_t length = 0;
   while (length < maxLength && text[length] != '\0') {
@@ -41,7 +39,7 @@ struct MavLink::Codec {
   std::optional<models::AttitudeSample> pendingAttitude{};
 };
 
-MavLink::MavLink(interfaces::IByteLink& link, const MavlinkIds& ids, StatusTextHandler onStatusText)
+MavLink::MavLink(interfaces::IByteLink &link, const MavlinkIds &ids, StatusTextHandler onStatusText)
   : link(link)
   , ids(ids)
   , onStatusText(std::move(onStatusText))
@@ -56,7 +54,7 @@ int MavLink::poll(models::TimePoint now)
   if (!this->start) {
     this->start = now;
   }
-  Codec& k = *this->codec;
+  Codec &k = *this->codec;
   std::array<uint8_t, 512> buffer{};
   int accepted = 0;
   for (int n = this->link.receive(buffer); n > 0; n = this->link.receive(buffer)) {
@@ -64,8 +62,6 @@ int MavLink::poll(models::TimePoint now)
       uint8_t c = buffer[static_cast<size_t>(i)];
       uint8_t result = mavlink_frame_char_buffer(&k.rxBuffer, &k.rxStatus, c, &k.received, &k.receivedStatus);
       if (result == MAVLINK_FRAMING_BAD_CRC || result == MAVLINK_FRAMING_BAD_SIGNATURE) {
-        // Same recovery as mavlink_parse_char. Messages outside the common dialect also end here,
-        // because their CRC seed is unknown.
         k.rxStatus.msg_received = MAVLINK_FRAMING_INCOMPLETE;
         k.rxStatus.parse_state = MAVLINK_PARSE_STATE_IDLE;
         if (c == MAVLINK_STX) {
@@ -80,8 +76,6 @@ int MavLink::poll(models::TimePoint now)
       }
     }
   }
-  // Every sample of one poll shares `now`, and the history ignores samples that are not newer,
-  // so only the newest attitude of the batch is stored.
   if (k.pendingAttitude) {
     this->state.attitude.push(*k.pendingAttitude);
     k.pendingAttitude.reset();
@@ -91,7 +85,7 @@ int MavLink::poll(models::TimePoint now)
 
 void MavLink::handle(models::TimePoint now)
 {
-  const mavlink_message_t& message = this->codec->received;
+  const mavlink_message_t &message = this->codec->received;
   switch (message.msgid) {
     case MAVLINK_MSG_ID_HEARTBEAT: {
       mavlink_heartbeat_t heartbeat{};
@@ -148,7 +142,7 @@ void MavLink::service(models::TimePoint now)
 
 void MavLink::sendHeartbeat()
 {
-  Codec& k = *this->codec;
+  Codec &k = *this->codec;
   mavlink_msg_heartbeat_pack_status(this->ids.sysid,
                                     this->ids.compid,
                                     &k.txStatus,
@@ -163,7 +157,7 @@ void MavLink::sendHeartbeat()
 
 void MavLink::requestStreams()
 {
-  Codec& k = *this->codec;
+  Codec &k = *this->codec;
   for (auto [messageId, intervalUs] :
        {std::pair{MAVLINK_MSG_ID_ATTITUDE, kAttitudeIntervalUs}, std::pair{MAVLINK_MSG_ID_LOCAL_POSITION_NED, kLocalPositionIntervalUs}}) {
     mavlink_msg_command_long_pack_status(this->ids.sysid,
@@ -185,12 +179,12 @@ void MavLink::requestStreams()
   }
 }
 
-void MavLink::sendSetpoint(const models::VelocityCmd& command, models::TimePoint now)
+void MavLink::sendSetpoint(const models::VelocityCmd &command, models::TimePoint now)
 {
   if (!this->start) {
     this->start = now;
   }
-  Codec& k = *this->codec;
+  Codec &k = *this->codec;
   auto timeBootMs = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now - *this->start).count());
   mavlink_msg_set_position_target_local_ned_pack_status(this->ids.sysid,
                                                         this->ids.compid,

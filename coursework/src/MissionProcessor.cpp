@@ -1,5 +1,13 @@
 #include "MissionProcessor.h"
 
+#include "ControlLoop.h"
+#include "StatCollector.h"
+#include "comms/MavlinkIo.h"
+#include "config/FileConfigLoader.h"
+#include "config/ScenarioLoader.h"
+#include "providers/SimVision.h"
+#include "util/Channels.h"
+
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -8,14 +16,6 @@
 #include <stdexcept>
 #include <thread>
 #include <utility>
-
-#include "ControlLoop.h"
-#include "StatCollector.h"
-#include "comms/MavlinkIo.h"
-#include "config/FileConfigLoader.h"
-#include "config/ScenarioLoader.h"
-#include "providers/SimVision.h"
-#include "util/Channels.h"
 
 namespace follow::app {
 
@@ -34,7 +34,7 @@ MissionProcessor::MissionProcessor(SimAppOptions options,
 
 MissionProcessor::~MissionProcessor() = default;
 
-void MissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
+void MissionProcessor::run(const std::atomic<bool> &stop, std::ostream &out)
 {
   config::Scenario scenario = this->scenarioLoader->getScenario();
   config::AppConfig app = this->configLoader->getConfig();
@@ -44,7 +44,7 @@ void MissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   }
 
   std::mutex outMutex;
-  auto print = [&out, &outMutex](const std::string& line) {
+  auto print = [&out, &outMutex](const std::string &line) {
     std::lock_guard<std::mutex> lock(outMutex);
     out << line << std::endl;
   };
@@ -52,7 +52,7 @@ void MissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
   util::Channels channels;
   util::StatCollector log(logFile);
   comms::MavlinkIds ids{.sysid = static_cast<uint8_t>(app.mavlink.sysid), .compid = static_cast<uint8_t>(app.mavlink.compid)};
-  comms::MavlinkIo io(*this->link, ids, channels, [&print](const std::string& text) { print("FC: " + text); });
+  comms::MavlinkIo io(*this->link, ids, channels, [&print](const std::string &text) { print("FC: " + text); });
   providers::SimVision vision(*this->camera, app.camera.mount, sim::SyntheticCameraConfig{}, scenario.target, scenario.durationS, channels);
   ControlLoop control(app.core, *this->camera, app.camera.mount, channels, &log, models::Clock::now());
 
@@ -67,9 +67,6 @@ void MissionProcessor::run(const std::atomic<bool>& stop, std::ostream& out)
     controlThread = std::thread([&] { control.run(threadsStop); });
   }
   catch (...) {
-    // std::thread's constructor can throw (e.g. resource exhaustion). If it throws after one or two of
-    // these have already started, join them here before rethrowing: a std::thread destructs while still
-    // joinable calls std::terminate(), which would abort the whole process instead of failing gracefully.
     threadsStop = true;
     if (ioThread.joinable()) {
       ioThread.join();

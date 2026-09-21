@@ -1,106 +1,103 @@
-# follow_app — build and simulation
+# follow_app — Білд і симуляція
 
-Visual target follow over MAVLink: a camera (or a simulated one) tracks a target, and the vehicle
-turns to face it and holds a set distance. See [PROJECT.md](PROJECT.md) for the goal and
-[COMPONENTS.md](COMPONENTS.md) for the hardware.
+Візуальний трекінг цілі через MAVLink: камера (справжня або симульована) відслідковує ціль, а дрон
+наводиться на неї і тримає дистанцію. Див. [PROJECT.md](PROJECT.md) з описом задачі та
+[COMPONENTS.md](COMPONENTS.md) зі схемою підключень на реальному дроні.
 
-The app has two modes:
+Система може працювати в двох режимах:
 
-- `--sim` — a simulated camera against **ArduPilot SITL**. No camera, no OpenCV, no Raspberry Pi.
-  This is the mode to use for checking the project, and it is what the rest of this file covers.
-- `--hw` — a Raspberry Pi camera and a real tracker. Requires a build with `FOLLOW_WITH_OPENCV=ON`
-  and real hardware; see [docs/VISION.md](docs/VISION.md).
+- `--sim` — симульована камера з **ArduPilot SITL**. Без фактичної камери, без OpenCV, без
+  Raspberry Pi. Це режим для перевірки і той, що описаний нижче.
+- `--hw` — камера Raspberry Pi і справжній трекер. Потребує збірку з `FOLLOW_WITH_OPENCV=ON`
+  і реальні компоненти; див. [docs/VISION.md](docs/VISION.md).
 
-All commands below are run **from the repository root**, not from `coursework/`.
+Усі команди нижче запускаються з каталогу **`coursework/`**, де лежить `Makefile`.
 
-## What the simulation covers
+## Швидкий старт
 
-`--sim` runs the whole flight loop against a real ArduCopter: MAVLink over UDP, the pilot arming and
-switching to GUIDED, the estimator, the supervisor's state machine, the controller, and the velocity
-setpoints on the wire. A scenario supplies the target's motion in place of a camera.
-
-It does **not** exercise the camera path — the OpenCV tracker, the GStreamer pipeline and the
-framebuffer overlay are `--hw` only. A passing simulation says nothing about those.
-
-## Source layout
-
-The module follows `homework_11`'s structure: role directories, PascalCase filenames matching the
-class, `I`-prefixed interfaces, and includes with no project prefix (`#include "control/Core.h"`).
-
+```bash
+make            # список цілей
+make check      # усе, що має бути зеленим перед комітом
 ```
+
+`make check` — це `build` + `test` + `build-vision` + `test-vision` + `format-check` + `purity`.
+
+| Ціль | Що робить |
+| --- | --- |
+| `make build` | збірка за замовчуванням, `FOLLOW_WITH_OPENCV=OFF` |
+| `make build-vision` | збірка з OpenCV, `FOLLOW_WITH_OPENCV=ON` |
+| `make test` / `make test-vision` | юніт- та інтеграційні тести відповідної збірки |
+| `make sitl SCENARIO=circle` | один сценарій проти ArduCopter SITL |
+| `make sitl-all` | усі сценарії з підсумком |
+| `make qgc SCENARIO=circle` | запуск, який видно в QGroundControl |
+| `make venv` | створює venv з `pymavlink` для симулятора пілота |
+| `make format` / `make format-check` | clang-format (окрім `control/Core.h`) |
+| `make purity` | падає, якщо OpenCV потрапив у `follow_core` |
+| `make clean` | прибрати каталоги збірки |
+
+Змінні: `SCENARIO`, `ARDUPILOT_DIR`, `PYTHON`, `JOBS`, `BUILD_DIR`, `VISION_DIR`, `TIMEOUT_S`.
+
+## Що покриває симуляція
+
+`--sim` запускає увесь цикл польоту з ArduCopter: MAVLink по UDP, пілот, що армує та переключає
+режим польоту на GUIDED, апроксиматор дистанції, стейт-машина супервайзера, контролер і
+встановлення маркерів швидкості. Рух цілі замість камери описується одним зі сценаріїв у файлах
+конфігурації.
+
+Симуляція **не** використовує реальну камеру — трекер OpenCV, пайплайн GStreamer і накладання на
+фреймбуфер працюють тільки в режимі `--hw`. Зелена симуляція нічого про них не говорить.
+
+## Структура проекту
+
+Цей модуль створений на базі `homework_11`: каталоги за роллю, імена файлів у PascalCase збігаються
+з класом, інтерфейси з префіксом `I`, підключення без префікса проекту (`#include "control/Core.h"`).
+
+```text
 include/
   Types.h  ControlLoop.h  MissionProcessor.h  HwMissionProcessor.h  StatCollector.h
-  interfaces/ the five abstract types: IFrameSource, ITracker, IByteLink, ICameraModel,
+  interfaces/ абстрактні інтерфейси: IFrameSource, ITracker, IByteLink, ICameraModel,
               IConfigLoader
-  models/     data and pure math: Angles, Frames, AttitudeHistory, Config, Intrinsics,
+  models/     дані і розрахунки: Angles, Frames, AttitudeHistory, Config, Intrinsics,
               PinholeModel, FisheyeKbModel
-  control/    the decision stack: Core, FollowController, TargetEstimator, Supervisor
-  comms/      links and protocol: LinkSpec, SocketLink, SerialLink, MavLink, MavlinkIo
-  providers/  observation sources: SyntheticFrameSource, VideoFileSource, PiCameraSource,
+  control/    модуль керування і прийняття рішень: Core, FollowController, TargetEstimator,
+              Supervisor
+  comms/      протоколи комунікацій: LinkSpec, SocketLink, SerialLink, MavLink, MavlinkIo
+  providers/  провайдери: SyntheticFrameSource, VideoFileSource, PiCameraSource,
               CameraTrackerSource, SimVision
-  vision/     OpenCV-only: TrackerFactory, Overlay, Calibration
-  config/     loaders and wiring: FileConfigLoader, ScenarioLoader, ComponentFactory
+  vision/     OpenCV: TrackerFactory, Overlay, Calibration
+  config/     конфігурації і лоадери: FileConfigLoader, ScenarioLoader, ComponentFactory
   util/  sim/
 ```
 
-Each class gets its own PascalCase file: `models/PinholeModel.h` and `models/FisheyeKbModel.h`
-rather than one `CameraModel.h` holding both. The factories and the plain data the interfaces
-travel with stay in their role directory, not in `interfaces/`: `makeTracker` is
-`vision/TrackerFactory.h`, `LinkSpec`/`parseLinkSpec`/`openLink` are `comms/LinkSpec.h`, and
-`struct Intrinsics` is `models/Intrinsics.h`.
+Простори імен повторюють каталоги під коренем `follow::` (`follow::models`, `follow::control`,
+`follow::comms`, ...). Корінь `follow::` прибирати не можна: кореневий `CMakeLists.txt` збирає
+`homework_11` і `coursework` в одному проєкті, а `homework_11` уже має глобальний `namespace comms`
+зі своїми `MavLink`/`SerialLink`/`SocketLink` — без `follow::` вони б конфліктували.
 
-Namespaces mirror the directories under a `follow::` root (`follow::models`, `follow::control`,
-`follow::comms`, ...). The root is kept deliberately: the top-level `CMakeLists.txt` builds
-`homework_11` and `coursework` in one project, and `homework_11` already defines a global
-`namespace comms` with its own `MavLink`/`SerialLink`/`SocketLink`. Without the `follow::` root
-those would collide.
+### follow_core відокремлена бібліотека
 
-### follow_core must stay pure
+**`models/` і `control/` — а тому і `follow_core` — працюють без потоків, I/O, без JSON, без
+MAVLink, без OpenCV і таймерів.** Усе в бібліотеці працює як чисті функції, які легко тестувати без
+дрона.
 
-**`models/` and `control/` — and therefore the `follow_core` target — contain no threads, no I/O,
-no JSON, no MAVLink, no OpenCV and no clock reads.** Everything there is a pure function of its
-arguments, which is what makes the estimator, controller and supervisor testable without a vehicle.
+Усе, чому потрібні потоки, сокети, файли або таймери, знаходиться поза ними: `ControlLoop.h` і
+`MissionProcessor` тримають потоки, `comms/` — сокети, `config/` — парсинг файлів, `providers/`
+працюють з камерою.
 
-Anything that needs a thread, a socket, a file or the clock belongs outside them: `ControlLoop.h`
-and the `MissionProcessor`s at include root own the threads, `comms/` owns the sockets, `config/`
-owns the file parsing, `providers/` owns the cameras.
+Два практичні наслідки:
 
-The rule follows the dependency, so it reaches into `interfaces/` too, but only as far as
-`follow_core` reaches. **`interfaces/ICameraModel.h`, `interfaces/IByteLink.h` and
-`interfaces/IConfigLoader.h` are equally OpenCV-free**: `control/TargetEstimator` and
-`control/Core` hold an `ICameraModel&`, so an OpenCV include landing in that header is an OpenCV
-include in `follow_core`. `IConfigLoader` is the same story one level up: it is what
-`ComponentFactory` and the `MissionProcessor`s hold, so it includes nothing at all -- not even
-`AppConfig`'s own header, which is forward-declared instead. `interfaces/IFrameSource.h` and
-`interfaces/ITracker.h` are the other half of the split and do include `<opencv2/core.hpp>` —
-`Frame` holds a `cv::Mat` and `ITracker` works in `cv::Rect` — which is fine, because only the
-`follow_vision` targets include them. `struct Frame` therefore lives beside `IFrameSource` rather
-than in `models/`.
+- `FOLLOW_WITH_OPENCV=OFF` — режим за замовчуванням і має завжди білдитись. Якщо підключення OpenCV
+  дістанеться до `models/` або `control/`, одночасно зламаються збірка за замовчуванням, збірка в
+  devcontainer (gcc-13) і крос-збірка під aarch64. Перевіряється через `make purity`.
+- `include/control/Core.h` відформатований вручну — це єдиний файл, який ніколи не передається в
+  clang-format. Усе решта має бути чистим за `--style=file:.devcontainer/.clang-format`; `make format`
+  виключає його автоматично.
 
-So `interfaces/` is deliberately mixed, and the check is per file, not per directory:
+## Попередні вимоги
 
-```
-grep -rl opencv coursework/include/models coursework/include/control \
-     coursework/include/interfaces/ICameraModel.h coursework/include/interfaces/IByteLink.h \
-     coursework/include/interfaces/IConfigLoader.h
-```
+**C++20 toolchain і CMake ≥ 3.20.** Збірка за замовчуванням не потребує нічого іншого — без OpenCV.
 
-must print nothing.
-
-Two practical consequences:
-
-- `FOLLOW_WITH_OPENCV=OFF` is the default and must keep building. If an OpenCV include reaches
-  `models/`, `control/`, `interfaces/ICameraModel.h`, `interfaces/IByteLink.h` or
-  `interfaces/IConfigLoader.h`, the default build, the devcontainer gcc-13 build and the aarch64
-  cross-build all break at once.
-- `include/control/Core.h` is hand-formatted and is the one file never passed to clang-format.
-  Everything else is clang-format clean under `--style=file:.devcontainer/.clang-format`.
-
-## Prerequisites
-
-**A C++20 toolchain and CMake ≥ 3.20.** The default build needs nothing else — no OpenCV.
-
-**ArduPilot SITL**, built once:
+**ArduPilot SITL** (потрібен лише для цілей `sitl`, `sitl-all` і `qgc`):
 
 ```bash
 git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
@@ -109,209 +106,160 @@ cd ardupilot
 ./waf copter
 ```
 
-This produces `build/sitl/bin/arducopter`. Point `ARDUPILOT_DIR` at the checkout.
+Створює `build/sitl/bin/arducopter`. Треба вказати `ARDUPILOT_DIR`.
 
-**Python with `pymavlink`**, for the pilot stand-in. A virtualenv keeps it out of the system Python:
-
-```bash
-python3 -m venv build/sitl-venv
-build/sitl-venv/bin/pip install pymavlink
-```
-
-**QGroundControl** is optional, and only for watching a run — see below.
-
-## Build and test
+**Python з `pymavlink`**, для симуляції пілота:
 
 ```bash
-cmake -S coursework -B build/coursework          # FOLLOW_WITH_OPENCV defaults to OFF
-cmake --build build/coursework -j8
-ctest --test-dir build/coursework
+make venv
 ```
 
-That builds `follow_app` and `follow_check_run` and runs the unit and integration suites.
+Створює `../build/sitl-venv` і ставить туди `pymavlink`, не чіпаючи системний Python.
 
-To build the vision adapter as well (needs OpenCV; not required for simulation):
+**QGroundControl** — для візуального спостереження, необов'язково, але приємно.
+
+## Збірка і тестування
 
 ```bash
-cmake -S coursework -B build/vision -DFOLLOW_WITH_OPENCV=ON
-cmake --build build/vision -j8
-ctest --test-dir build/vision
+make build   && make test          # FOLLOW_WITH_OPENCV=OFF
+make build-vision && make test-vision   # FOLLOW_WITH_OPENCV=ON, потрібен OpenCV
 ```
 
-## Run one scenario
+`make build` створює `follow_app` і `follow_check_run`; `make test` запускає юніт- та інтеграційні
+тести. Збірка з OpenCV необов'язкова для симуляції.
+
+## Запуск одного сценарію
 
 ```bash
 export ARDUPILOT_DIR=/path/to/ardupilot
-export PYTHON=$PWD/build/sitl-venv/bin/python
-
-coursework/tools/run_sitl_scenario.sh coursework/config/scenarios/stationary.json
+make sitl SCENARIO=stationary
 ```
 
-The script starts ArduCopter SITL, starts `follow_app --sim`, and runs `sitl_operator.py` as the
-pilot: it arms, takes off in LOITER, hovers, then flips the mode switch to GUIDED, which is what
-engages follow. When the scenario's duration has elapsed the app exits and `follow_check_run`
-validates the run log against the scenario's expectations.
+Скрипт за цією ціллю запускає ArduCopter SITL, `follow_app --sim` і `sitl_operator.py` в якості
+пілота: він армує, злітає в режимі LOITER, зависає, потім переводить у GUIDED, що власне і запускає
+стеження. Коли сценарій закінчується, запускається `follow_check_run`, який перевіряє лог відносно
+очікувань сценарію.
 
-Output is one line:
+На виході лише один рядок:
 
 ```text
 PASS stationary (1361 steps, tolerance x1.5)
 ```
 
-Exit code 0 is a pass, 1 a fail, 2 a setup error. Logs land in
-`build/sitl-runs/<scenario>-<timestamp>/`: `run.csv` (the run log), `app.log`, `sitl.log`,
-`operator.log` and `check.txt`.
+Код виходу 0 — ТЕСТ ПРОЙДЕНО, 1 — НЕ ПРОЙДЕНО, 2 — ПОМИЛКА ІНІЦІАЛІЗАЦІЇ. Логи потрапляють у
+`../build/sitl-runs/<scenario>-<timestamp>/`: `run.csv`, `app.log`, `sitl.log`, `operator.log` і
+`check.txt`.
 
-Tolerances are widened 1.5× for SITL, because a real autopilot's response is not the ideal model the
-scenario expectations were written against.
+Допуски розширені в 1.5 раза для SITL, бо відповідь справжнього автопілота — не ідеальна модель, під
+яку писалися очікування сценарію.
 
-Other environment variables the script accepts: `ARDUCOPTER` (binary path), `BUILD_DIR` (default
-`build/coursework`), `OUT_DIR`, `TIMEOUT_S` (default 300).
-
-## Run all scenarios
+## Запуск усіх сценаріїв
 
 ```bash
 export ARDUPILOT_DIR=/path/to/ardupilot
-export PYTHON=$PWD/build/sitl-venv/bin/python
-
-for s in coursework/config/scenarios/*.json; do
-  coursework/tools/run_sitl_scenario.sh "$s" || echo "FAILED: $s"
-done
+make sitl-all
 ```
 
-Each scenario starts its own SITL instance and takes a minute or two, so the full set is roughly
-fifteen minutes.
+Кожен сценарій запускає власний інстанс SITL і відтворюється 1–2 хв, тож усі разом — приблизно
+п'ятнадцять хвилин. У кінці друкується підсумок `== N passed, M failed`.
 
-| Scenario | What it checks |
+| Сценарій | Що перевіряє |
 | --- | --- |
-| `stationary` | Target stands still 3 m ahead. |
-| `stationary_known_size` | Known 1.7 m height gives metric distance, so the vehicle closes to `d_set`. |
-| `walk_line` | Target walks away at 1.0 m/s; the proportional lag must settle, not grow. |
-| `stop_and_go` | Target walks, stops, walks, stops. |
-| `circle` | Target walks a 6 m circle at 1 m/s around a point 9 m ahead. |
-| `yaw_only` | Bring-up stage 2: `enable_vx = false`, only yaw is commanded. |
-| `fast_dash` | Target runs sideways at 8 m/s and stays inside the 128° view. |
-| `pass_by` | Target is followed, then runs past the vehicle at 5 m/s and leaves the view. |
-| `occlusion_short` | Target hidden for 1 s and found again. |
-| `occlusion_long` | Target hidden for 5 s, longer than `lost_timeout`. |
-| `lock_miss` | Target outside the centre lock box: the lock misses and nothing moves. |
+| `stationary` | Ціль стоїть за 3 м. |
+| `stationary_known_size` | Відома висота 1.7 м дає метричну дистанцію, дрон підходить на `d_set`. |
+| `walk_line` | Ціль відходить зі швидкістю 1.0 м/с; відставання має стабілізуватись, а не рости. |
+| `stop_and_go` | Ціль йде, зупиняється, знову йде, зупиняється. |
+| `circle` | Ціль йде по колу радіусом 6 м зі швидкістю 1 м/с навколо точки за 9 м. |
+| `yaw_only` | Етап 2 пусконаладки: `enable_vx = false`, керується тільки курс. |
+| `fast_dash` | Ціль швидко рухається вбік зі швидкістю 8 м/с та залишається в полі зору 128°. |
+| `pass_by` | Ціль ведеться, потім проходить повз дрон на 5 м/с і виходить із поля зору. |
+| `occlusion_short` | Ціль зникає на 1 с і знову з'являється. |
+| `occlusion_long` | Ціль зникає на 5 с, довше, ніж `lost_timeout`. |
+| `lock_miss` | Ціль поза зоною захоплення (квадрат у центрі екрану): захоплення не відбувається. |
 
-The occlusion and `lock_miss` scenarios are the ones that exercise the Lost/Reacquire path, so they
-are the most sensitive to changes in the estimator or the tracker adapter.
+Сценарії `occlusion_*` і `lock_miss` задіюють гілку Lost/Reacquire, тож вони найчутливіші до змін у
+апроксиматорі або в адаптері трекера.
 
-## Watch a run in QGroundControl
-
-The scenario runner does not expose a link for a ground station: `follow_app` uses SERIAL4 and the
-pilot stand-in holds SERIAL0's TCP port. To watch a run, start SITL by hand with an extra MAVLink
-serial pointed at QGroundControl's default UDP port.
-
-> **SITL will print `Waiting for connection ....` and appear to hang.** That is normal: it does not
-> start running until something connects to TCP 5760, which is the pilot stand-in in the next step.
-> Do not start SITL a second time — the second instance fails with
-> `bind failed on port 5760 - Address already in use` and overwrites the first one's log.
+## Відстеження через QGroundControl
 
 ```bash
-export AP=/path/to/ardupilot
-export REPO=$PWD                                  # repository root
-export PYTHON=$REPO/build/sitl-venv/bin/python
-
-# Nothing should be holding SITL's port from an earlier run.
-lsof -nP -iTCP:5760 -sTCP:LISTEN || echo "port 5760 free"
-
-mkdir -p /tmp/qgc-run
-printf 'SERIAL5_PROTOCOL 2\n' > /tmp/qgc-run/qgc.param
-
-( cd /tmp/qgc-run && exec $AP/build/sitl/bin/arducopter --model quad --speedup 1 -w \
-    --defaults "$AP/Tools/autotest/default_params/copter.parm,$REPO/coursework/tools/ardupilot/follow.param,$REPO/coursework/tools/ardupilot/sitl.param,/tmp/qgc-run/qgc.param" \
-    --serial4 udpclient:127.0.0.1:14560 \
-    --serial5 udpclient:127.0.0.1:14550 \
-    --home -35.363261,149.165230,584,353 ) > /tmp/qgc-run/sitl.log 2>&1 &
+export ARDUPILOT_DIR=/path/to/ardupilot
+make qgc SCENARIO=circle
 ```
 
-SITL writes `eeprom.bin` and a `logs/` directory into its working directory, which is why it runs in
-a subshell in `/tmp/qgc-run` rather than in the repository.
+Звичайний сценарій не дає звʼязку для наземної станції: `follow_app` використовує SERIAL4, а
+симулятор пілота — TCP-порт SERIAL0. Ціль `qgc` запускає SITL з додатковим MAVLink-портом,
+націленим на UDP 14550, який QGroundControl слухає за замовчуванням. Вехікл зʼявиться сам — видно,
+як він армується, набирає висоту, переходить у GUIDED, а далі доводиться курсом і зміщується за
+ціллю.
 
-`SERIAL5_PROTOCOL 2` is required — without it SITL opens the port but speaks no MAVLink on it.
+Дві речі, які скрипт робить за вас:
 
-Now start the pilot stand-in, which connects to TCP 5760 and lets SITL proceed, and then the app:
+- виставляє `SERIAL5_PROTOCOL 2` — без цього SITL відкриє порт, але не говоритиме по ньому MAVLink,
+  і QGroundControl нічого не побачить;
+- перевіряє, чи не зайнятий `tcp:5760` попереднім запуском, і зупиняється з поясненням замість
+  `bind failed on port 5760`.
 
-```bash
-cd $REPO
-$PYTHON coursework/tools/sitl_operator.py --connect tcp:127.0.0.1:5760 &
+> **SITL друкує `Waiting for connection ....` і виглядає так, ніби завис.** Це нормально: він не
+> починає працювати, доки хтось не підключиться до TCP 5760 — це робить симулятор пілота наступним
+> кроком. Не запускайте SITL вдруге.
 
-build/coursework/follow_app --sim \
-  --scenario coursework/config/scenarios/walk_line.json \
-  --config coursework/config/follow.json \
-  --link udp:14560 --log /tmp/qgc-run/run.csv
-```
+## Перевірка лога вручну
 
-QGroundControl listens on UDP 14550 by default and picks the vehicle up on its own. You will see it
-arm, climb, switch to GUIDED, and then yaw and translate as follow engages.
-
-Stop the background processes when finished:
-
-```bash
-pkill -f sitl_operator.py; pkill -f 'build/sitl/bin/arducopter'
-```
-
-## Checking a run log by hand
-
-`run.csv` can be re-checked without re-flying:
+`run.csv` можна перевірити повторно, без нового польоту:
 
 ```bash
-build/coursework/follow_check_run \
-  --log build/sitl-runs/<run>/run.csv \
-  --scenario coursework/config/scenarios/stationary.json \
-  --config coursework/config/follow.json \
+../build/coursework/follow_check_run \
+  --log ../build/sitl-runs/<run>/run.csv \
+  --scenario config/scenarios/stationary.json \
+  --config config/follow.json \
   --tolerance-scale 1.5
 ```
 
-## Running follow_app directly
+## Запуск follow_app напряму
 
-The runner script is a convenience. The app itself:
+Цілі `make` — це зручність. Сам застосунок:
 
 ```text
 follow_app --sim --scenario FILE [--config FILE] [--link SPEC] [--log FILE]
-  --scenario  scenario JSON (coursework/config/scenarios/*.json)
-  --config    follow.json (default config/follow.json)
-  --link      udp:PORT, udp:PORT:HOST:PORT or uart:DEVICE:BAUD (default udp:14560 for --sim)
-  --log       CSV run log (default follow_run.csv)
+  --scenario  JSON сценарію (config/scenarios/*.json)
+  --config    follow.json (за замовчуванням config/follow.json)
+  --link      udp:PORT, udp:PORT:HOST:PORT або uart:DEVICE:BAUD (за замовчуванням udp:14560 для --sim)
+  --log       CSV лог запуску (за замовчуванням follow_run.csv)
 ```
 
-With no autopilot on the link the app reports `FC: mavlink link wait failed` and stays in `NoFc`,
-writing no setpoint at all — the run log's `vx` and `yaw_rate` columns stay empty. That is the safe
-default rather than an error: it waits for a flight controller instead of commanding a vehicle it
-cannot see.
+Якщо на лінку немає автопілота, застосунок пише `FC: mavlink link wait failed` і залишається в
+стані `NoFc`, не виставляючи жодного setpoint — колонки `vx` і `yaw_rate` у лозі лишаються
+порожніми. Це безпечна поведінка за замовчуванням, а не помилка: він чекає на польотний контролер,
+замість керувати дроном, якого не бачить.
 
-## Troubleshooting
+## Усунення несправностей
 
-**`bind failed on port 5760 - Address already in use`** — a SITL instance from an earlier run is
-still alive. SITL prints `Waiting for connection ....` and sits there until the pilot stand-in
-connects, so a healthy instance looks hung and is easy to start twice. Find and stop the old one:
+**`bind failed on port 5760 - Address already in use`** — живий SITL з попереднього запуску. SITL
+друкує `Waiting for connection ....` і чекає, доки підключиться симулятор пілота, тож справний
+інстанс виглядає завислим і його легко запустити вдруге. Знайти і зупинити старий:
 
 ```bash
-lsof -nP -iTCP:5760 -sTCP:LISTEN     # shows the PID holding the port
-pkill -f 'build/sitl/bin/arducopter' # or kill <PID> for just the one
+lsof -nP -iTCP:5760 -sTCP:LISTEN     # показує PID, що тримає порт
+pkill -f 'build/sitl/bin/arducopter' # або kill <PID> для конкретного
 ```
 
-Note that the second instance overwrites the first one's `sitl.log` before it exits, so the log may
-show the bind failure while the working instance is the one still running.
+Врахуйте: другий інстанс перезаписує `sitl.log` першого перед тим, як впасти, тож у лозі буде
+помилка порту, хоча робочим лишається саме перший.
 
-**`<python> cannot import pymavlink`** — `PYTHON` is not pointing at the virtualenv. Use an absolute
-path: `export PYTHON=$PWD/build/sitl-venv/bin/python`.
+**`<python> cannot import pymavlink`** — `PYTHON` не вказує на virtualenv. Запустіть `make venv`.
 
-**`no SITL binary at ...`** — `ARDUPILOT_DIR` is unset or SITL is not built. See Prerequisites.
+**`no SITL binary at ...`** — не задано `ARDUPILOT_DIR` або SITL не зібрано. Див. «Попередні вимоги».
 
-**`sitl_operator.py exited early`** — check `operator.log` in the run directory. The usual cause is
-arming being refused because SITL has not got a GPS fix yet; the operator waits up to 120 s
-(`--arm-timeout`).
+**`sitl_operator.py exited early`** — дивіться `operator.log` у каталозі запуску. Звичайна причина —
+армування відхилено, бо SITL ще не має GPS-фіксу; оператор чекає до 120 с (`--arm-timeout`).
 
-**The vehicle arms and hovers but never follows** — follow engages only in GUIDED. Check
-`operator.log` for the mode switch, and `run.csv`'s `state` column: `NoFc` means no MAVLink from the
-autopilot at all, `Idle` means it is connected but has not entered GUIDED.
+**Дрон армується і зависає, але не летить за ціллю** — стеження вмикається лише в GUIDED. Перевірте
+`operator.log` на перемикання режиму і колонку `state` у `run.csv`: `NoFc` означає, що MAVLink від
+автопілота взагалі не приходить, `Idle` — що звʼязок є, але GUIDED не вмикався.
 
-**It stays in `Idle` even though the vehicle is already in GUIDED** — engagement is triggered by the
-*transition* into GUIDED, not by being in it (`Supervisor.cpp`: `becameGuided`). If you switch to
-GUIDED in QGroundControl before starting `follow_app`, the app never sees the edge. Switch to LOITER
-and back to GUIDED with the app running. This is deliberate: it means restarting the app next to an
-already-armed vehicle cannot make it take off after a target on its own.
+**Залишається в `Idle`, хоча дрон уже в GUIDED** — стеження запускає *перехід* у GUIDED, а не сам
+факт перебування в ньому (`Supervisor.cpp`: `becameGuided`). Якщо перемкнути в GUIDED у
+QGroundControl до запуску `follow_app`, застосунок не побачить фронту. Перемкніть у LOITER і назад у
+GUIDED уже із запущеним застосунком. Це навмисно: перезапуск застосунку поруч із заармованим дроном
+не може змусити його самовільно полетіти за ціллю.

@@ -34,7 +34,6 @@ if(NOT FOLLOW_HAVE_BUILTIN_ATOMIC64)
   find_library(FOLLOW_LIBATOMIC NAMES atomic libatomic.so.1 REQUIRED)
 endif()
 
-# MAVLink C headers: the homework_11/c_library_v2 git submodule.
 set(FOLLOW_MAVLINK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../homework_11/c_library_v2" CACHE PATH "MAVLink c_library_v2 checkout")
 
 # --- Core: estimator, controller, supervisor. No I/O, threads or OpenCV. ------
@@ -64,7 +63,6 @@ target_link_libraries(follow_sim PUBLIC follow_core)
 target_compile_options(follow_sim PRIVATE -Wall -Wextra)
 
 # --- Config: follow.json, camera and scenario files (nlohmann/json). ----------
-# Same name and URL as homework_07..11, so the root build fetches the library once.
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
                               DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(json)
@@ -74,14 +72,16 @@ target_link_libraries(follow_config PUBLIC follow_sim nlohmann_json::nlohmann_js
 target_compile_options(follow_config PRIVATE -Wall -Wextra)
 
 # --- Comms: byte links (UDP, UART) and the MAVLink client. --------------------
-add_library(follow_comms STATIC src/comms/LinkSpec.cpp src/comms/SocketLink.cpp src/comms/SerialLink.cpp
-                                src/comms/MavLink.cpp)
+add_library(follow_comms STATIC 
+  src/comms/LinkSpec.cpp 
+  src/comms/SocketLink.cpp 
+  src/comms/SerialLink.cpp
+  src/comms/MavLink.cpp)
 target_include_directories(follow_comms SYSTEM PUBLIC ${FOLLOW_MAVLINK_DIR})
 target_link_libraries(follow_comms PUBLIC follow_core Threads::Threads)
 target_compile_options(follow_comms PRIVATE -Wall -Wextra)
 
 # --- App: threads, shared slots, stat collector. Named after the executable it ------
-# backs, as homework_11 names simulation11_lib after simulation11.
 add_library(
   follow_app_lib STATIC
   src/StatCollector.cpp
@@ -169,6 +169,7 @@ if(NOT CMAKE_CROSSCOMPILING)
     tests/mavlink_io_tests.cpp
     tests/sim_vision_tests.cpp
     tests/sim_app_tests.cpp)
+
   if(FOLLOW_WITH_OPENCV)
     target_sources(follow_tests PRIVATE tests/vision_tracker_tests.cpp tests/vision_frame_source_tests.cpp
                                         tests/vision_pi_camera_tests.cpp tests/vision_camera_tracker_source_tests.cpp

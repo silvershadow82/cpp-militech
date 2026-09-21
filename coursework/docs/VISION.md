@@ -1,179 +1,245 @@
-# Vision build, hardware mode and tools
+# Збірка з компʼютерним зором, апаратний режим і інструменти
 
-The vision pipeline runs on the Raspberry Pi with OpenCV to track a target from the camera feed, providing measurements to the follow controller over shared slots.
+Пайплайн компʼютерного зору працює на Raspberry Pi з OpenCV: відстежує ціль у потоці з камери і
+передає вимірювання контролеру стеження через спільні слоти.
 
-## Building with OpenCV
+Усі команди запускаються з каталогу `coursework/`, як і в [README.md](../README.md).
 
-The vision library and tools require OpenCV and GStreamer. Configure the build with `FOLLOW_WITH_OPENCV=ON`:
+## Збірка з OpenCV
+
+Бібліотека зору та інструменти потребують OpenCV і GStreamer. Збірка з `FOLLOW_WITH_OPENCV=ON`:
 
 ```bash
-cmake -S coursework -B build/vision -DFOLLOW_WITH_OPENCV=ON
-cmake --build build/vision -j8
+make build-vision
 ```
 
-### Installation
+Те саме напряму через CMake:
 
-On Raspberry Pi OS, install the libraries:
+```bash
+cmake -S . -B ../build/vision -DFOLLOW_WITH_OPENCV=ON
+cmake --build ../build/vision -j8
+```
+
+### Встановлення
+
+На Raspberry Pi OS поставте бібліотеки:
 
 ```bash
 sudo apt install libopencv-dev libopencv-contrib-dev gstreamer1.0-libcamera
 ```
 
-The contrib package provides `opencv2/tracking.hpp` (KCF and CSRT trackers). The GStreamer package provides libcamerasrc and its libcamera integration; OpenCV also needs GStreamer support compiled into its build (cv::CAP_GSTREAMER).
+Пакет contrib дає `opencv2/tracking.hpp` (трекери KCF і CSRT). Пакет GStreamer дає libcamerasrc та
+його інтеграцію з libcamera; крім того, підтримка GStreamer має бути вкомпільована в сам OpenCV
+(`cv::CAP_GSTREAMER`).
 
-On macOS with Homebrew, OpenCV is installed but GStreamer is not available:
+На macOS з Homebrew OpenCV є, а GStreamer — ні:
 
 ```bash
 brew install opencv
 ```
 
-`--hw` mode cannot open the Pi camera on macOS, but `--sim` and all vision tools work.
+Режим `--hw` не може відкрити камеру Pi на macOS, але `--sim` і всі інструменти зору працюють.
 
-## Why FOLLOW_WITH_OPENCV defaults to OFF
+## Чому FOLLOW_WITH_OPENCV за замовчуванням OFF
 
-The option defaults to `OFF` because:
+Опція вимкнена за замовчуванням, бо:
 
-- The devcontainer build (gcc-13) has no OpenCV installed.
-- The aarch64 cross-compile toolchain has no sysroot; `find_package(OpenCV)` would fail.
+- у збірці devcontainer (gcc-13) OpenCV не встановлено;
+- крос-компілятор aarch64 не має sysroot, тож `find_package(OpenCV)` впаде.
 
-CI builds (default configuration and aarch64 debug cross-build) must remain free of OpenCV. Turn it on only when building natively on the Pi or a machine with OpenCV installed.
+Збірки CI (конфігурація за замовчуванням і крос-збірка aarch64 debug) мають лишатися без OpenCV.
+Вмикайте опцію лише для нативної збірки на Pi або на машині зі встановленим OpenCV.
 
 ## follow_app --hw
 
-Run the hardware mode with:
+Запуск апаратного режиму:
 
 ```bash
-./build/vision/follow_app --hw [--config FILE] [--link SPEC] [--log FILE]
+../build/vision/follow_app --hw [--config FILE] [--link SPEC] [--log FILE]
 ```
 
-It opens the Pi camera, tracks the target, and streams MAVLink commands to the flight controller. Press Ctrl-C to stop.
+Відкриває камеру Pi, веде ціль і надсилає команди MAVLink польотному контролеру. Зупинка — Ctrl-C.
 
-### Configuration
+### Конфігурація
 
-The vision configuration is in `follow.json` (or overridden via `--config FILE`). All keys have defaults; missing values are left unchanged.
+Конфігурація зору лежить у `follow.json` (або перевизначається через `--config FILE`). Усі ключі
+мають значення за замовчуванням; відсутні лишаються незмінними.
 
-| Key | Default | Description |
+| Ключ | За замовчуванням | Опис |
 | --- | --- | --- |
-| `vision.capture` | [1640, 1232] | Camera capture resolution (pixels). Calibration is performed at this resolution. |
-| `vision.track` | [640, 480] | Tracking resolution (pixels). Frames are scaled to this size; all tracker coordinates are in this space. |
-| `vision.tracker` | "kcf" | Tracker algorithm: "kcf" or "csrt". |
-| `vision.lock_box_frac` | 0.20 | Side of the lock box as a fraction of the image height. |
-| `vision.min_confidence` | 0.3 | Minimum tracker confidence (0–1) to continue following. Below this, the target is considered lost. |
-| `vision.fps` | 20 | Camera frame rate (Hz) requested from libcamerasrc. |
-| `vision.framebuffer` | "/dev/fb0" | Linux framebuffer for the overlay. Leave empty to disable the overlay. |
-| `vision.overlay_fps` | 15 | Overlay redraw rate (Hz). |
-| `vision.reacquire_period_ms` | 500 | Time between reacquisition attempts when lost (milliseconds). |
-| `vision.reacquire_expand` | 1.5 | Expansion factor (> 1.0) of the lock box during reacquisition. |
-| `vision.hflip` | false | Flip the captured frame horizontally at the capture source. |
-| `vision.vflip` | false | Flip the captured frame vertically at the capture source. |
+| `vision.capture` | [1640, 1232] | Роздільність захоплення камери (пікселі). Калібрування виконується саме в ній. |
+| `vision.track` | [640, 480] | Роздільність трекінгу (пікселі). Кадри масштабуються до цього розміру; усі координати трекера — в цьому просторі. |
+| `vision.tracker` | "kcf" | Алгоритм трекера: "kcf" або "csrt". |
+| `vision.lock_box_frac` | 0.20 | Сторона зони захоплення як частка висоти зображення. |
+| `vision.min_confidence` | 0.3 | Мінімальна впевненість трекера (0–1), щоб продовжувати стеження. Нижче — ціль вважається втраченою. |
+| `vision.fps` | 20 | Частота кадрів камери (Гц), яку запитують у libcamerasrc. |
+| `vision.framebuffer` | "/dev/fb0" | Фреймбуфер Linux для накладання. Порожнє значення вимикає накладання. |
+| `vision.overlay_fps` | 15 | Частота перемальовування накладання (Гц). |
+| `vision.reacquire_period_ms` | 500 | Інтервал між спробами перезахоплення втраченої цілі (мілісекунди). |
+| `vision.reacquire_expand` | 1.5 | Коефіцієнт розширення (> 1.0) зони захоплення під час перезахоплення. |
+| `vision.hflip` | false | Віддзеркалити кадр горизонтально на джерелі захоплення. |
+| `vision.vflip` | false | Віддзеркалити кадр вертикально на джерелі захоплення. |
 
-Both flips are applied by `PiCameraSource::piCameraPipeline`, never by `follow_core`, the estimator or the overlay: those assume an upright image, so the mount is corrected once, at capture, instead of being threaded through the rest of the pipeline. This airframe's camera is bolted in upside-down, so the committed `follow.json` sets both `vision.hflip` and `vision.vflip` to `true` (equivalent to a 180-degree rotation) to deliver upright frames to the tracker.
+Обидва перевороти застосовує `PiCameraSource::piCameraPipeline`, і ніколи не `follow_core`,
+апроксиматор чи накладання: вони припускають рівне зображення, тож кріплення компенсується один раз,
+на захопленні, а не протягується крізь решту пайплайна. Камера цього дрона прикручена догори дриґом,
+тож закомічений `follow.json` ставить `vision.hflip` і `vision.vflip` у `true` (еквівалент повороту
+на 180 градусів), щоб віддавати трекеру рівні кадри.
 
-**`vision.hflip` and `vision.vflip` must be equal.** No physical mount can mirror an image: a single flip reverses handedness, so the camera model returns the wrong bearing sign on that axis and the controller drives yaw the wrong way until the target leaves the frame. `FileConfigLoader.cpp` rejects `hflip != vflip` at load time; the only supported settings are "both false" (upright mount), "both true" (upside-down mount, this airframe), or a 90-degree mount corrected some other way upstream of this code.
+**`vision.hflip` і `vision.vflip` мають бути однакові.** Жодне фізичне кріплення не може
+віддзеркалити зображення: один переворот змінює хіральність, тож модель камери повертає неправильний
+знак пеленга по цій осі, і контролер крутить курс не в той бік, доки ціль не вийде з кадру.
+`FileConfigLoader.cpp` відхиляє `hflip != vflip` ще на завантаженні; підтримуються лише «обидва
+false» (рівне кріплення), «обидва true» (догори дриґом, цей дрон) або кріплення на 90 градусів,
+скомпенсоване інакше й поза цим кодом.
 
-**Calibration must be captured through the same flips as `--hw` runs with**, because `pixelToRay` subtracts `cx`/`cy` directly and neither the capture pipeline nor the calibration tool moves the principal point to compensate for a flip. The committed `camera_imx219_160.json` is the nominal, exactly-centred model (`cx = 320`, `cy = 240`, `k1..k4 = 0`), so this is latent today; it stops being latent the moment a real calibration is captured unflipped while `--hw` still flips at capture -- see the calibration steps below.
+**Калібрування має зніматися з тими самими переворотами, з якими працює `--hw`**, бо `pixelToRay`
+віднімає `cx`/`cy` напряму, і ні пайплайн захоплення, ні інструмент калібрування не зсувають головну
+точку, щоб компенсувати переворот. Закомічений `camera_imx219_160.json` — номінальна, точно
+відцентрована модель (`cx = 320`, `cy = 240`, `k1..k4 = 0`), тож сьогодні проблема латентна; вона
+перестане бути латентною тієї миті, коли справжнє калібрування зніметься без переворотів, а `--hw`
+продовжить перевертати на захопленні — див. кроки калібрування нижче.
 
-### Overlay behavior
+### Поведінка накладання
 
-When `/dev/fb0` exists, frames with tracking overlays (lock box and target box) are written at `overlay_fps` Hz. If the framebuffer is missing or cannot be opened, a message is printed and tracking continues without the overlay.
+Якщо `/dev/fb0` існує, кадри з накладанням трекінгу (зона захоплення і рамка цілі) пишуться з
+частотою `overlay_fps` Гц. Якщо фреймбуфер відсутній або не відкривається, друкується повідомлення, і
+стеження триває без накладання.
 
-### Camera pipeline: libcamerasrc row-stride workaround
+### Пайплайн камери: обхід проблеми row-stride у libcamerasrc
 
-On first hardware bring-up (Pi 4B, imx219, Raspberry Pi OS bullseye, libcamera v0.0.5+83-bde9b04f built 17-07-2023, GStreamer 1.18.4, OpenCV 4.5.1), `follow_app --hw` produced overlay frames with a visible defect: diagonal shearing and green/magenta colour banding, worse toward the bottom of the frame, at the full `vision.capture` resolution (1640x1232). The overlay draw itself (lock box, state text) was correct; only the underlying camera image was corrupted.
+На першому запуску на залізі (Pi 4B, imx219, Raspberry Pi OS bullseye, libcamera
+v0.0.5+83-bde9b04f зібрана 17-07-2023, GStreamer 1.18.4, OpenCV 4.5.1) `follow_app --hw` давав кадри
+накладання з видимим дефектом: діагональний зсув і зелено-пурпурові смуги, гірше ближче до низу
+кадру, на повній роздільності `vision.capture` (1640x1232). Саме накладання (зона захоплення, текст
+стану) малювалося правильно; зіпсованим було тільки зображення з камери.
 
-Root cause: on this stack, `libcamerasrc` pads each NV21 row up to a 32-byte boundary (1640 pads to 1664 bytes) but attaches no `GstVideoMeta` describing that padding. Downstream elements that assume a tightly-packed row — `videoconvert`, `videoscale`, and OpenCV's own `appsink` ingestion — all silently misread every row after the first. 640x480 (the tracking resolution) is unaffected because 640 is already a multiple of 32.
+Першопричина: на цьому стеку `libcamerasrc` доповнює кожен рядок NV21 до межі в 32 байти (1640
+доповнюється до 1664 байт), але не додає `GstVideoMeta` з описом цього доповнення. Наступні
+елементи, які припускають щільно упакований рядок — `videoconvert`, `videoscale` і власне поглинання
+в `appsink` з боку OpenCV — усі мовчки читають неправильно кожен рядок після першого. Роздільність
+640x480 (трекінгова) не зачеплена, бо 640 уже кратне 32.
 
-The fix, in `PiCameraSource::piCameraPipeline`, inserts a `rawvideoparse` stage right after `libcamerasrc` that states the real, padded NV21 layout explicitly (`plane-strides`/`plane-offsets`, computed from `captureWidth`/`captureHeight` rounded up to the next 32-byte boundary). This is applied unconditionally — there is nothing to detect at runtime, since the missing `GstVideoMeta` is exactly the absence of a signal to branch on — and it assumes a 2-plane semi-planar 4:2:0 layout (NV21: one luma plane, one interleaved chroma plane).
+Виправлення в `PiCameraSource::piCameraPipeline` вставляє стадію `rawvideoparse` одразу після
+`libcamerasrc`, яка явно задає справжній, доповнений розклад NV21 (`plane-strides`/`plane-offsets`,
+пораховані з `captureWidth`/`captureHeight`, округлених вгору до межі в 32 байти). Це застосовано
+безумовно — у рантаймі нема чого детектувати, бо відсутній `GstVideoMeta` — це рівно відсутність
+сигналу, за яким можна було б розгалужуватись — і припускає 2-площинний напівпланарний розклад 4:2:0
+(NV21: одна площина яскравості, одна з чергуванням кольоровості).
 
-**This is specific to the libcamera/GStreamer stack above.** Before relying on it on different hardware or a newer libcamera build, re-check on that hardware:
+**Це специфічно для стеку libcamera/GStreamer, описаного вище.** Перш ніж покладатися на це на
+іншому залізі або з новішою збіркою libcamera, перевірте на тому залізі:
 
-- whether `libcamerasrc` now attaches `GstVideoMeta` (if so, the override is redundant at best, and actively wrong if the real stride it reports differs from what this code computes);
-- whether the row alignment is still 32 bytes (a different ISP/allocator could pad to a different boundary, e.g. 16 or 64);
-- whether NV21 is still the format `libcamerasrc` negotiates at the requested capture size (a different default, e.g. a packed or 3-plane format, would violate the semi-planar assumption the `rawvideoparse` properties depend on).
+- чи `libcamerasrc` тепер додає `GstVideoMeta` (якщо так, перевизначення щонайменше зайве, а якщо
+  справжній stride відрізняється від порахованого тут — відверто шкідливе);
+- чи вирівнювання рядка досі 32 байти (інший ISP чи аллокатор може доповнювати до іншої межі,
+  наприклад 16 або 64);
+- чи NV21 досі той формат, який `libcamerasrc` узгоджує на запитаній роздільності захоплення (інший
+  формат за замовчуванням, наприклад пакований або 3-площинний, порушить припущення про
+  напівпланарність, на якому тримаються властивості `rawvideoparse`).
 
-Any of these changing makes the override wrong and it must be revisited. A caps mismatch from a wrong assumption fails loudly with GStreamer's "not-negotiated" error rather than silently corrupting frames, which is why this is handled by documenting the assumption instead of adding untested runtime detection.
+Зміна будь-чого з цього робить перевизначення хибним, і його треба переглянути. Невідповідність caps
+через хибне припущення падає гучно, з помилкою GStreamer «not-negotiated», а не псує кадри мовчки —
+саме тому припущення задокументоване, а не обросло неперевіреною детекцією в рантаймі.
 
-### MAVLink link
+### Лінк MAVLink
 
-The default link is `uart:/dev/serial0:921600` (the Pi's UART to the flight controller). Override via `--link`:
+Лінк за замовчуванням — `uart:/dev/serial0:921600` (UART Pi до польотного контролера).
+Перевизначення через `--link`:
 
 ```bash
-./build/vision/follow_app --hw --link udp:14560:127.0.0.1:14560
+../build/vision/follow_app --hw --link udp:14560:127.0.0.1:14560
 ```
 
-### Run log
+### Лог запуску
 
-Tracking decisions, estimator state, and control commands are logged to CSV format (default `follow_run.csv`). Override with `--log`:
+Рішення трекінгу, стан апроксиматора і команди керування пишуться у CSV (за замовчуванням
+`follow_run.csv`). Перевизначення через `--log`:
 
 ```bash
-./build/vision/follow_app --hw --log my_flight.csv
+../build/vision/follow_app --hw --log my_flight.csv
 ```
 
-## Tracker bench
+## Бенчмарк трекера
 
-Benchmark the tracker on a recorded video:
+Заміряти трекер на записаному відео:
 
-1. On the drone, record a clip with the target centered in the first frame. The camera app binary
-   depends on the OS image: the verified bring-up target is Raspberry Pi OS **bullseye**, which ships
-   `libcamera-vid`; `rpicam-vid` is the renamed binary on Raspberry Pi OS **bookworm** and later. The
-   two take the same arguments.
+1. На дроні запишіть кліп із ціллю в центрі першого кадру. Назва бінарника камери залежить від
+   образу ОС: перевірена ціль пусконаладки — Raspberry Pi OS **bullseye**, де є `libcamera-vid`;
+   `rpicam-vid` — перейменований бінарник на Raspberry Pi OS **bookworm** і новіших. Аргументи в них
+   однакові.
 
 ```bash
-# Raspberry Pi OS bullseye (verified on this project's Pi 4B):
+# Raspberry Pi OS bullseye (перевірено на Pi 4B цього проєкту):
 libcamera-vid --width 640 --height 480 --framerate 20 --codec mjpeg -o clip.mjpeg
-# Raspberry Pi OS bookworm and later:
+# Raspberry Pi OS bookworm і новіші:
 rpicam-vid --width 640 --height 480 --framerate 20 --codec mjpeg -o clip.mjpeg
 ```
 
-2. Transfer the clip and run the bench tool:
+2. Перенесіть кліп і запустіть інструмент:
 
 ```bash
-./build/vision/follow_tracker_bench clip.mjpeg --tracker kcf --out annotated.avi
+../build/vision/follow_tracker_bench clip.mjpeg --tracker kcf --out annotated.avi
 ```
 
-This locks on the centered box in the first frame and tracks to the end. It does not re-lock after a loss; it reports total frames, frames per second (tracker only), and the number of losses (transitions from tracking into failure).
+Він захоплює центровану рамку в першому кадрі і веде її до кінця. Повторного захоплення після втрати
+не робить; звітує загальну кількість кадрів, кадри за секунду (лише трекер) і кількість втрат
+(переходів зі стеження у відмову).
 
-### Acceptance criteria
+### Критерії приймання
 
-The tracker must maintain **at least 15 fps** at 640×480 on a Pi 4B. Slower hardware or lossy patterns (occlusion, blur, rapid turns) will drop the frame rate.
+Трекер має тримати **щонайменше 15 fps** на 640×480 на Pi 4B. Повільніше залізо або складні патерни
+(перекриття, розмиття, різкі повороти) знижують частоту кадрів.
 
-Measured on the verified Pi 4B (tracker only, via `follow_tracker_bench`): **KCF 69.43 fps**, **CSRT 7.55 fps**, both at 640×480. KCF clears the >= 15 fps requirement with margin; CSRT does not meet it on this hardware. Neither figure includes the `--hw` overlay path (clone + draw + resize + colour convert + memcpy), which runs inline in the vision thread against the same frame budget and has not been measured end-to-end with the overlay enabled -- see "Hardware bring-up state" below.
+Заміряно на перевіреному Pi 4B (лише трекер, через `follow_tracker_bench`): **KCF 69.43 fps**,
+**CSRT 7.55 fps**, обидва на 640×480. KCF проходить вимогу >= 15 fps із запасом; CSRT на цьому залізі
+її не виконує. Жодна з цифр не включає шлях накладання в `--hw` (clone + малювання + resize +
+перетворення кольору + memcpy), який виконується всередині потоку зору в тому самому бюджеті кадру і
+наскрізно, з увімкненим накладанням, не вимірювався — див. «Стан пусконаладки на залізі» нижче.
 
-### Options
+### Опції
 
 ```bash
 follow_tracker_bench VIDEO [--tracker kcf|csrt] [--out FILE] [--lock-box-frac F] [--track WxH]
 ```
 
-- `--tracker`: "kcf" (default) or "csrt". KCF is faster; CSRT is more robust.
-- `--out`: Write an annotated AVI with MJPG codec. Omit to skip.
-- `--lock-box-frac`: Lock box side as a fraction of image height (default 0.20).
-- `--track`: Tracking resolution (default 640x480).
+- `--tracker`: "kcf" (за замовчуванням) або "csrt". KCF швидший; CSRT стійкіший.
+- `--out`: записати анотований AVI кодеком MJPG. Пропустіть, щоб не писати.
+- `--lock-box-frac`: сторона зони захоплення як частка висоти зображення (за замовчуванням 0.20).
+- `--track`: роздільність трекінгу (за замовчуванням 640x480).
 
-## Calibration
+## Калібрування
 
-Fisheye calibration corrects the camera distortion and computes intrinsics for the tracker. Run once during bring-up.
+Калібрування fisheye компенсує дисторсію камери і рахує внутрішні параметри для трекера. Робиться
+один раз під час пусконаладки.
 
-1. Print a checkerboard (e.g., 9×6 inner corners, 0.025 m squares) on a flat surface (paper or cardboard).
+1. Роздрукуйте шахову дошку (наприклад, 9×6 внутрішніх кутів, клітинка 0.025 м) на рівній поверхні
+   (папір або картон).
 
-2. Capture 15–25 images at the full capture resolution, angling the board to cover the corners of the fisheye image. Pass `--hflip --vflip` whenever the airframe's `follow.json` sets `vision.hflip`/`vision.vflip` (this airframe does): the calibration images must go through the **same** flips as `--hw` capture, or the calibrated `cx`/`cy` are the unflipped principal point while every runtime pixel coordinate is in the flipped frame -- see the warning under the flip table above. As with the tracker bench command, the binary name depends on the OS image: `libcamera-still` on the verified bullseye target, `rpicam-still` on bookworm and later.
+2. Зніміть 15–25 знімків на повній роздільності захоплення, нахиляючи дошку так, щоб покрити кути
+   fisheye-зображення. Передавайте `--hflip --vflip` щоразу, коли `follow.json` дрона ставить
+   `vision.hflip`/`vision.vflip` (у цього дрона — ставить): знімки для калібрування мають пройти
+   **ті самі** перевороти, що й захоплення в `--hw`, інакше відкалібровані `cx`/`cy` — це головна
+   точка неперевернутого кадру, тоді як кожна координата пікселя в рантаймі — у перевернутому; див.
+   попередження під таблицею переворотів вище. Як і для бенчмарка, назва бінарника залежить від
+   образу ОС: `libcamera-still` на перевіреному bullseye, `rpicam-still` на bookworm і новіших.
 
 ```bash
-# Raspberry Pi OS bullseye (verified on this project's Pi 4B):
+# Raspberry Pi OS bullseye (перевірено на Pi 4B цього проєкту):
 libcamera-still --width 1640 --height 1232 --hflip --vflip -r --timelapse 100 captures/img_%05d.jpg
-# Raspberry Pi OS bookworm and later:
+# Raspberry Pi OS bookworm і новіші:
 rpicam-still --width 1640 --height 1232 --hflip --vflip -r --timelapse 100 captures/img_%05d.jpg
 ```
 
-3. Run the calibration tool:
+3. Запустіть інструмент калібрування:
 
 ```bash
-./build/vision/follow_calibrate_fisheye captures/ --board 9x6 --square 0.025 --out config/camera_imx219_160.json
+../build/vision/follow_calibrate_fisheye captures/ --board 9x6 --square 0.025 --out config/camera_imx219_160.json
 ```
 
-### Calibration file format
+### Формат файлу калібрування
 
-The output is a camera JSON with intrinsics at the capture resolution:
+На виході — JSON камери з внутрішніми параметрами для роздільності захоплення:
 
 ```json
 {
@@ -192,29 +258,37 @@ The output is a camera JSON with intrinsics at the capture resolution:
 }
 ```
 
-Keys: `model`, `width`, `height`, `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `k3`, `k4`, `tilt_deg`. The tilt angle is used by the TargetEstimator's bearing geometry; an incorrect tilt skews bearing and distance estimates.
+Ключі: `model`, `width`, `height`, `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `k3`, `k4`, `tilt_deg`. Кут
+нахилу використовується геометрією пеленга в TargetEstimator; неправильний нахил перекошує оцінки
+пеленга і дистанції.
 
-### Pass/fail
+### Пройдено / не пройдено
 
-The tool computes the reprojection error (RMS) over all calibration views. It **passes** when RMS < 0.5 px (exits 0) and **fails** when RMS ≥ 0.5 px (exits 3). This threshold is the bring-up stage 0 gate. Poor image quality, incorrect board size, or too few views with all corners visible will cause failure.
+Інструмент рахує похибку репроєкції (RMS) по всіх видах калібрування. **Проходить**, коли RMS < 0.5
+px (код виходу 0), і **падає**, коли RMS ≥ 0.5 px (код виходу 3). Цей поріг — ворота нульового етапу
+пусконаладки. Погана якість знімків, неправильний розмір дошки або замало видів, де видно всі кути,
+призведуть до падіння.
 
-### Options
+### Опції
 
 ```bash
 follow_calibrate_fisheye IMAGE_DIR --board WxH --square M [--tilt DEG] [--out FILE]
 ```
 
-- `IMAGE_DIR`: Directory of checkerboard images (.png, .jpg or .jpeg, matched case-insensitively), captured at `vision.capture` resolution.
-- `--board`: Checkerboard inner corner count (e.g., 9x6).
-- `--square`: Square side in metres (e.g., 0.025 for 2.5 cm).
-- `--tilt`: Camera tilt up from body forward, in degrees (default 0). Used by the TargetEstimator's bearing geometry (`cameraToBody` and `bodyToCamera` frame conversions); an incorrect tilt skews bearing and distance estimates.
-- `--out`: Output camera JSON file (default `camera_imx219_160.json`).
+- `IMAGE_DIR`: каталог зі знімками шахової дошки (.png, .jpg або .jpeg, регістр не має значення),
+  знятими в роздільності `vision.capture`.
+- `--board`: кількість внутрішніх кутів дошки (наприклад, 9x6).
+- `--square`: сторона клітинки в метрах (наприклад, 0.025 для 2.5 см).
+- `--tilt`: нахил камери вгору відносно осі корпусу, у градусах (за замовчуванням 0).
+  Використовується геометрією пеленга в TargetEstimator (перетворення систем координат
+  `cameraToBody` і `bodyToCamera`); неправильний нахил перекошує оцінки пеленга і дистанції.
+- `--out`: вихідний JSON камери (за замовчуванням `camera_imx219_160.json`).
 
-## OpenCV 4 vs 5 include guards
+## Include-guard'и для OpenCV 4 проти 5
 
-The codebase handles OpenCV 4.x and 5.0 API differences with conditional includes:
+Кодова база обробляє відмінності API OpenCV 4.x і 5.0 умовними підключеннями:
 
-### Trackers (Tracker.cpp)
+### Трекери (Tracker.cpp)
 
 ```cpp
 #if __has_include(<opencv2/tracking.hpp>)
@@ -224,9 +298,12 @@ The codebase handles OpenCV 4.x and 5.0 API differences with conditional include
 #endif
 ```
 
-The contrib `tracking` module carries KCF and CSRT trackers on both OpenCV 4.5.1 (the verified Pi OS bullseye target, with libopencv-contrib-dev) and 5.0 (Homebrew). The guard checks for contrib's presence (4.5.1 and later). If contrib is not installed, the fallback is `video/tracking.hpp`, which carries the trackers on OpenCV 4.5.1 and later, so a build without contrib still compiles.
+Модуль contrib `tracking` містить трекери KCF і CSRT і в OpenCV 4.5.1 (перевірена ціль Pi OS
+bullseye, з libopencv-contrib-dev), і в 5.0 (Homebrew). Guard перевіряє наявність contrib (4.5.1 і
+новіші). Якщо contrib не встановлено, запасний варіант — `video/tracking.hpp`, де трекери є в OpenCV
+4.5.1 і новіших, тож збірка без contrib усе одно компілюється.
 
-### Chessboard detection (Calibration.cpp)
+### Виявлення шахової дошки (Calibration.cpp)
 
 ```cpp
 #if __has_include(<opencv2/objdetect.hpp>)
@@ -234,40 +311,64 @@ The contrib `tracking` module carries KCF and CSRT trackers on both OpenCV 4.5.1
 #endif
 ```
 
-OpenCV 5.0 moved chessboard detection to `objdetect.hpp`. On OpenCV 4.x, the function is also in `calib3d.hpp` (automatically included). The conditional include prevents redeclaration errors on OpenCV 5.0.
+OpenCV 5.0 переніс виявлення шахової дошки в `objdetect.hpp`. В OpenCV 4.x функція є також у
+`calib3d.hpp` (підключається автоматично). Умовне підключення запобігає помилкам повторного
+оголошення на OpenCV 5.0.
 
-### Fisheye calibration (Calibration.cpp)
+### Калібрування fisheye (Calibration.cpp)
 
 ```cpp
 #include <opencv2/calib3d.hpp>
 ```
 
-Fisheye calibration (`cv::fisheye::calibrate` and `cv::fisheye::CALIB_*` constants) live in `calib3d.hpp` on both OpenCV 4 and 5. No guard is needed.
+Калібрування fisheye (`cv::fisheye::calibrate` і константи `cv::fisheye::CALIB_*`) живе в
+`calib3d.hpp` і в OpenCV 4, і в 5. Guard не потрібен.
 
-These three guards ensure the vision code compiles against both OpenCV versions without modification.
+Ці три guard'и забезпечують компіляцію коду зору проти обох версій OpenCV без змін.
 
-## Hardware bring-up state
+## Стан пусконаладки на залізі
 
-The environment this branch was actually verified on, and what was and was not confirmed there. `.superpowers/` (the development ledger) is git-ignored, so this section -- not the ledger -- is what a reader of the merged branch has.
+Середовище, на якому цю гілку реально перевіряли, і що на ньому підтверджено, а що ні. `.superpowers/`
+(журнал розробки) у git не потрапляє, тож саме цей розділ, а не журнал, — це те, що має читач
+змердженої гілки.
 
-- Raspberry Pi OS **bullseye**, Pi 4B, imx219 camera, libcamera v0.0.5+83-bde9b04f (built 17-07-2023), GStreamer 1.18.4, OpenCV **4.5.1**.
-- `/boot/config.txt` deltas applied for this bring-up, relative to the stock image:
-  - `dtoverlay=vc4-kms-v3d` replacing `dtoverlay=vc4-fkms-v3d,composite` (the KMS driver, not the legacy FKMS one with composite baked in).
-  - `enable_tvout=1` commented out.
-  - `camera_auto_detect=0` with an explicit `dtoverlay=imx219`.
-- The overlay was verified on **HDMI at 1920x1080, 16 bits per pixel** only.
-- The spec's composite-output deliverable ("composite output enabled in `/boot/firmware/config.txt`, replacing whatever currently puts the camera on analog out") is **not met by this branch**: the config.txt changes above do the opposite (they move the console to HDMI/KMS) and composite has not been re-enabled under KMS. This is open work, deferred to Plan 4.
-- The end-to-end `--hw` frame rate with the overlay enabled has not been measured on hardware; only the tracker in isolation was benchmarked (see "Acceptance criteria" above).
+- Raspberry Pi OS **bullseye**, Pi 4B, камера imx219, libcamera v0.0.5+83-bde9b04f (зібрана
+  17-07-2023), GStreamer 1.18.4, OpenCV **4.5.1**.
+- Зміни в `/boot/config.txt`, застосовані для цієї пусконаладки відносно стокового образу:
+  - `dtoverlay=vc4-kms-v3d` замість `dtoverlay=vc4-fkms-v3d,composite` (драйвер KMS, а не легасі
+    FKMS із вбудованим composite).
+  - `enable_tvout=1` закоментовано.
+  - `camera_auto_detect=0` з явним `dtoverlay=imx219`.
+- Накладання перевірено **лише на HDMI 1920x1080, 16 біт на піксель**.
+- Вимога специфікації щодо composite-виходу («composite output enabled in
+  `/boot/firmware/config.txt`, replacing whatever currently puts the camera on analog out») цією
+  гілкою **не виконана**: зміни config.txt вище роблять протилежне (переносять консоль на HDMI/KMS),
+  і composite під KMS не вмикався назад. Це відкрита робота, перенесена в Plan 4.
+- Наскрізну частоту кадрів `--hw` з увімкненим накладанням на залізі не міряли; бенчмаркувався лише
+  трекер окремо (див. «Критерії приймання» вище).
 
-## Known latency, to be measured at Plan-4 bring-up
+## Відома затримка, яку треба заміряти на пусконаладці Plan 4
 
-`PiCameraSource::read()` stamps `Frame::t` with `core::Clock::now()` **after** `capture.read()` returns, so `tFrame` is the grab-return time, not the instant the sensor captured the frame. The gap between them is the whole unmeasured `libcamerasrc -> rawvideoparse -> videoconvert -> videoscale -> videoflip -> appsink` pipeline latency, plus whatever `appsink` buffers before yielding a sample (the appsink is not configured with `sync=false`, which is an untested lever for reducing this).
+`PiCameraSource::read()` ставить `Frame::t` через `core::Clock::now()` **після** того, як
+`capture.read()` повернувся, тож `tFrame` — це час повернення з grab, а не мить, коли сенсор зняв
+кадр. Проміжок між ними — це вся незміряна затримка пайплайна
+`libcamerasrc -> rawvideoparse -> videoconvert -> videoscale -> videoflip -> appsink`, плюс те, що
+`appsink` буферизує перед віддачею семпла (appsink не налаштований із `sync=false` — неперевірений
+важіль для зменшення цього).
 
-This biases two things `tFrame` feeds directly, both toward reporting a target's bearing as if it were captured later than it really was:
+Це зміщує дві речі, які `tFrame` живить напряму, і обидві в бік того, щоб звітувати пеленг цілі так,
+ніби її зняли пізніше, ніж насправді:
 
-- The yaw compensation in `TargetEstimator::update` (`bearingAtFrame` corrected by the yaw turned since `tFrame`) under-corrects by the unmeasured latency, so the reported bearing lags the true bearing during yaw.
-- The 300 ms staleness gate (`supervisor.stale_ms`) has less margin than it appears to: the clock is already running before the estimator ever sees the frame.
+- Компенсація курсу в `TargetEstimator::update` (`bearingAtFrame`, скоригований на курс, пройдений
+  від `tFrame`) недокомпенсовує на незміряну затримку, тож звітований пеленг відстає від справжнього
+  під час повороту.
+- 300-мілісекундні ворота застарілості (`supervisor.stale_ms`) мають менший запас, ніж здається:
+  годинник уже цокає до того, як апроксиматор узагалі побачить кадр.
 
-Measurement procedure (Plan 4): compare `GstBuffer` PTS against `steady_clock` over a few hundred frames on the airframe and record the offset; then decide whether to compensate `tFrame` or simply document the residual bias.
+Процедура вимірювання (Plan 4): порівняти PTS `GstBuffer` зі `steady_clock` на кількох сотнях кадрів
+на дроні і записати зсув; далі вирішити, компенсувати `tFrame` чи просто задокументувати залишкове
+зміщення.
 
-**Pilot-facing risk, until this is measured:** bearing lags true bearing during yaw by an unknown, unmeasured amount. Expect the follow behaviour to slightly undershoot a moving target's true bearing while the vehicle is actively yawing.
+**Ризик для пілота, доки це не заміряно:** пеленг відстає від справжнього під час повороту на
+невідому, незміряну величину. Очікуйте, що стеження трохи недотягуватиме до справжнього пеленга
+рухомої цілі, поки апарат активно повертається.

@@ -1,0 +1,5 @@
+# follow: SITL-only parameters, loaded after follow.param.
+# SITL wires its simulated GPS to SERIAL3, so follow_app connects on SERIAL4 instead
+# (arducopter --serial4 udpclient:127.0.0.1:14560).
+SIM_GPS1_ENABLE 1
+SERIAL4_PROTOCOL 2

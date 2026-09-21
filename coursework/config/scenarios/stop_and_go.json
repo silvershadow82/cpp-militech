@@ -1,0 +1,20 @@
+{
+  "name": "stop_and_go",
+  "description": "Target walks 5 s at 0.7 m/s, stops 5 s, walks 5 s, then stops.",
+  "duration_s": 25,
+  "target": {
+    "start": [3.0, 0.0],
+    "motions": [
+      { "hold": { "duration_s": 2 } },
+      { "line": { "duration_s": 5, "forward": 0.7 } },
+      { "hold": { "duration_s": 5 } },
+      { "line": { "duration_s": 5, "forward": 0.7 } },
+      { "hold": { "duration_s": 30 } }
+    ]
+  },
+  "expect": {
+    "states": ["Locking", "Following"],
+    "min_distance_m": 1.5,
+    "final_distance": { "reference": "lock", "tolerance": 0.15 }
+  }
+}

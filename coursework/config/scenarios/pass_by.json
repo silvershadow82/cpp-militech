@@ -1,0 +1,10 @@
+{
+  "name": "pass_by",
+  "description": "Target starts 8 m ahead and 1 m right (inside the lock box), is followed, then runs past the vehicle at 5 m/s and leaves the view.",
+  "duration_s": 11,
+  "target": {
+    "start": [8.0, 1.0],
+    "motions": [{ "hold": { "duration_s": 2 } }, { "line": { "duration_s": 3, "forward": -5.0 } }]
+  },
+  "expect": { "states_in_order": ["Following", "Lost"], "final_state": "Hold" }
+}

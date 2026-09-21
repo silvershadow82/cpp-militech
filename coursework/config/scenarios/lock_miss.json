@@ -1,0 +1,7 @@
+{
+  "name": "lock_miss",
+  "description": "Target 3 m ahead and 4 m right (53 deg), outside the center lock box: the lock misses and nothing moves.",
+  "duration_s": 7,
+  "target": { "start": [3.0, 4.0], "motions": [{ "hold": { "duration_s": 30 } }] },
+  "expect": { "states": ["Locking", "Lost", "Hold"] }
+}

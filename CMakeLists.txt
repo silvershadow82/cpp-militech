@@ -28,3 +28,6 @@ add_subdirectory(homework_11)
 add_subdirectory(homework_15)
 add_subdirectory(homework_16)
 
+# Курсова робота: MAVLink visual target follow.
+add_subdirectory(coursework)
+

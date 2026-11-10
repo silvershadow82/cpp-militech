@@ -1,0 +1,10 @@
+{
+  "name": "fast_dash",
+  "description": "Target runs sideways at 8 m/s for 1.5 s and stays inside the 128 deg view.",
+  "duration_s": 11,
+  "target": {
+    "start": [3.0, 0.0],
+    "motions": [{ "hold": { "duration_s": 3 } }, { "line": { "duration_s": 1.5, "right": 8.0 } }]
+  },
+  "expect": { "states": ["Locking", "Following"] }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "walk_line",
+  "description": "Target walks straight away at 1.0 m/s. Proportional control trails by about speed / k_d = 2.5 m; the lag must settle, not grow.",
+  "duration_s": 21,
+  "target": {
+    "start": [3.0, 0.0],
+    "motions": [{ "hold": { "duration_s": 2 } }, { "line": { "duration_s": 30, "forward": 1.0 } }]
+  },
+  "expect": {
+    "states": ["Locking", "Following"],
+    "bearing_max_deg": 5,
+    "bearing_settle_s": 3,
+    "lag": { "from_s": 13, "to_s": 21, "max_over_lock_m": 3.75, "max_spread_m": 0.3 }
+  }
+}

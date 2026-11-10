@@ -1,0 +1,23 @@
+# follow: ArduCopter parameters shared by SITL and the drone (ArduCopter 4.6 or newer).
+# Board-specific serial settings live in their own file.
+
+# Mode switch on RC channel 6 (ELRS channel 5 is the 2-position arm switch).
+# 3-position switch: ALT_HOLD (PWM <= 1230), LOITER (1491-1620), GUIDED (>= 1750). Positions 2, 3
+# and 5 repeat their neighbours so a PWM between detents never selects an unexpected mode.
+FLTMODE_CH 6
+FLTMODE1 2
+FLTMODE2 2
+FLTMODE3 5
+FLTMODE4 5
+FLTMODE5 4
+FLTMODE6 4
+
+# Stop if setpoints stop arriving for 3 s (follow_app sends them at 20 Hz while engaged).
+GUID_TIMEOUT 3
+
+# Backstop against a runaway follow: max altitude 30 m, 50 m circle around home, RTL on breach.
+FENCE_ENABLE 1
+FENCE_TYPE 3
+FENCE_RADIUS 50
+FENCE_ALT_MAX 30
+FENCE_ACTION 1

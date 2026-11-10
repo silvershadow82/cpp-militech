@@ -1,0 +1,7 @@
+{
+  "name": "occlusion_long",
+  "description": "Target is hidden for 5 s, longer than lost_timeout.",
+  "duration_s": 13,
+  "target": { "start": [3.0, 0.0], "motions": [{ "hold": { "duration_s": 30 } }], "occlusions": [[5.0, 10.0]] },
+  "expect": { "states": ["Locking", "Following", "Lost", "Hold"] }
+}
